@@ -66,9 +66,15 @@ symbol lookup error: /snap/core20/.../libpthread.so.0:
 undefined symbol: __libc_pthread_init, version GLIBC_PRIVATE
 ```
 
-`pnpm tauri:dev` passe par [`scripts/tauri.mjs`](apps/desktop/scripts/tauri.mjs),
-qui retire ces variables avant de lancer la CLI. Rien à faire de particulier —
-et sous Windows ou macOS le script est transparent.
+**Solution sûre : lancer `pnpm dev:tauri` depuis un terminal système** (GNOME
+Terminal), pas depuis celui de l'éditeur. Vérifié : la fenêtre s'ouvre
+normalement.
+
+[`scripts/tauri.mjs`](apps/desktop/scripts/tauri.mjs) tente de nettoyer ces
+variables automatiquement et affiche ce qu'il retire, mais **ce contournement
+n'a pas été confirmé sur un terminal snap** — le terminal système reste la voie
+fiable. Sous Windows et macOS, ces variables n'existent pas : le script y est
+transparent.
 
 ## Vérifier
 
