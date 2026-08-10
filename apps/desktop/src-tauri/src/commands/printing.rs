@@ -24,6 +24,9 @@ pub enum PrinterTarget {
     Cups { queue: String },
     /// Fichier, pour inspecter une trame sans imprimante branchée.
     File { path: String },
+    /// Imprimante installée sous Windows, adressée via le spouleur en mode brut.
+    /// C'est le cas courant d'une imprimante ticket USB sur ce système.
+    Spooler { name: String },
 }
 
 #[derive(Debug, Serialize)]
@@ -73,6 +76,33 @@ fn send(target: &PrinterTarget, data: &[u8]) -> Result<(), String> {
         PrinterTarget::Network { host, port } => send_network(host, port.unwrap_or(9100), data),
         PrinterTarget::Device { path } | PrinterTarget::File { path } => write_file(path, data),
         PrinterTarget::Cups { queue } => send_cups(queue, data),
+        PrinterTarget::Spooler { name } => send_spooler(name, data),
+    }
+}
+
+#[cfg(windows)]
+fn send_spooler(name: &str, data: &[u8]) -> Result<(), String> {
+    super::printing_windows::print_via_spooler(name, data)
+}
+
+#[cfg(not(windows))]
+fn send_spooler(_name: &str, _data: &[u8]) -> Result<(), String> {
+    Err("le spouleur n'est disponible que sous Windows".into())
+}
+
+/// Imprimantes installées, pour le sélecteur des réglages. Vide hors Windows,
+/// où l'on passe par une file CUPS ou un périphérique.
+#[tauri::command]
+pub async fn list_printers() -> Result<Vec<String>, String> {
+    #[cfg(windows)]
+    {
+        tauri::async_runtime::spawn_blocking(super::printing_windows::list_printers)
+            .await
+            .map_err(|error| format!("énumération interrompue : {error}"))?
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(Vec::new())
     }
 }
 
@@ -85,6 +115,11 @@ fn probe(target: &PrinterTarget) -> Result<(), String> {
             .map(|_| ())
             .map_err(|error| format!("périphérique « {path} » inaccessible : {error}")),
         PrinterTarget::File { .. } => Ok(()),
+        PrinterTarget::Spooler { name } => {
+            // Une trame vide vérifie que le spouleur accepte le document sans
+            // consommer de papier.
+            send_spooler(name, &[]).map(|_| ())
+        }
         PrinterTarget::Cups { queue } => {
             let output = std::process::Command::new("lpstat")
                 .args(["-p", queue])
@@ -180,5 +215,6 @@ fn describe(target: &PrinterTarget) -> String {
         PrinterTarget::Network { host, port } => format!("{host}:{}", port.unwrap_or(9100)),
         PrinterTarget::Device { path } | PrinterTarget::File { path } => path.clone(),
         PrinterTarget::Cups { queue } => format!("CUPS/{queue}"),
+        PrinterTarget::Spooler { name } => format!("Windows/{name}"),
     }
 }

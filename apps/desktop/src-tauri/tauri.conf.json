@@ -35,9 +35,20 @@
       "icons/icon.png",
       "icons/icon.ico"
     ],
-    "copyright": "",
+    "copyright": "© 2026 Caisse",
     "category": "Business",
     "shortDescription": "Logiciel de caisse hors-ligne",
-    "longDescription": "Logiciel de caisse fonctionnant hors-ligne, avec synchronisation automatique au retour de la connexion."
+    "longDescription": "Logiciel de caisse fonctionnant hors-ligne, avec synchronisation automatique au retour de la connexion. Multi-entreprise, multi-boutique, multi-caisse.",
+    "publisher": "Caisse",
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "languages": ["French", "English"],
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    }
   }
 }

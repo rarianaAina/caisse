@@ -84,7 +84,7 @@ applicatif et privilèges.
 
 Détail et alternatives : module 6.
 
-## Ce qui viendra ensuite
+## Modules
 
 | Module | Contenu                                                              |
 | ------ | -------------------------------------------------------------------- |
@@ -94,4 +94,4 @@ Détail et alternatives : module 6.
 | ~~5~~  | ~~écran de vente, panier, encaissement espèces~~ — fait              |
 | ~~6~~  | ~~impression ESC/POS depuis Tauri~~ — fait (non essayé sur matériel) |
 | ~~7~~  | ~~historique et rapports~~ — fait                                    |
-| 8      | packaging Windows puis Linux                                         |
+| ~~8~~  | ~~packaging Windows puis Linux~~ — fait (Windows via CI)             |

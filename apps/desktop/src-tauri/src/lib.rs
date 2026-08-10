@@ -34,7 +34,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::db::execute_batch,
             commands::printing::print_raw,
-            commands::printing::probe_printer
+            commands::printing::probe_printer,
+            commands::printing::list_printers
         ])
         .run(tauri::generate_context!())
         .expect("erreur au démarrage de l'application Tauri");

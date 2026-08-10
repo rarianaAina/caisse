@@ -78,16 +78,16 @@ transparent.
 
 ## État
 
-Modules 1 à 5 et 7 livrés. **Parcours complet vérifié dans l'application** :
-rattachement d'un poste, ouverture de session par PIN hors-ligne, création de
-produit, encaissement, ticket.
+Les huit modules sont livrés. **Parcours complet vérifié dans l'application** :
+rattachement d'un poste, session PIN hors-ligne, création de produit,
+encaissement, ticket.
 
-Reste le packaging Windows/Linux (module 8), qui portera aussi le transport
-d'impression vers le spouleur Windows — non écrit ici faute de pouvoir le
-compiler (voir [ADR 0007-F](docs/adr/0007-impression-escpos.md)).
+Deux réserves, assumées et documentées :
 
-L'impression est construite et testée octet par octet, mais **n'a jamais été
-essayée sur une imprimante réelle**.
+- l'**impression** est testée octet par octet, mais **jamais essayée sur une
+  imprimante réelle** ;
+- les **installeurs Windows** sont produits par l'intégration continue et
+  n'ont pas encore été installés sur un poste Windows.
 
 ## Vérifier
 
@@ -220,6 +220,33 @@ fiable.
 | Dates        | ISO-8601 **UTC**                 | comparaisons et tri sans ambiguïté de fuseau                                                   |
 | Suppression  | logique (`deleted_at`)           | une suppression doit pouvoir se synchroniser                                                   |
 
+## Produire les installeurs
+
+```bash
+pnpm --filter @caisse/desktop tauri build
+```
+
+Sur Linux : un `.deb` (2,8 Mo) et une `.AppImage` (78 Mo, qui embarque
+WebKit), dans `apps/desktop/src-tauri/target/release/bundle/`.
+
+**Windows se construit sur Windows**, par l'intégration continue
+([.github/workflows/build.yml](.github/workflows/build.yml)) : l'assemblage des
+installeurs NSIS et MSI passe par des outils Windows, et c'est le seul endroit
+où le transport d'impression via le spouleur est réellement compilé.
+
+Pour publier une version :
+
+```bash
+git tag v0.1.0 && git push --tags
+```
+
+La CI construit les deux plateformes et crée une publication **en brouillon** —
+les installeurs ne sont pas signés, il faut relire avant d'exposer. Détail des
+choix : [ADR 0008](docs/adr/0008-packaging.md).
+
+⚠️ Les **icônes sont des placeholders** (carrés bleus). À remplacer avant toute
+distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)
@@ -231,4 +258,5 @@ fiable.
 - [ADR 0005 — écran de vente et encaissement](docs/adr/0005-ecran-de-vente.md)
 - [ADR 0006 — historique, remboursements et rapports](docs/adr/0006-historique-et-rapports.md)
 - [ADR 0007 — impression ESC/POS](docs/adr/0007-impression-escpos.md)
+- [ADR 0008 — packaging et distribution](docs/adr/0008-packaging.md)
 - [ADR 0004 — moteur de synchronisation](docs/adr/0004-moteur-de-synchronisation.md)
