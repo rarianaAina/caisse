@@ -18,3 +18,4 @@ export * from './reports/refund.js';
 export * from './escpos/encoding.js';
 export * from './escpos/builder.js';
 export * from './escpos/receipt.js';
+export * from './escpos/kitchen.js';

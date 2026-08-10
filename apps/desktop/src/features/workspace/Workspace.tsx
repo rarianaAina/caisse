@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { can } from '@caisse/shared';
 import type { LocalSession } from '../../core/auth/auth.service';
 import { useSession } from '../../app/SessionProvider';
+import { META_KEYS, MetaRepository } from '../../core/db/repositories/meta.repository';
 import { CatalogScreen } from '../catalog/CatalogScreen';
 import { HistoryScreen } from '../history/HistoryScreen';
 import { ReportsScreen } from '../reports/ReportsScreen';
 import { SaleScreen } from '../sale/SaleScreen';
 import { PrinterSettingsScreen } from '../settings/PrinterSettingsScreen';
+import { RoomScreen } from '../restaurant/RoomScreen';
 import { StockScreen } from '../stock/StockScreen';
 import { ConflictsScreen } from '../sync/ConflictsScreen';
 import { StaleBanner, SyncBadge } from '../sync/SyncBadge';
@@ -17,10 +19,11 @@ const ROLE_LABELS: Record<string, string> = {
   cashier: 'Caissier',
 };
 
-type Tab = 'sale' | 'catalog' | 'stock' | 'history' | 'reports' | 'sync' | 'settings';
+type Tab = 'sale' | 'room' | 'catalog' | 'stock' | 'history' | 'reports' | 'sync' | 'settings';
 
 const TABS: { id: Tab; label: string; available: boolean }[] = [
   { id: 'sale', label: 'Vente', available: true },
+  { id: 'room', label: 'Salle', available: true },
   { id: 'catalog', label: 'Catalogue', available: true },
   { id: 'stock', label: 'Stock', available: true },
   { id: 'history', label: 'Historique', available: true },
@@ -34,8 +37,15 @@ const TABS: { id: Tab; label: string; available: boolean }[] = [
  * a pas de serveur, donc jamais de conflit ni de file à surveiller. L'afficher
  * ferait douter d'un réglage manquant.
  */
-const visibleTabs = (autonome: boolean) =>
-  TABS.filter((entry) => entry.available && !(autonome && entry.id === 'sync'));
+const visibleTabs = (autonome: boolean, restaurant: boolean) =>
+  TABS.filter(
+    (entry) =>
+      entry.available &&
+      !(autonome && entry.id === 'sync') &&
+      // La salle n'apparaît que dans un restaurant : un quincaillier n'a pas
+      // de tables, et un onglet vide donne l'impression d'un réglage manquant.
+      !(!restaurant && entry.id === 'room'),
+  );
 
 /**
  * Coquille de l'application une fois la session ouverte.
@@ -45,6 +55,17 @@ const visibleTabs = (autonome: boolean) =>
 export function Workspace({ session }: { session: LocalSession }) {
   const { signOut, db, sync, standalone } = useSession();
   const [tab, setTab] = useState<Tab>('sale');
+  const [restaurant, setRestaurant] = useState(false);
+
+  // Le type de commerce décide de l'onglet « Salle ». Lu au montage : il ne
+  // change qu'aux réglages, et un changement suppose de toute façon de revenir
+  // sur cet écran.
+  useEffect(() => {
+    if (!db) return;
+    void new MetaRepository(db)
+      .get(META_KEYS.businessProfile)
+      .then((value) => setRestaurant(value === 'restaurant'));
+  }, [db]);
   const { user, company, store, register } = session;
 
   return (
@@ -83,7 +104,7 @@ export function Workspace({ session }: { session: LocalSession }) {
         </div>
 
         <nav className="flex gap-1 px-6">
-          {visibleTabs(standalone).map((entry) => (
+          {visibleTabs(standalone, restaurant).map((entry) => (
             <button
               key={entry.id}
               type="button"
@@ -109,6 +130,8 @@ export function Workspace({ session }: { session: LocalSession }) {
       >
         {!db ? (
           <p className="text-slate-500">Base locale indisponible.</p>
+        ) : tab === 'room' ? (
+          <RoomScreen session={session} db={db} />
         ) : tab === 'sale' ? (
           <SaleScreen session={session} db={db} sync={sync} />
         ) : tab === 'catalog' ? (

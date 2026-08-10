@@ -28,6 +28,15 @@ export const META_KEYS = {
   mode: 'mode',
   /** Adresse du serveur de synchronisation, saisie au rattachement du poste. */
   serverUrl: 'server_url',
+  /**
+   * Type de commerce : `shop` (comptoir) ou `restaurant` (service en salle).
+   *
+   * Réglage du POSTE, pas de l'entreprise : c'est ce qui permet, dans un hôtel,
+   * d'avoir une caisse de réception en mode comptoir et une caisse de
+   * restaurant en salle. Il devra remonter au serveur le jour où un même
+   * commerce voudra le régler une fois pour toutes ses caisses.
+   */
+  businessProfile: 'business_profile',
   /** Réglages d'impression : propres au poste, jamais synchronisés. */
   printerSettings: 'printer_settings',
   /** Dernière sauvegarde locale réussie, pour n'en déclencher qu'une par jour. */

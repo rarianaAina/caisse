@@ -24,6 +24,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0002_search_index.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "restaurant : salles, tables et commandes ouvertes",
+            sql: include_str!("../migrations/0003_restaurant.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

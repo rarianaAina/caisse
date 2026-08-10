@@ -33,6 +33,15 @@ export interface PrinterSettings {
   barcode: boolean;
   /** Imprimer automatiquement après chaque encaissement. */
   autoPrint: boolean;
+  /**
+   * Imprimante de la cuisine, distincte de celle du comptoir.
+   *
+   * Un restaurant en a deux : le bon part au passe-plat, le ticket reste à la
+   * caisse. `null` = pas de cuisine ; l'envoi marque alors simplement les
+   * articles comme partis, ce qui reste utile quand la cuisine est à deux
+   * mètres et qu'on annonce à la voix.
+   */
+  kitchenTarget?: PrinterTarget | null;
 }
 
 export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = {
@@ -42,6 +51,7 @@ export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = {
   openDrawer: true,
   barcode: true,
   autoPrint: false,
+  kitchenTarget: null,
 };
 
 interface PrintOutcome {
