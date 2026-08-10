@@ -57,16 +57,17 @@ Tauri).
 ## Vérifier
 
 ```bash
-pnpm test             # 153 tests : monnaie, PIN, rôles, schéma local, session hors-ligne,
-                      #             catalogue, stock et moteur de synchronisation
+pnpm test             # 200 tests : monnaie, panier, PIN, rôles, schéma local, catalogue,
+                      #             stock, ventes, ticket et moteur de synchronisation
 pnpm typecheck        # TypeScript strict sur les trois paquets
 pnpm build            # build complet
 curl http://localhost:3000/api/health
 
-# Parcours de bout en bout contre l'API (démarrée) : 113 vérifications
+# Parcours de bout en bout contre l'API (démarrée) : 134 vérifications
 bash apps/api/test/auth-flow.sh      # authentification, rôles, multi-tenant
 bash apps/api/test/catalog-flow.sh   # catalogue et stock
 bash apps/api/test/sync-flow.sh      # deux caisses simulées : fusion, conflits, idempotence
+bash apps/api/test/sale-flow.sh      # une vente complète : ticket, TVA, stock, rejeu
 ```
 
 ## Ouverture de session
@@ -113,6 +114,19 @@ applique ce qu'il sait.
 
 L'encaissement n'est **jamais** bloqué. Alternatives écartées et raisons :
 [ADR 0004](docs/adr/0004-moteur-de-synchronisation.md).
+
+## Vente
+
+L'écran de vente fonctionne intégralement hors-ligne : recherche dans la copie
+locale, panier calculé par `packages/shared`, encaissement écrit directement
+dans SQLite. La remontée au serveur est un effet de bord.
+
+Le total affiché, celui enregistré et celui imprimé viennent du **même code**.
+Une remise globale est répartie sur les lignes _avant_ le calcul de TVA, faute
+de quoi la ventilation par taux serait fausse sur un ticket mêlant plusieurs
+taux — et la somme des parts tombe toujours juste au centime près.
+
+Le lecteur de code-barres est un simple clavier : aucun pilote, aucun plugin.
 
 ## Deux rôles PostgreSQL, et pourquoi
 
@@ -165,4 +179,5 @@ fiable.
 - [ADR 0002 — authentification et rattachement des postes](docs/adr/0002-authentification.md)
 - [ADR 0003 — catalogue, stock et amorçage de la synchronisation](docs/adr/0003-catalogue-et-stock.md)
 - [ADR 0004 — moteur de synchronisation](docs/adr/0004-moteur-de-synchronisation.md)
+- [ADR 0005 — écran de vente et encaissement](docs/adr/0005-ecran-de-vente.md)
 - [ADR 0004 — moteur de synchronisation](docs/adr/0004-moteur-de-synchronisation.md)

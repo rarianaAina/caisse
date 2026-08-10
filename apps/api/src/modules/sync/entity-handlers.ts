@@ -1,6 +1,7 @@
 import type { SyncEntity } from '@caisse/shared';
 import type { PrismaClient } from '@prisma/client';
 import { toCategory, toProduct, toStockMovement } from '../../common/mappers-catalog';
+import { toPayment, toSale, toSaleItem } from '../../common/mappers-sale';
 
 /**
  * Comment le moteur de synchronisation lit et écrit chaque entité.
@@ -186,6 +187,106 @@ const STOCK_MOVEMENT: ImmutableHandler = {
 };
 
 /**
+ * Ventes : append-only comme les mouvements de stock.
+ *
+ * Une vente n'est jamais modifiée — elle est annulée ou remboursée par une
+ * autre vente. C'est ce qui rend sa synchronisation exempte de conflit : deux
+ * caisses hors-ligne produisent deux ventes distinctes, jamais deux versions de
+ * la même.
+ */
+const SALE: ImmutableHandler = {
+  kind: 'immutable',
+  async exists(tx, id) {
+    return (await tx.sale.findUnique({ where: { id }, select: { id: true } })) !== null;
+  },
+  async create(tx, companyId, payload) {
+    const sale = await tx.sale.create({
+      data: {
+        id: str(payload['id']),
+        companyId,
+        storeId: str(payload['storeId']),
+        registerId: str(payload['registerId']),
+        cashSessionId: strOrNull(payload['cashSessionId']),
+        userId: str(payload['userId']),
+        receiptNumber: str(payload['receiptNumber']),
+        seqInRegister: int(payload['seqInRegister'], 1),
+        status: str(payload['status'] ?? 'completed'),
+        subtotalCents: int(payload['subtotalCents']),
+        discountCents: int(payload['discountCents']),
+        taxCents: int(payload['taxCents']),
+        totalCents: int(payload['totalCents']),
+        currency: str(payload['currency'] ?? 'EUR'),
+        refundOfSaleId: strOrNull(payload['refundOfSaleId']),
+        note: strOrNull(payload['note']),
+        soldAt: date(payload['soldAt']),
+        prevHash: strOrNull(payload['prevHash']),
+        signature: strOrNull(payload['signature']),
+        createdAt: date(payload['createdAt']),
+        updatedAt: date(payload['updatedAt']),
+      },
+    });
+    return sale as unknown as EntityRow;
+  },
+  toPayload: (row) => toSale(row as never) as unknown as Record<string, unknown>,
+  storeIdOf: (row) => strOrNull(row['storeId']),
+};
+
+const SALE_ITEM: ImmutableHandler = {
+  kind: 'immutable',
+  async exists(tx, id) {
+    return (await tx.saleItem.findUnique({ where: { id }, select: { id: true } })) !== null;
+  },
+  async create(tx, _companyId, payload) {
+    const item = await tx.saleItem.create({
+      data: {
+        id: str(payload['id']),
+        saleId: str(payload['saleId']),
+        productId: strOrNull(payload['productId']),
+        nameSnapshot: str(payload['nameSnapshot']),
+        skuSnapshot: strOrNull(payload['skuSnapshot']),
+        unitPriceCents: int(payload['unitPriceCents']),
+        qtyMilli: BigInt(int(payload['qtyMilli'])),
+        discountCents: int(payload['discountCents']),
+        taxRateBp: int(payload['taxRateBp']),
+        taxCents: int(payload['taxCents']),
+        lineTotalCents: int(payload['lineTotalCents']),
+        position: int(payload['position']),
+      },
+    });
+    return { ...item, version: 1, updatedAt: new Date(), deletedAt: null } as unknown as EntityRow;
+  },
+  toPayload: (row) => toSaleItem(row as never) as unknown as Record<string, unknown>,
+};
+
+const PAYMENT: ImmutableHandler = {
+  kind: 'immutable',
+  async exists(tx, id) {
+    return (await tx.payment.findUnique({ where: { id }, select: { id: true } })) !== null;
+  },
+  async create(tx, _companyId, payload) {
+    const payment = await tx.payment.create({
+      data: {
+        id: str(payload['id']),
+        saleId: str(payload['saleId']),
+        method: str(payload['method']),
+        amountCents: int(payload['amountCents']),
+        tenderedCents: payload['tenderedCents'] === null ? null : int(payload['tenderedCents']),
+        changeCents: payload['changeCents'] === null ? null : int(payload['changeCents']),
+        reference: strOrNull(payload['reference']),
+        createdAt: date(payload['createdAt']),
+      },
+    });
+    return {
+      ...payment,
+      version: 1,
+      updatedAt: payment.createdAt,
+      deletedAt: null,
+    } as unknown as EntityRow;
+  },
+  toPayload: (row) => toPayment(row as never) as unknown as Record<string, unknown>,
+};
+
+/**
  * Entités acceptées par le push.
  *
  * Une entité absente d'ici est rejetée : mieux vaut refuser explicitement une
@@ -196,5 +297,7 @@ export const ENTITY_HANDLERS: Partial<Record<SyncEntity, EntityHandler>> = {
   category: CATEGORY,
   product: PRODUCT,
   stock_movement: STOCK_MOVEMENT,
-  // sale, sale_item, payment : module 5 (toutes de famille `immutable`).
+  sale: SALE,
+  sale_item: SALE_ITEM,
+  payment: PAYMENT,
 };

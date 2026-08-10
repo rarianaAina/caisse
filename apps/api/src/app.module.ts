@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { DevicesModule } from './modules/devices/devices.module';
 import { HealthModule } from './modules/health/health.module';
+import { SalesModule } from './modules/sales/sales.module';
 import { StockModule } from './modules/stock/stock.module';
 import { SyncModule } from './modules/sync/sync.module';
 import { UsersModule } from './modules/users/users.module';
@@ -28,9 +29,9 @@ import { UsersModule } from './modules/users/users.module';
     DevicesModule,
     CatalogModule,
     StockModule,
+    SalesModule,
     HealthModule,
-    // Modules suivants : SalesModule (module 5), ReportsModule (module 7),
-    // et le moteur de synchronisation dans SyncModule (module 4).
+    // Module suivant : ReportsModule (module 7).
   ],
   providers: [
     // Gardes globaux : une route est protégée par défaut, et l'ouverture doit

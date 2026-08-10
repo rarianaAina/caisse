@@ -90,7 +90,7 @@ Détail et alternatives : module 6.
 | ~~2~~  | ~~authentification, rôles, multi-tenant, PIN hors-ligne~~ — fait |
 | ~~3~~  | ~~produits / catégories / stock~~ — fait                         |
 | ~~4~~  | ~~moteur de synchronisation~~ — fait                             |
-| 5      | écran de vente, panier, encaissement espèces                     |
+| ~~5~~  | ~~écran de vente, panier, encaissement espèces~~ — fait          |
 | 6      | impression ESC/POS depuis Tauri                                  |
 | 7      | historique et rapports                                           |
 | 8      | packaging Windows puis Linux                                     |

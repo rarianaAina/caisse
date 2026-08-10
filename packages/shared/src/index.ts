@@ -9,3 +9,6 @@ export * from './dto/auth.js';
 export * from './dto/catalog.js';
 export * from './catalog/search.js';
 export * from './stock/rules.js';
+export * from './cart/cart.js';
+export * from './cart/receipt.js';
+export * from './dto/sale.js';

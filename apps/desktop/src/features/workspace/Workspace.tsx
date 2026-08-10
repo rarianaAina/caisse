@@ -3,6 +3,7 @@ import { can } from '@caisse/shared';
 import type { LocalSession } from '../../core/auth/auth.service';
 import { useSession } from '../../app/SessionProvider';
 import { CatalogScreen } from '../catalog/CatalogScreen';
+import { SaleScreen } from '../sale/SaleScreen';
 import { StockScreen } from '../stock/StockScreen';
 import { ConflictsScreen } from '../sync/ConflictsScreen';
 import { StaleBanner, SyncBadge } from '../sync/SyncBadge';
@@ -16,10 +17,10 @@ const ROLE_LABELS: Record<string, string> = {
 type Tab = 'catalog' | 'stock' | 'sync' | 'sale' | 'history';
 
 const TABS: { id: Tab; label: string; available: boolean }[] = [
+  { id: 'sale', label: 'Vente', available: true },
   { id: 'catalog', label: 'Catalogue', available: true },
   { id: 'stock', label: 'Stock', available: true },
   { id: 'sync', label: 'Synchronisation', available: true },
-  { id: 'sale', label: 'Vente', available: false },
   { id: 'history', label: 'Historique', available: false },
 ];
 
@@ -30,7 +31,7 @@ const TABS: { id: Tab; label: string; available: boolean }[] = [
  */
 export function Workspace({ session }: { session: LocalSession }) {
   const { signOut, db, sync } = useSession();
-  const [tab, setTab] = useState<Tab>('catalog');
+  const [tab, setTab] = useState<Tab>('sale');
   const { user, company, store, register } = session;
 
   return (
@@ -81,9 +82,11 @@ export function Workspace({ session }: { session: LocalSession }) {
 
       {sync && <StaleBanner engine={sync} />}
 
-      <main className="mx-auto w-full max-w-6xl flex-1 p-6">
+      <main className={`mx-auto w-full flex-1 p-6 ${tab === 'sale' ? 'max-w-7xl' : 'max-w-6xl'}`}>
         {!db ? (
           <p className="text-slate-500">Base locale indisponible.</p>
+        ) : tab === 'sale' ? (
+          <SaleScreen session={session} db={db} sync={sync} />
         ) : tab === 'catalog' ? (
           <CatalogScreen session={session} db={db} />
         ) : tab === 'sync' ? (
