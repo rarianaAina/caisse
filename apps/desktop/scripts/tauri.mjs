@@ -35,29 +35,45 @@ const SNAP_LEAKED_VARS = [
   'SNAP_LIBRARY_PATH',
 ];
 
+/**
+ * Variables qui désignent des bibliothèques à charger. Sous snap, elles ne
+ * peuvent QUE pointer vers celles du snap : on les supprime entièrement plutôt
+ * que d'essayer de les filtrer, un filtrage partiel ayant déjà laissé passer le
+ * problème une première fois.
+ */
+const LIBRARY_VARS = ['LD_LIBRARY_PATH', 'LD_PRELOAD', 'GTK_MODULES'];
+
 function cleanEnvironment(source) {
   const env = { ...source };
   if (!env['SNAP'] && !env['SNAP_INSTANCE_NAME']) return env;
 
-  for (const key of SNAP_LEAKED_VARS) delete env[key];
+  const removed = [];
+  for (const key of [...SNAP_LEAKED_VARS, ...LIBRARY_VARS]) {
+    if (env[key] !== undefined) {
+      removed.push(key);
+      delete env[key];
+    }
+  }
 
   // VS Code conserve la valeur d'origine avant de la réécrire : on la restaure
   // plutôt que d'en inventer une.
   if (env['XDG_DATA_DIRS_VSCODE_SNAP_ORIG']) {
     env['XDG_DATA_DIRS'] = env['XDG_DATA_DIRS_VSCODE_SNAP_ORIG'];
+    removed.push('XDG_DATA_DIRS (restaurée)');
   }
 
-  // On ne vide pas LD_LIBRARY_PATH : on en retire seulement les chemins du snap,
-  // au cas où l'utilisateur y aurait ajouté les siens.
-  if (env['LD_LIBRARY_PATH']) {
-    const kept = env['LD_LIBRARY_PATH']
-      .split(':')
-      .filter((entry) => entry !== '' && !entry.startsWith('/snap/'));
-    if (kept.length > 0) env['LD_LIBRARY_PATH'] = kept.join(':');
-    else delete env['LD_LIBRARY_PATH'];
+  console.log(`[tauri] environnement snap détecté — retiré : ${removed.join(', ') || 'rien'}`);
+
+  // Diagnostic : si une variable pointe ENCORE vers le snap, elle est la
+  // première suspecte en cas d'échec au chargement des bibliothèques.
+  const suspects = Object.entries(env)
+    .filter(([key, value]) => typeof value === 'string' && value.includes('/snap/'))
+    .filter(([key]) => !key.startsWith('SNAP') && key !== 'PATH')
+    .map(([key]) => key);
+  if (suspects.length > 0) {
+    console.log(`[tauri] pointent encore vers /snap : ${suspects.join(', ')}`);
   }
 
-  console.log('[tauri] environnement snap détecté — variables graphiques nettoyées');
   return env;
 }
 
