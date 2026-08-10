@@ -1,3 +1,5 @@
+mod commands;
+
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 /// Migrations de la base locale.
@@ -22,12 +24,14 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(
             tauri_plugin_sql::Builder::default()
-                // Chemin relatif : le fichier est créé dans le dossier de données
-                // de l'application (%APPDATA%\<identifier> sous Windows,
-                // ~/.local/share/<identifier> sous Linux).
+                // Chemin relatif : tauri-plugin-sql le résout dans le dossier
+                // de CONFIGURATION de l'application — %APPDATA%\<identifier>
+                // sous Windows, ~/.config/<identifier> sous Linux (vérifié dans
+                // le code du plugin : il appelle app_config_dir()).
                 .add_migrations("sqlite:caisse.db", migrations())
                 .build(),
         )
+        .invoke_handler(tauri::generate_handler![commands::db::execute_batch])
         .run(tauri::generate_context!())
         .expect("erreur au démarrage de l'application Tauri");
 }

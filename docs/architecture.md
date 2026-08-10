@@ -50,8 +50,9 @@ recalculé par l'API et celui du ticket proviennent du même code.
 ## Base locale (SQLite)
 
 Fichier `caisse.db` dans le dossier de données de l'application
-(`%APPDATA%\com.caisse.pos` sous Windows, `~/.local/share/com.caisse.pos` sous
-Linux). Jamais un chemin en dur : il est résolu par Tauri.
+(`%APPDATA%\com.caisse.pos` sous Windows, `~/.config/com.caisse.pos` sous
+Linux — `tauri-plugin-sql` résout le chemin via `app_config_dir()`). Jamais un
+chemin en dur.
 
 Les migrations sont déclarées dans `src-tauri/src/lib.rs`, embarquées dans le
 binaire (`include_str!`) et appliquées par `tauri-plugin-sql` **avant** que la
