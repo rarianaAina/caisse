@@ -1,0 +1,138 @@
+# Caisse
+
+Logiciel de caisse (POS) **hors-ligne d'abord**, synchronisé automatiquement au
+retour de la connexion. Multi-entreprise, multi-boutique, multi-caisse dès la
+conception.
+
+| Brique                | Technologie                                                              |
+| --------------------- | ------------------------------------------------------------------------ |
+| Application de caisse | React 19 + TypeScript + Vite + Tailwind 4, empaquetée par Tauri 2 (Rust) |
+| Base locale           | SQLite embarquée (`tauri-plugin-sql`), migrations côté Rust              |
+| API                   | NestJS 11, REST                                                          |
+| Base serveur          | PostgreSQL 16 + Row Level Security                                       |
+| Types partagés        | `packages/shared`, consommé par le front **et** le back                  |
+| Monorepo              | pnpm workspaces                                                          |
+
+## Structure
+
+```
+apps/desktop     application de caisse (React + Tauri)
+  src/core/db      accès SQLite (repositories)
+  src/core/sync    moteur de synchronisation
+  src-tauri        code Rust : plugins, migrations locales, impression
+apps/api         API NestJS + schéma Prisma/PostgreSQL
+packages/shared  types, constantes, arithmétique monétaire, protocole de synchro
+docs             architecture, protocole de synchro, décisions (ADR)
+```
+
+## Prérequis
+
+- **Node ≥ 20** et **pnpm** (`corepack enable pnpm`, ou `corepack pnpm <cmd>`)
+- **Docker** (PostgreSQL de développement)
+- **Rust** (`rustup`) — uniquement pour lancer/compiler l'application Tauri
+  - Linux : `libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev build-essential curl wget file`
+  - Windows : Visual Studio Build Tools (C++) + WebView2 (préinstallé sur Windows 11)
+
+## Démarrage
+
+```bash
+cp .env.example .env
+pnpm install
+pnpm db:up            # PostgreSQL sur le port 5433
+pnpm db:migrate       # applique les migrations et génère le client Prisma
+pnpm --filter @caisse/shared build
+```
+
+Puis, dans deux terminaux :
+
+```bash
+pnpm dev:api          # API sur http://localhost:3000/api
+pnpm dev:tauri        # application de caisse (fenêtre native + SQLite)
+```
+
+`pnpm dev:desktop` lance l'interface dans un simple navigateur : pratique pour
+l'UI, mais **SQLite n'y est pas accessible** (il n'existe que dans la WebView
+Tauri).
+
+## Vérifier
+
+```bash
+pnpm test             # 113 tests : monnaie, PIN, rôles, schéma local, session hors-ligne, catalogue et stock
+pnpm typecheck        # TypeScript strict sur les trois paquets
+pnpm build            # build complet
+curl http://localhost:3000/api/health
+
+# Parcours de bout en bout contre l'API (démarrée) : 78 vérifications
+bash apps/api/test/auth-flow.sh
+bash apps/api/test/catalog-flow.sh
+```
+
+## Ouverture de session
+
+```
+1er lancement (en ligne)   connexion + choix de la boutique
+                           → POST /devices/enroll
+                           → recopie locale : entreprise, boutique, caisse,
+                             utilisateurs et empreintes de PIN
+lancements suivants        écran PIN — 100 % hors-ligne
+```
+
+Le **mot de passe** (connexion en ligne) est haché en argon2id côté serveur. Le
+**PIN** est haché en PBKDF2-SHA-256 par `packages/shared`, donc vérifiable dans
+la WebView sans réseau ni module natif. Saisie bloquée 60 s après 5 échecs, par
+utilisateur.
+
+Les droits sont décrits une seule fois, dans `CAPABILITIES` (`packages/shared`) :
+l'API les applique via `@RequireCapability(...)`, l'interface via `can(...)`. Un
+bouton masqué correspond donc exactement à une route refusée.
+
+## Deux rôles PostgreSQL, et pourquoi
+
+PostgreSQL laisse un **superutilisateur** et le **propriétaire d'une table**
+passer outre la Row Level Security. Si l'API se connectait avec le rôle qui a
+créé le schéma, le cloisonnement entre entreprises serait purement décoratif.
+
+| Rôle         | Usage                                | Variable              |
+| ------------ | ------------------------------------ | --------------------- |
+| `caisse`     | migrations uniquement (propriétaire) | `DIRECT_DATABASE_URL` |
+| `caisse_app` | requêtes de l'API, soumis à la RLS   | `DATABASE_URL`        |
+
+**Faire évoluer le schéma serveur** : `pnpm db:migrate` refuse de tourner hors
+terminal interactif dès qu'une migration peut perdre des données. Dans ce cas,
+générer le SQL puis créer le dossier de migration à la main :
+
+```bash
+docker exec caisse-postgres psql -U caisse -d postgres -c 'CREATE DATABASE caisse_shadow OWNER caisse;'
+cd apps/api && pnpm exec dotenv -e ../../.env -- prisma migrate diff \
+  --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma \
+  --shadow-database-url postgresql://caisse:caisse@localhost:5433/caisse_shadow --script
+# copier le SQL dans prisma/migrations/<horodatage>_<nom>/migration.sql, puis :
+pnpm db:deploy
+```
+
+L'API pose `SET LOCAL app.company_id` au début de chaque transaction
+(`PrismaService.withTenant`). Sans cette variable, **aucune ligne n'est
+visible** : un `WHERE company_id = …` oublié ne peut pas faire fuiter les
+données d'une autre entreprise.
+
+## Conventions de données
+
+Identiques dans SQLite et PostgreSQL — c'est la condition d'une synchronisation
+fiable.
+
+| Sujet        | Choix                            | Raison                                                                                         |
+| ------------ | -------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Identifiants | UUID v7 générés par le client    | une caisse hors-ligne doit créer des IDs sans risque de collision ; triables chronologiquement |
+| Argent       | entiers, en centimes             | aucun flottant, arrondi déterministe                                                           |
+| Quantités    | entiers, en milli-unités (×1000) | gère le poids (0,250 kg = 250) sans flottant                                                   |
+| TVA          | points de base (2000 = 20 %)     | idem                                                                                           |
+| Dates        | ISO-8601 **UTC**                 | comparaisons et tri sans ambiguïté de fuseau                                                   |
+| Suppression  | logique (`deleted_at`)           | une suppression doit pouvoir se synchroniser                                                   |
+
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Protocole de synchronisation](docs/sync-protocol.md)
+- [ADR 0001 — décisions fondatrices](docs/adr/0001-decisions-fondatrices.md)
+- [ADR 0002 — authentification et rattachement des postes](docs/adr/0002-authentification.md)
+- [ADR 0003 — catalogue, stock et amorçage de la synchronisation](docs/adr/0003-catalogue-et-stock.md)

@@ -1,0 +1,64 @@
+import { nowIso } from '@caisse/shared';
+import type { SqlExecutor } from '../client';
+
+/**
+ * Table `meta` : le trousseau clé/valeur du poste.
+ *
+ * ⚠️ Les jetons y sont stockés en clair. C'est acceptable pour un poste de
+ * comptoir dont l'accès physique est contrôlé, et cohérent avec le reste de la
+ * base (le catalogue et les ventes le sont aussi). Le chiffrement au repos se
+ * traite globalement, via SQLCipher, pas jeton par jeton.
+ */
+export const META_KEYS = {
+  deviceId: 'device_id',
+  companyId: 'company_id',
+  storeId: 'store_id',
+  registerId: 'register_id',
+  accessToken: 'access_token',
+  refreshToken: 'refresh_token',
+  accessExpiresAt: 'access_expires_at',
+  lastUserId: 'last_user_id',
+  /** Décalage entre l'horloge du poste et celle du serveur, en millisecondes. */
+  clockOffsetMs: 'clock_offset_ms',
+  enrolledAt: 'enrolled_at',
+} as const;
+
+export type MetaKey = (typeof META_KEYS)[keyof typeof META_KEYS];
+
+interface MetaRow {
+  value: string;
+}
+
+export class MetaRepository {
+  constructor(private readonly db: SqlExecutor) {}
+
+  async get(key: string): Promise<string | null> {
+    const rows = await this.db.select<MetaRow>('SELECT value FROM meta WHERE key = ?', [key]);
+    return rows[0]?.value ?? null;
+  }
+
+  async getNumber(key: string): Promise<number | null> {
+    const raw = await this.get(key);
+    if (raw === null) return null;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  async set(key: string, value: string): Promise<void> {
+    await this.db.execute(
+      `INSERT INTO meta (key, value, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+      [key, value, nowIso()],
+    );
+  }
+
+  async setMany(entries: Record<string, string>): Promise<void> {
+    for (const [key, value] of Object.entries(entries)) {
+      await this.set(key, value);
+    }
+  }
+
+  async remove(key: string): Promise<void> {
+    await this.db.execute('DELETE FROM meta WHERE key = ?', [key]);
+  }
+}

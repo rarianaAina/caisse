@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: caisse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: caisse
+      POSTGRES_PASSWORD: caisse
+      POSTGRES_DB: caisse
+    ports:
+      - '5433:5432'
+    volumes:
+      - caisse-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U caisse -d caisse']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  adminer:
+    image: adminer:latest
+    container_name: caisse-adminer
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '8081:8080'
+
+volumes:
+  caisse-pgdata:

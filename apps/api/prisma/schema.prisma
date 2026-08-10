@@ -1,0 +1,465 @@
+// ============================================================================
+// Base serveur PostgreSQL — miroir du schéma SQLite local, plus :
+//   * le cloisonnement multi-tenant (company_id partout + RLS)
+//   * le journal de changements global (change_log) qui alimente le pull
+//   * l'idempotence du push (processed_mutation)
+//   * les secrets (hash de mot de passe, refresh tokens) qui ne descendent jamais
+//     sur un poste de caisse
+//
+// Les valeurs d'énumération sont volontairement typées `String` et non `enum`
+// Prisma : @caisse/shared reste l'unique source de vérité des unions de valeurs.
+// Les contraintes CHECK correspondantes sont posées par la migration
+// `..._hardening` (Prisma ne les modélise pas, mais ne les supprime pas non plus).
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Exécution : rôle ordinaire `caisse_app`, soumis à la Row Level Security.
+  url       = env("DATABASE_URL")
+  // Migrations : rôle propriétaire. Un superutilisateur contourne la RLS, il ne
+  // doit donc JAMAIS servir aux requêtes applicatives.
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// ─── Multi-tenant ───────────────────────────────────────────────────────────
+
+model Company {
+  id               String    @id @db.Uuid
+  name             String
+  currency         String    @default("EUR") @db.Char(3)
+  country          String?   @db.Char(2)
+  pricesIncludeTax Boolean   @default(true) @map("prices_include_tax")
+  plan             String    @default("free")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version          Int       @default(1)
+
+  stores    Store[]
+  registers Register[]
+  devices   Device[]
+  users     User[]
+  categories Category[]
+  products  Product[]
+  movements StockMovement[]
+  sessions  CashSession[]
+  sales     Sale[]
+  changes   ChangeLog[]
+
+  @@map("company")
+}
+
+model Store {
+  id        String    @id @db.Uuid
+  companyId String    @map("company_id") @db.Uuid
+  name      String
+  code      String
+  address   String?
+  phone     String?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version   Int       @default(1)
+
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  registers   Register[]
+  devices     Device[]
+  userStores  UserStore[]
+  levels      StockLevel[]
+  movements   StockMovement[]
+  sessions    CashSession[]
+  sales       Sale[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("store")
+}
+
+model Register {
+  id            String    @id @db.Uuid
+  companyId     String    @map("company_id") @db.Uuid
+  storeId       String    @map("store_id") @db.Uuid
+  name          String
+  receiptPrefix String    @map("receipt_prefix")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version       Int       @default(1)
+
+  company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  store    Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  devices  Device[]
+  sessions CashSession[]
+  sales    Sale[]
+
+  @@unique([storeId, receiptPrefix])
+  @@index([companyId])
+  @@map("register")
+}
+
+/// Un poste physique sur lequel l'application desktop est installée.
+model Device {
+  id         String    @id @db.Uuid
+  companyId  String    @map("company_id") @db.Uuid
+  storeId    String?   @map("store_id") @db.Uuid
+  registerId String?   @map("register_id") @db.Uuid
+  name       String
+  platform   String?
+  appVersion String?   @map("app_version")
+  lastSeenAt DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  store         Store?         @relation(fields: [storeId], references: [id])
+  register      Register?      @relation(fields: [registerId], references: [id])
+  refreshTokens RefreshToken[]
+  syncState     SyncState?
+
+  @@index([companyId])
+  @@map("device")
+}
+
+// ─── Utilisateurs ───────────────────────────────────────────────────────────
+
+model User {
+  id        String  @id @db.Uuid
+  companyId String  @map("company_id") @db.Uuid
+  /// Identifiant de connexion, unique sur toute l'instance : la recherche à
+  /// l'ouverture de session a lieu AVANT que le tenant soit connu. Mis à NULL
+  /// lors d'une suppression logique, pour libérer l'adresse.
+  email     String? @unique
+  fullName  String  @map("full_name")
+  /// 'owner' | 'manager' | 'cashier' — cf. USER_ROLES dans @caisse/shared
+  role         String
+  /// argon2id — ne descend JAMAIS dans la base locale d'un poste
+  passwordHash String?   @map("password_hash")
+  /// PIN d'ouverture de session hors-ligne (argon2id également)
+  pinHash      String?   @map("pin_hash")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version      Int       @default(1)
+
+  company       Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userStores    UserStore[]
+  refreshTokens RefreshToken[]
+  movements     StockMovement[]
+  sales         Sale[]
+  openedSessions CashSession[]  @relation("SessionOpenedBy")
+  closedSessions CashSession[]  @relation("SessionClosedBy")
+
+  @@index([companyId])
+  @@map("app_user")
+}
+
+model UserStore {
+  userId  String @map("user_id") @db.Uuid
+  storeId String @map("store_id") @db.Uuid
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, storeId])
+  @@map("user_store")
+}
+
+model RefreshToken {
+  id        String    @id @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  deviceId  String?   @map("device_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device? @relation(fields: [deviceId], references: [id])
+
+  @@index([userId])
+  @@map("refresh_token")
+}
+
+// ─── Catalogue ──────────────────────────────────────────────────────────────
+
+model Category {
+  id        String    @id @db.Uuid
+  companyId String    @map("company_id") @db.Uuid
+  parentId  String?   @map("parent_id") @db.Uuid
+  name      String
+  color     String?
+  position  Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version   Int       @default(1)
+
+  company  Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([companyId, position])
+  @@map("category")
+}
+
+model Product {
+  id          String    @id @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  categoryId  String?   @map("category_id") @db.Uuid
+  /// Mis à NULL lors d'une suppression logique pour libérer la référence
+  sku         String?
+  barcode     String?
+  name        String
+  description String?
+  /// 'unit' | 'kg' | 'g' | 'l' | 'm' | 'h' — cf. PRODUCT_UNITS
+  unit        String    @default("unit")
+  priceCents  Int       @map("price_cents")
+  costCents   Int       @default(0) @map("cost_cents")
+  taxRateBp   Int       @default(0) @map("tax_rate_bp")
+  trackStock  Boolean   @default(true) @map("track_stock")
+  isActive    Boolean   @default(true) @map("is_active")
+  imagePath   String?   @map("image_path")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version     Int       @default(1)
+
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category  Category?       @relation(fields: [categoryId], references: [id])
+  levels    StockLevel[]
+  movements StockMovement[]
+  saleItems SaleItem[]
+
+  @@unique([companyId, sku])
+  @@unique([companyId, barcode])
+  @@index([companyId, categoryId])
+  @@index([companyId, name])
+  @@map("product")
+}
+
+// ─── Stock ──────────────────────────────────────────────────────────────────
+
+/// Journal append-only : SOURCE DE VÉRITÉ du stock, donc jamais en conflit.
+model StockMovement {
+  id            String   @id @db.Uuid
+  companyId     String   @map("company_id") @db.Uuid
+  storeId       String   @map("store_id") @db.Uuid
+  productId     String   @map("product_id") @db.Uuid
+  /// 'initial' | 'purchase' | 'sale' | 'return' | 'adjustment'
+  /// | 'transfer_in' | 'transfer_out' | 'loss'
+  type          String
+  /// Delta signé, en milli-unités : -1000 pour la vente d'une unité
+  qtyMilliDelta BigInt   @map("qty_milli_delta")
+  reason        String?
+  refType       String?  @map("ref_type")
+  refId         String?  @map("ref_id") @db.Uuid
+  userId        String?  @map("user_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@index([productId, storeId, createdAt])
+  @@index([refType, refId])
+  @@map("stock_movement")
+}
+
+/// Cache recalculable par sommation des mouvements ; jamais synchronisé tel quel.
+model StockLevel {
+  productId   String   @map("product_id") @db.Uuid
+  storeId     String   @map("store_id") @db.Uuid
+  qtyMilli    BigInt   @default(0) @map("qty_milli")
+  minQtyMilli BigInt   @default(0) @map("min_qty_milli")
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([productId, storeId])
+  @@map("stock_level")
+}
+
+// ─── Caisse ─────────────────────────────────────────────────────────────────
+
+model CashSession {
+  id                String    @id @db.Uuid
+  companyId         String    @map("company_id") @db.Uuid
+  storeId           String    @map("store_id") @db.Uuid
+  registerId        String    @map("register_id") @db.Uuid
+  openedBy          String    @map("opened_by") @db.Uuid
+  openedAt          DateTime  @map("opened_at") @db.Timestamptz(3)
+  openingFloatCents Int       @default(0) @map("opening_float_cents")
+  closedBy          String?   @map("closed_by") @db.Uuid
+  closedAt          DateTime? @map("closed_at") @db.Timestamptz(3)
+  countedCents      Int?      @map("counted_cents")
+  expectedCents     Int?      @map("expected_cents")
+  differenceCents   Int?      @map("difference_cents")
+  /// 'open' | 'closed'
+  status            String    @default("open")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version           Int       @default(1)
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  store    Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  register Register @relation(fields: [registerId], references: [id], onDelete: Cascade)
+  opener   User     @relation("SessionOpenedBy", fields: [openedBy], references: [id])
+  closer   User?    @relation("SessionClosedBy", fields: [closedBy], references: [id])
+  sales    Sale[]
+
+  @@index([registerId, status])
+  @@map("cash_session")
+}
+
+/// Immuable après création : on annule (`voided`) ou on crée une vente de
+/// remboursement qui la référence, on ne la modifie jamais.
+model Sale {
+  id              String    @id @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  storeId         String    @map("store_id") @db.Uuid
+  registerId      String    @map("register_id") @db.Uuid
+  cashSessionId   String?   @map("cash_session_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  receiptNumber   String    @map("receipt_number")
+  /// Compteur monotone sans trou, par caisse — base de la traçabilité fiscale
+  seqInRegister   Int       @map("seq_in_register")
+  /// 'completed' | 'voided' | 'refunded' | 'partially_refunded'
+  status          String    @default("completed")
+  subtotalCents   Int       @map("subtotal_cents")
+  discountCents   Int       @default(0) @map("discount_cents")
+  taxCents        Int       @default(0) @map("tax_cents")
+  totalCents      Int       @map("total_cents")
+  currency        String    @db.Char(3)
+  refundOfSaleId  String?   @map("refund_of_sale_id") @db.Uuid
+  note            String?
+  soldAt          DateTime  @map("sold_at") @db.Timestamptz(3)
+  /// Chaînage fiscal (NF525 & équivalents) : prêt, non alimenté au MVP
+  prevHash        String?   @map("prev_hash")
+  signature       String?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version         Int       @default(1)
+
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  store       Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  register    Register     @relation(fields: [registerId], references: [id], onDelete: Cascade)
+  cashSession CashSession? @relation(fields: [cashSessionId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  refundOf    Sale?        @relation("SaleRefund", fields: [refundOfSaleId], references: [id])
+  refunds     Sale[]       @relation("SaleRefund")
+  items       SaleItem[]
+  payments    Payment[]
+
+  @@unique([registerId, receiptNumber])
+  @@unique([registerId, seqInRegister])
+  @@index([storeId, soldAt])
+  @@index([cashSessionId])
+  @@map("sale")
+}
+
+/// Valeurs produit figées à l'instant de la vente : modifier un prix au
+/// catalogue ne doit jamais réécrire l'historique.
+model SaleItem {
+  id             String  @id @db.Uuid
+  saleId         String  @map("sale_id") @db.Uuid
+  productId      String? @map("product_id") @db.Uuid
+  nameSnapshot   String  @map("name_snapshot")
+  skuSnapshot    String? @map("sku_snapshot")
+  unitPriceCents Int     @map("unit_price_cents")
+  qtyMilli       BigInt  @map("qty_milli")
+  discountCents  Int     @default(0) @map("discount_cents")
+  taxRateBp      Int     @default(0) @map("tax_rate_bp")
+  taxCents       Int     @default(0) @map("tax_cents")
+  lineTotalCents Int     @map("line_total_cents")
+  position       Int     @default(0)
+
+  sale    Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+  @@map("sale_item")
+}
+
+model Payment {
+  id            String   @id @db.Uuid
+  saleId        String   @map("sale_id") @db.Uuid
+  /// 'cash' | 'card' | 'mobile' | 'voucher' | 'credit'
+  method        String
+  amountCents   Int      @map("amount_cents")
+  tenderedCents Int?     @map("tendered_cents")
+  changeCents   Int?     @map("change_cents")
+  reference     String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+  @@map("payment")
+}
+
+// ─── Synchronisation ────────────────────────────────────────────────────────
+
+/// Journal global ordonné : c'est la source du PULL. Un seul curseur (`seq`)
+/// suffit au client pour savoir où il en est, toutes entités confondues.
+model ChangeLog {
+  seq            BigInt   @id @default(autoincrement())
+  companyId      String   @map("company_id") @db.Uuid
+  storeId        String?  @map("store_id") @db.Uuid
+  entity         String
+  entityId       String   @map("entity_id") @db.Uuid
+  /// 'create' | 'update' | 'delete'
+  op             String
+  /// État COMPLET de la ligne après application, en camelCase
+  payload        Json
+  version        Int
+  /// Permet au client d'ignorer ses propres écritures au retour
+  originDeviceId String?  @map("origin_device_id") @db.Uuid
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, seq])
+  @@index([companyId, storeId, seq])
+  @@map("change_log")
+}
+
+/// Idempotence du PUSH : un rejeu réseau ne duplique jamais une vente.
+model ProcessedMutation {
+  mutationId String   @id @map("mutation_id") @db.Uuid
+  deviceId   String   @map("device_id") @db.Uuid
+  companyId  String   @map("company_id") @db.Uuid
+  entity     String
+  entityId   String   @map("entity_id") @db.Uuid
+  /// 'applied' | 'ignored' | 'merged' | 'conflict' | 'rejected'
+  result     String
+  /// Réponse d'origine, rejouée à l'identique si la mutation est renvoyée
+  response   Json?
+  appliedAt  DateTime @default(now()) @map("applied_at") @db.Timestamptz(3)
+
+  @@index([companyId, appliedAt])
+  @@map("processed_mutation")
+}
+
+/// Observabilité : où en est chaque poste.
+model SyncState {
+  deviceId     String    @id @map("device_id") @db.Uuid
+  lastPushAt   DateTime? @map("last_push_at") @db.Timestamptz(3)
+  lastPullSeq  BigInt    @default(0) @map("last_pull_seq")
+  pendingCount Int       @default(0) @map("pending_count")
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("sync_state")
+}

@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    /* « DOM » n'est ici que pour les API WEB STANDARD disponibles à la fois
+       dans la WebView de la caisse et dans Node : WebCrypto, TextEncoder,
+       atob/btoa. Ce paquet doit tourner des deux côtés — n'y utilisez jamais
+       `document`, `window` ni quoi que ce soit de propre au navigateur. */
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "tsup.config.ts"]
+}

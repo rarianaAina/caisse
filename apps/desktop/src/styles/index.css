@@ -1,0 +1,29 @@
+@import 'tailwindcss';
+
+/* Contexte d'usage : écran tactile de comptoir, souvent en plein soleil ou en
+   lumière artificielle. Cibles tactiles généreuses, contrastes marqués. */
+@theme {
+  --color-caisse-50: oklch(0.97 0.02 250);
+  --color-caisse-500: oklch(0.6 0.16 250);
+  --color-caisse-600: oklch(0.53 0.16 250);
+  --color-caisse-700: oklch(0.45 0.15 250);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  /* Une caisse ne se sélectionne pas au doigt par erreur. */
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}

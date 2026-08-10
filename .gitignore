@@ -1,0 +1,26 @@
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+
+# tauri / rust
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+
+# bases locales de dev
+*.db
+*.db-shm
+*.db-wal
+
+# éditeurs / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/

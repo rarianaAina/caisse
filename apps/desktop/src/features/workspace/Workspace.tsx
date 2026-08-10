@@ -1,0 +1,95 @@
+import { useState } from 'react';
+import { can } from '@caisse/shared';
+import type { LocalSession } from '../../core/auth/auth.service';
+import { useSession } from '../../app/SessionProvider';
+import { CatalogScreen } from '../catalog/CatalogScreen';
+import { StockScreen } from '../stock/StockScreen';
+import { PendingBadge } from './PendingBadge';
+
+const ROLE_LABELS: Record<string, string> = {
+  owner: 'Propriétaire',
+  manager: 'Responsable',
+  cashier: 'Caissier',
+};
+
+type Tab = 'catalog' | 'stock' | 'sale' | 'history';
+
+const TABS: { id: Tab; label: string; available: boolean }[] = [
+  { id: 'catalog', label: 'Catalogue', available: true },
+  { id: 'stock', label: 'Stock', available: true },
+  { id: 'sale', label: 'Vente', available: false },
+  { id: 'history', label: 'Historique', available: false },
+];
+
+/**
+ * Coquille de l'application une fois la session ouverte.
+ * Navigation par état plutôt que par routeur : deux écrans ne justifient pas
+ * une dépendance supplémentaire (elle viendra si l'arborescence s'étoffe).
+ */
+export function Workspace({ session }: { session: LocalSession }) {
+  const { signOut, db } = useSession();
+  const [tab, setTab] = useState<Tab>('catalog');
+  const { user, company, store, register } = session;
+
+  return (
+    <div className="flex min-h-full flex-col bg-slate-100">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="flex items-center justify-between px-6 py-3">
+          <div>
+            <p className="font-semibold text-slate-900">{company.name}</p>
+            <p className="text-sm text-slate-500">
+              {store.name} · {register.name} ({register.receiptPrefix})
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            {db && <PendingBadge db={db} />}
+            <div className="text-right">
+              <p className="font-medium text-slate-900">{user.fullName}</p>
+              <p className="text-sm text-slate-500">{ROLE_LABELS[user.role] ?? user.role}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Verrouiller
+            </button>
+          </div>
+        </div>
+
+        <nav className="flex gap-1 px-6">
+          {TABS.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              disabled={!entry.available}
+              onClick={() => setTab(entry.id)}
+              className={`border-b-2 px-4 py-2.5 text-sm font-medium transition ${
+                tab === entry.id
+                  ? 'border-caisse-600 text-caisse-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              } disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:text-slate-300`}
+              title={entry.available ? undefined : 'À venir'}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </nav>
+      </header>
+
+      <main className="mx-auto w-full max-w-6xl flex-1 p-6">
+        {!db ? (
+          <p className="text-slate-500">Base locale indisponible.</p>
+        ) : tab === 'catalog' ? (
+          <CatalogScreen session={session} db={db} />
+        ) : tab === 'stock' ? (
+          can(user.role, 'sell') ? (
+            <StockScreen session={session} db={db} />
+          ) : (
+            <p className="text-slate-500">Accès refusé.</p>
+          )
+        ) : null}
+      </main>
+    </div>
+  );
+}

@@ -1,0 +1,11 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+# Seuls ces paquets sont autorisés à exécuter un script d'installation
+# (pnpm les bloque par défaut). Prisma en a besoin pour ses moteurs, esbuild
+# pour son binaire natif.
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true

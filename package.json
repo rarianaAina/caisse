@@ -1,0 +1,26 @@
+{
+  "name": "caisse",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.21.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "prettier --check .",
+    "format": "prettier --write .",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @caisse/api db:migrate",
+    "dev:api": "pnpm --filter @caisse/api dev",
+    "dev:desktop": "pnpm --filter @caisse/desktop dev",
+    "dev:tauri": "pnpm --filter @caisse/desktop tauri:dev"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "typescript": "^5.9.2"
+  }
+}
