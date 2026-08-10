@@ -1,10 +1,14 @@
+import { useEffect, useMemo, useState } from 'react';
 import { type SaleDetails, type TaxLine, formatMoney, renderReceipt } from '@caisse/shared';
 import type { LocalSession } from '../../core/auth/auth.service';
+import type { SqlExecutor } from '../../core/db/client';
+import { PrinterNotConfiguredError, PrinterService } from '../../core/printing/printer';
 
 interface ReceiptPreviewProps {
   session: LocalSession;
   details: SaleDetails;
   taxBreakdown: TaxLine[];
+  db: SqlExecutor;
   onClose: () => void;
 }
 
@@ -15,8 +19,18 @@ interface ReceiptPreviewProps {
  * alimentera l'imprimante au module 6 : ce que le caissier voit ici est
  * exactement ce qui sortira du rouleau.
  */
-export function ReceiptPreview({ session, details, taxBreakdown, onClose }: ReceiptPreviewProps) {
-  const lines = renderReceipt({
+export function ReceiptPreview({
+  session,
+  details,
+  taxBreakdown,
+  db,
+  onClose,
+}: ReceiptPreviewProps) {
+  const [status, setStatus] = useState<string | null>(null);
+  const [printing, setPrinting] = useState(false);
+  const printer = useMemo(() => new PrinterService(db), [db]);
+
+  const context = {
     company: session.company,
     store: session.store,
     register: session.register,
@@ -25,7 +39,39 @@ export function ReceiptPreview({ session, details, taxBreakdown, onClose }: Rece
     items: details.items,
     payments: details.payments,
     taxBreakdown,
-  });
+  };
+
+  const print = async (): Promise<void> => {
+    setPrinting(true);
+    setStatus(null);
+    try {
+      const cash = details.payments.some((payment) => payment.method === 'cash');
+      await printer.printReceipt(context, { openDrawer: cash ? undefined : false });
+      setStatus('Ticket envoyé à l’imprimante');
+    } catch (cause) {
+      setStatus(
+        cause instanceof PrinterNotConfiguredError
+          ? 'Aucune imprimante configurée — voir l’onglet Réglages'
+          : cause instanceof Error
+            ? cause.message
+            : 'Impression impossible',
+      );
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  // Impression automatique : le caissier ne doit pas avoir un geste de plus à
+  // faire à chaque vente si le poste est équipé.
+  useEffect(() => {
+    void (async () => {
+      const settings = await printer.settings();
+      if (settings.autoPrint && settings.target) void print();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const lines = renderReceipt(context);
 
   const cash = details.payments.find((payment) => payment.method === 'cash');
 
@@ -50,18 +96,30 @@ export function ReceiptPreview({ session, details, taxBreakdown, onClose }: Rece
           {lines.join('\n')}
         </pre>
 
-        <p className="mt-3 text-center text-xs text-slate-400">
-          L’impression sur imprimante ticket arrive au module 6.
-        </p>
+        {status && (
+          <p className="mt-3 rounded-lg bg-slate-50 p-3 text-center text-sm text-slate-600">
+            {status}
+          </p>
+        )}
 
-        <button
-          type="button"
-          onClick={onClose}
-          autoFocus
-          className="mt-5 w-full rounded-lg bg-caisse-600 py-3 font-medium text-white transition hover:bg-caisse-700"
-        >
-          Nouvelle vente
-        </button>
+        <div className="mt-5 flex gap-3">
+          <button
+            type="button"
+            onClick={() => void print()}
+            disabled={printing}
+            className="flex-1 rounded-lg border border-slate-300 py-3 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            {printing ? 'Impression…' : 'Imprimer'}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            autoFocus
+            className="flex-1 rounded-lg bg-caisse-600 py-3 font-medium text-white transition hover:bg-caisse-700"
+          >
+            Nouvelle vente
+          </button>
+        </div>
       </div>
     </div>
   );

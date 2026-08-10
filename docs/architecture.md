@@ -86,12 +86,12 @@ Détail et alternatives : module 6.
 
 ## Ce qui viendra ensuite
 
-| Module | Contenu                                                          |
-| ------ | ---------------------------------------------------------------- |
-| ~~2~~  | ~~authentification, rôles, multi-tenant, PIN hors-ligne~~ — fait |
-| ~~3~~  | ~~produits / catégories / stock~~ — fait                         |
-| ~~4~~  | ~~moteur de synchronisation~~ — fait                             |
-| ~~5~~  | ~~écran de vente, panier, encaissement espèces~~ — fait          |
-| 6      | impression ESC/POS depuis Tauri                                  |
-| ~~7~~  | ~~historique et rapports~~ — fait                                |
-| 8      | packaging Windows puis Linux                                     |
+| Module | Contenu                                                              |
+| ------ | -------------------------------------------------------------------- |
+| ~~2~~  | ~~authentification, rôles, multi-tenant, PIN hors-ligne~~ — fait     |
+| ~~3~~  | ~~produits / catégories / stock~~ — fait                             |
+| ~~4~~  | ~~moteur de synchronisation~~ — fait                                 |
+| ~~5~~  | ~~écran de vente, panier, encaissement espèces~~ — fait              |
+| ~~6~~  | ~~impression ESC/POS depuis Tauri~~ — fait (non essayé sur matériel) |
+| ~~7~~  | ~~historique et rapports~~ — fait                                    |
+| 8      | packaging Windows puis Linux                                         |

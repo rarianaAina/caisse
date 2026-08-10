@@ -335,6 +335,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
           session={session}
           details={receipt.details}
           taxBreakdown={receipt.tax}
+          db={db}
           onClose={() => {
             setReceipt(null);
             searchRef.current?.focus();

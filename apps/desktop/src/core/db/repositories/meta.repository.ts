@@ -21,6 +21,8 @@ export const META_KEYS = {
   /** Décalage entre l'horloge du poste et celle du serveur, en millisecondes. */
   clockOffsetMs: 'clock_offset_ms',
   enrolledAt: 'enrolled_at',
+  /** Réglages d'impression : propres au poste, jamais synchronisés. */
+  printerSettings: 'printer_settings',
 } as const;
 
 export type MetaKey = (typeof META_KEYS)[keyof typeof META_KEYS];

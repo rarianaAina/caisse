@@ -6,6 +6,7 @@ import { CatalogScreen } from '../catalog/CatalogScreen';
 import { HistoryScreen } from '../history/HistoryScreen';
 import { ReportsScreen } from '../reports/ReportsScreen';
 import { SaleScreen } from '../sale/SaleScreen';
+import { PrinterSettingsScreen } from '../settings/PrinterSettingsScreen';
 import { StockScreen } from '../stock/StockScreen';
 import { ConflictsScreen } from '../sync/ConflictsScreen';
 import { StaleBanner, SyncBadge } from '../sync/SyncBadge';
@@ -16,7 +17,7 @@ const ROLE_LABELS: Record<string, string> = {
   cashier: 'Caissier',
 };
 
-type Tab = 'sale' | 'catalog' | 'stock' | 'history' | 'reports' | 'sync';
+type Tab = 'sale' | 'catalog' | 'stock' | 'history' | 'reports' | 'sync' | 'settings';
 
 const TABS: { id: Tab; label: string; available: boolean }[] = [
   { id: 'sale', label: 'Vente', available: true },
@@ -25,6 +26,7 @@ const TABS: { id: Tab; label: string; available: boolean }[] = [
   { id: 'history', label: 'Historique', available: true },
   { id: 'reports', label: 'Rapports', available: true },
   { id: 'sync', label: 'Synchronisation', available: true },
+  { id: 'settings', label: 'Réglages', available: true },
 ];
 
 /**
@@ -98,6 +100,8 @@ export function Workspace({ session }: { session: LocalSession }) {
           <HistoryScreen session={session} db={db} sync={sync} />
         ) : tab === 'reports' ? (
           <ReportsScreen session={session} db={db} sync={sync} />
+        ) : tab === 'settings' ? (
+          <PrinterSettingsScreen session={session} db={db} />
         ) : tab === 'sync' ? (
           <ConflictsScreen session={session} db={db} engine={sync} />
         ) : tab === 'stock' ? (

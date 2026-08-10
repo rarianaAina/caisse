@@ -31,7 +31,11 @@ pub fn run() {
                 .add_migrations("sqlite:caisse.db", migrations())
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![commands::db::execute_batch])
+        .invoke_handler(tauri::generate_handler![
+            commands::db::execute_batch,
+            commands::printing::print_raw,
+            commands::printing::probe_printer
+        ])
         .run(tauri::generate_context!())
         .expect("erreur au démarrage de l'application Tauri");
 }

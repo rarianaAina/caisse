@@ -82,14 +82,18 @@ Modules 1 à 5 et 7 livrés. **Parcours complet vérifié dans l'application** :
 rattachement d'un poste, ouverture de session par PIN hors-ligne, création de
 produit, encaissement, ticket.
 
-Restent l'impression ESC/POS (module 6) et le packaging Windows/Linux
-(module 8).
+Reste le packaging Windows/Linux (module 8), qui portera aussi le transport
+d'impression vers le spouleur Windows — non écrit ici faute de pouvoir le
+compiler (voir [ADR 0007-F](docs/adr/0007-impression-escpos.md)).
+
+L'impression est construite et testée octet par octet, mais **n'a jamais été
+essayée sur une imprimante réelle**.
 
 ## Vérifier
 
 ```bash
-pnpm test             # 241 tests : monnaie, panier, PIN, rôles, schéma local, catalogue,
-                      #             stock, ventes, ticket, rapports et moteur de synchronisation
+pnpm test             # 265 tests : monnaie, panier, PIN, rôles, schéma local, catalogue, stock,
+                      #             ventes, ticket, trame ESC/POS, rapports, moteur de synchronisation
 pnpm typecheck        # TypeScript strict sur les trois paquets
 pnpm build            # build complet
 curl http://localhost:3000/api/health
@@ -226,4 +230,5 @@ fiable.
 - [ADR 0004 — moteur de synchronisation](docs/adr/0004-moteur-de-synchronisation.md)
 - [ADR 0005 — écran de vente et encaissement](docs/adr/0005-ecran-de-vente.md)
 - [ADR 0006 — historique, remboursements et rapports](docs/adr/0006-historique-et-rapports.md)
+- [ADR 0007 — impression ESC/POS](docs/adr/0007-impression-escpos.md)
 - [ADR 0004 — moteur de synchronisation](docs/adr/0004-moteur-de-synchronisation.md)
