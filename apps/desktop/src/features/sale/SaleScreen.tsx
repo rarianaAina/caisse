@@ -15,7 +15,7 @@ import {
   looksLikeBarcode,
   matchesSearch,
   newId,
-  parseAmountToCents,
+  parseAmount,
   parseQtyToMilli,
   removeLine,
   setCartDiscount,
@@ -134,7 +134,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
   const askDiscount = (): void => {
     const answer = window.prompt('Remise sur le ticket (en €)', '0');
     if (answer === null) return;
-    const cents = parseAmountToCents(answer);
+    const cents = parseAmount(answer, cart.currency);
     if (cents === null) return setError('Remise invalide');
     // `setCartDiscount` plafonne au sous-total : une remise saisie trop grande
     // ramène le ticket à zéro, jamais à un total négatif.

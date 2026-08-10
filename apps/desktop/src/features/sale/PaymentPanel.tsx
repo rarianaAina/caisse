@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { changeDue, formatMoney, parseAmountToCents } from '@caisse/shared';
+import {
+  changeDue,
+  formatAmountPlain,
+  formatMoney,
+  minorUnitFactor,
+  parseAmount,
+} from '@caisse/shared';
 import { Keypad } from '../../components/ui/Keypad';
 
 interface PaymentPanelProps {
@@ -21,12 +27,12 @@ export function PaymentPanel({ totalCents, currency, onConfirm, onCancel }: Paym
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const tendered = input === '' ? totalCents : (parseAmountToCents(input) ?? 0);
+  const tendered = input === '' ? totalCents : (parseAmount(input, currency) ?? 0);
   const change = changeDue(totalCents, tendered);
   const enough = change >= 0;
 
   /** Coupures immédiatement supérieures au total, plus le compte juste. */
-  const suggestions = buildSuggestions(totalCents);
+  const suggestions = buildSuggestions(totalCents, currency);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -67,7 +73,7 @@ export function PaymentPanel({ totalCents, currency, onConfirm, onCancel }: Paym
           inputMode="decimal"
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder={(totalCents / 100).toFixed(2)}
+          placeholder={formatAmountPlain(totalCents, currency)}
           className="mt-1 w-full rounded-lg border border-slate-300 px-4 py-3 text-right text-2xl tabular-nums outline-none focus:border-caisse-600"
           autoFocus
         />
@@ -77,7 +83,7 @@ export function PaymentPanel({ totalCents, currency, onConfirm, onCancel }: Paym
             <button
               key={amount}
               type="button"
-              onClick={() => setInput((amount / 100).toFixed(2))}
+              onClick={() => setInput(formatAmountPlain(amount, currency))}
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-caisse-600 hover:text-caisse-700"
             >
               {formatMoney(amount, currency)}
@@ -140,10 +146,29 @@ export function PaymentPanel({ totalCents, currency, onConfirm, onCancel }: Paym
   );
 }
 
-/** Compte juste, puis les coupures usuelles supérieures au total. */
-function buildSuggestions(totalCents: number): number[] {
-  const notes = [500, 1000, 2000, 5000, 10_000, 20_000];
-  const rounded = Math.ceil(totalCents / 500) * 500;
+/**
+ * Compte juste, puis les coupures usuelles supérieures au total.
+ *
+ * Les valeurs sont exprimées en unités ENTIÈRES de la devise puis converties :
+ * les billets malgaches (1 000, 2 000, 5 000, 10 000, 20 000 Ar) n'ont rien à
+ * voir avec les coupures en euros, et coder « 500 centimes » supposait l'euro.
+ */
+function buildSuggestions(totalCents: number, currency: string): number[] {
+  const factor = minorUnitFactor(currency);
+  const notes = (NOTES_BY_CURRENCY[currency.toUpperCase()] ?? NOTES_BY_CURRENCY['EUR'] ?? []).map(
+    (note) => note * factor,
+  );
+  const step = notes[0] ?? factor;
+  const rounded = Math.ceil(totalCents / step) * step;
   const candidates = [totalCents, rounded, ...notes.filter((note) => note > totalCents)];
   return [...new Set(candidates)].sort((a, b) => a - b).slice(0, 5);
 }
+
+/** Coupures en circulation, en unités entières de la devise. */
+const NOTES_BY_CURRENCY: Record<string, number[]> = {
+  MGA: [500, 1000, 2000, 5000, 10_000, 20_000],
+  EUR: [5, 10, 20, 50, 100],
+  USD: [5, 10, 20, 50, 100],
+  XOF: [500, 1000, 2000, 5000, 10_000],
+  XAF: [500, 1000, 2000, 5000, 10_000],
+};

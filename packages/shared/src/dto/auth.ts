@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { USER_ROLES } from '../constants/index.js';
+import { SUPPORTED_CURRENCIES } from '../money/currency.js';
 import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '../crypto/pin.js';
 import type { Company, Device, Register, Store } from '../domain/tenant.js';
 import type { LocalUser, User } from '../domain/user.js';
@@ -34,7 +35,17 @@ export const roleSchema = z.enum(USER_ROLES);
 /** Création d'une entreprise avec son premier utilisateur (propriétaire). */
 export const registerSchema = z.object({
   companyName: z.string().trim().min(2).max(120),
-  currency: z.string().length(3).toUpperCase().default('EUR'),
+  // Restreinte aux devises dont l'échelle est connue : accepter n'importe quel
+  // code à trois lettres ferait retomber sur l'hypothèse « 2 décimales ».
+  currency: z
+    .string()
+    .length(3)
+    .toUpperCase()
+    .refine(
+      (code) => SUPPORTED_CURRENCIES.some((entry) => entry.code === code),
+      'devise non prise en charge',
+    )
+    .default('MGA'),
   country: z.string().length(2).toUpperCase().optional(),
   storeName: z.string().trim().min(1).max(120).default('Boutique principale'),
   fullName: z.string().trim().min(2).max(120),

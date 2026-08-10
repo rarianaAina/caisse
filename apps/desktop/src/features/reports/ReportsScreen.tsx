@@ -8,7 +8,7 @@ import {
   formatMoney,
   formatQty,
   formatTaxRate,
-  parseAmountToCents,
+  parseAmount,
 } from '@caisse/shared';
 import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
@@ -95,14 +95,14 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
 
   const openSession = (): Promise<void> =>
     run(async () => {
-      const cents = parseAmountToCents(input || '0');
+      const cents = parseAmount(input || '0', currency);
       if (cents === null) throw new Error('Montant invalide');
       await sessions.open({ openingFloatCents: cents, userId: session.user.id });
     });
 
   const closeSession = (): Promise<void> =>
     run(async () => {
-      const cents = parseAmountToCents(input);
+      const cents = parseAmount(input, currency);
       if (cents === null) throw new Error('Indiquez le montant compté dans le tiroir');
       await sessions.close({ countedCents: cents, userId: session.user.id });
     });
@@ -292,7 +292,10 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
               {input !== '' && report && (
                 <span className="text-sm text-slate-600">
                   Écart :{' '}
-                  {formatMoney((parseAmountToCents(input) ?? 0) - report.expectedCents, currency)}
+                  {formatMoney(
+                    (parseAmount(input, currency) ?? 0) - report.expectedCents,
+                    currency,
+                  )}
                 </span>
               )}
             </div>

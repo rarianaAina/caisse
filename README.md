@@ -92,8 +92,8 @@ Deux réserves, assumées et documentées :
 ## Vérifier
 
 ```bash
-pnpm test             # 265 tests : monnaie, panier, PIN, rôles, schéma local, catalogue, stock,
-                      #             ventes, ticket, trame ESC/POS, rapports, moteur de synchronisation
+pnpm test             # 283 tests : devises, monnaie, panier, PIN, rôles, schéma local,
+                      #             catalogue, stock, ventes, ticket, ESC/POS, rapports, synchro
 pnpm typecheck        # TypeScript strict sur les trois paquets
 pnpm build            # build complet
 curl http://localhost:3000/api/health
@@ -214,7 +214,7 @@ fiable.
 | Sujet        | Choix                            | Raison                                                                                         |
 | ------------ | -------------------------------- | ---------------------------------------------------------------------------------------------- |
 | Identifiants | UUID v7 générés par le client    | une caisse hors-ligne doit créer des IDs sans risque de collision ; triables chronologiquement |
-| Argent       | entiers, en centimes             | aucun flottant, arrondi déterministe                                                           |
+| Argent       | entiers, en **unités mineures**  | centime pour l'euro, **ariary** pour le MGA — l'échelle dépend de la devise                    |
 | Quantités    | entiers, en milli-unités (×1000) | gère le poids (0,250 kg = 250) sans flottant                                                   |
 | TVA          | points de base (2000 = 20 %)     | idem                                                                                           |
 | Dates        | ISO-8601 **UTC**                 | comparaisons et tri sans ambiguïté de fuseau                                                   |
@@ -259,4 +259,5 @@ distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
 - [ADR 0006 — historique, remboursements et rapports](docs/adr/0006-historique-et-rapports.md)
 - [ADR 0007 — impression ESC/POS](docs/adr/0007-impression-escpos.md)
 - [ADR 0008 — packaging et distribution](docs/adr/0008-packaging.md)
+- [ADR 0009 — échelle des devises](docs/adr/0009-devises.md)
 - [ADR 0004 — moteur de synchronisation](docs/adr/0004-moteur-de-synchronisation.md)

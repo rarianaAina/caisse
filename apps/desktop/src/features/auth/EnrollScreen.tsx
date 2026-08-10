@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   PIN_MAX_LENGTH,
   PIN_MIN_LENGTH,
+  SUPPORTED_CURRENCIES,
   type SessionResponse,
   type Store,
   isValidPin,
@@ -63,7 +64,7 @@ export function EnrollScreen({ deviceId, onEnrolled }: EnrollScreenProps) {
           : await api.register({
               companyName: String(form.get('companyName')),
               storeName: String(form.get('storeName')) || 'Boutique principale',
-              currency: 'EUR',
+              currency: String(form.get('currency')),
               fullName: String(form.get('fullName')),
               email: String(form.get('email')),
               password: String(form.get('password')),
@@ -149,6 +150,22 @@ export function EnrollScreen({ deviceId, onEnrolled }: EnrollScreenProps) {
                       defaultValue="Boutique principale"
                       className={field}
                     />
+                  </div>
+                  <div>
+                    <label className={label} htmlFor="currency">
+                      Devise
+                    </label>
+                    <select id="currency" name="currency" defaultValue="MGA" className={field}>
+                      {SUPPORTED_CURRENCIES.map((entry) => (
+                        <option key={entry.code} value={entry.code}>
+                          {entry.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Elle détermine l’arrondi de tous les montants et ne peut plus être changée
+                      ensuite.
+                    </p>
                   </div>
                   <div>
                     <label className={label} htmlFor="fullName">

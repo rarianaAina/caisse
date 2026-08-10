@@ -5,7 +5,8 @@ import {
   type ProductUnit,
   PRODUCT_UNITS,
   formatMoney,
-  parseAmountToCents,
+  formatAmountPlain,
+  parseAmount,
   parseQtyToMilli,
 } from '@caisse/shared';
 
@@ -64,8 +65,10 @@ export function ProductForm({
   const [sku, setSku] = useState(product?.sku ?? '');
   const [barcode, setBarcode] = useState(product?.barcode ?? '');
   const [unit, setUnit] = useState<ProductUnit>(product?.unit ?? 'unit');
-  const [price, setPrice] = useState(product ? (product.priceCents / 100).toFixed(2) : '');
-  const [cost, setCost] = useState(product ? (product.costCents / 100).toFixed(2) : '');
+  const [price, setPrice] = useState(
+    product ? formatAmountPlain(product.priceCents, currency) : '',
+  );
+  const [cost, setCost] = useState(product ? formatAmountPlain(product.costCents, currency) : '');
   const [taxRateBp, setTaxRateBp] = useState(product?.taxRateBp ?? 0);
   const [trackStock, setTrackStock] = useState(product?.trackStock ?? true);
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
@@ -73,8 +76,8 @@ export function ProductForm({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const priceCents = parseAmountToCents(price || '0');
-  const costCents = parseAmountToCents(cost || '0');
+  const priceCents = parseAmount(price || '0', currency);
+  const costCents = parseAmount(cost || '0', currency);
 
   const submit = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
