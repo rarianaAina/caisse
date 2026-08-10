@@ -1,7 +1,7 @@
 import type { SyncEntity } from '@caisse/shared';
 import type { PrismaClient } from '@prisma/client';
 import { toCategory, toProduct, toStockMovement } from '../../common/mappers-catalog';
-import { toPayment, toSale, toSaleItem } from '../../common/mappers-sale';
+import { toCashSession, toPayment, toSale, toSaleItem } from '../../common/mappers-sale';
 
 /**
  * Comment le moteur de synchronisation lit et écrit chaque entité.
@@ -287,6 +287,45 @@ const PAYMENT: ImmutableHandler = {
 };
 
 /**
+ * Session de caisse : la seule entité de vente qui évolue.
+ *
+ * Elle est ouverte, puis clôturée — deux écritures, pas plus. Les champs
+ * modifiables sont donc limités à ceux de la clôture : une caisse ne peut pas
+ * réécrire après coup le fond de caisse d'ouverture.
+ */
+const CASH_SESSION: MutableHandler = {
+  kind: 'mutable',
+  writable: ['closedBy', 'closedAt', 'countedCents', 'expectedCents', 'differenceCents', 'status'],
+  async find(tx, id) {
+    return (await tx.cashSession.findUnique({ where: { id } })) as EntityRow | null;
+  },
+  async create(tx, companyId, payload) {
+    return (await tx.cashSession.create({
+      data: {
+        id: str(payload['id']),
+        companyId,
+        storeId: str(payload['storeId']),
+        registerId: str(payload['registerId']),
+        openedBy: str(payload['openedBy']),
+        openedAt: date(payload['openedAt']),
+        openingFloatCents: int(payload['openingFloatCents']),
+        status: str(payload['status'] ?? 'open'),
+        createdAt: date(payload['createdAt']),
+        updatedAt: date(payload['updatedAt']),
+      },
+    })) as EntityRow;
+  },
+  async update(tx, id, data, updatedAt) {
+    return (await tx.cashSession.update({
+      where: { id },
+      data: { ...data, updatedAt, version: { increment: 1 } },
+    })) as EntityRow;
+  },
+  toPayload: (row) => toCashSession(row as never) as unknown as Record<string, unknown>,
+  storeIdOf: (row) => strOrNull(row['storeId']),
+};
+
+/**
  * Entités acceptées par le push.
  *
  * Une entité absente d'ici est rejetée : mieux vaut refuser explicitement une
@@ -300,4 +339,5 @@ export const ENTITY_HANDLERS: Partial<Record<SyncEntity, EntityHandler>> = {
   sale: SALE,
   sale_item: SALE_ITEM,
   payment: PAYMENT,
+  cash_session: CASH_SESSION,
 };

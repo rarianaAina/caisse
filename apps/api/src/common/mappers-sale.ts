@@ -1,5 +1,14 @@
-import type { Payment, PaymentMethod, Sale, SaleItem, SaleStatus } from '@caisse/shared';
 import type {
+  CashSession,
+  CashSessionStatus,
+  Payment,
+  PaymentMethod,
+  Sale,
+  SaleItem,
+  SaleStatus,
+} from '@caisse/shared';
+import type {
+  CashSession as PrismaCashSession,
   Payment as PrismaPayment,
   Sale as PrismaSale,
   SaleItem as PrismaSaleItem,
@@ -65,5 +74,27 @@ export function toPayment(row: PrismaPayment): Payment {
     changeCents: row.changeCents,
     reference: row.reference,
     createdAt: iso(row.createdAt),
+  };
+}
+
+export function toCashSession(row: PrismaCashSession): CashSession {
+  return {
+    id: row.id,
+    companyId: row.companyId,
+    storeId: row.storeId,
+    registerId: row.registerId,
+    openedBy: row.openedBy,
+    openedAt: iso(row.openedAt),
+    openingFloatCents: row.openingFloatCents,
+    closedBy: row.closedBy,
+    closedAt: isoOrNull(row.closedAt),
+    countedCents: row.countedCents,
+    expectedCents: row.expectedCents,
+    differenceCents: row.differenceCents,
+    status: row.status as CashSessionStatus,
+    createdAt: iso(row.createdAt),
+    updatedAt: iso(row.updatedAt),
+    deletedAt: isoOrNull(row.deletedAt),
+    version: row.version,
   };
 }

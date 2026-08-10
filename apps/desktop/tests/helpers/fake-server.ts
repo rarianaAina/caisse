@@ -66,7 +66,15 @@ export class FakeServer {
     if (!row) throw new Error(`entité inconnue : ${entity}/${id}`);
 
     const before = { ...row.payload };
-    const after: Record<string, unknown> = { ...row.payload, ...patch, version: row.version + 1 };
+    // Horodatage explicitement antérieur : sans cela, une écriture serveur et
+    // une écriture locale tombant dans la même milliseconde feraient basculer
+    // le départage sur le `deviceId`, et le test deviendrait aléatoire.
+    const after: Record<string, unknown> = {
+      ...row.payload,
+      updatedAt: new Date(Date.now() - 1000).toISOString(),
+      ...patch,
+      version: row.version + 1,
+    };
     row.payload = after;
     row.version = after['version'] as number;
     row.deleted = after['deletedAt'] != null;

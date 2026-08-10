@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { DevicesModule } from './modules/devices/devices.module';
 import { HealthModule } from './modules/health/health.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { StockModule } from './modules/stock/stock.module';
 import { SyncModule } from './modules/sync/sync.module';
@@ -30,8 +31,9 @@ import { UsersModule } from './modules/users/users.module';
     CatalogModule,
     StockModule,
     SalesModule,
+    ReportsModule,
     HealthModule,
-    // Module suivant : ReportsModule (module 7).
+    // Module suivant : impression ESC/POS (module 6).
   ],
   providers: [
     // Gardes globaux : une route est protégée par défaut, et l'ouverture doit

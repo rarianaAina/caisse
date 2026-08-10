@@ -6,10 +6,12 @@ import {
   type Sale,
   type SaleDetails,
   type SaleItem,
+  buildRefund,
   changeDue,
   formatReceiptNumber,
   newId,
   nowIso,
+  returnDelta,
   saleDelta,
   sumCents,
 } from '@caisse/shared';
@@ -228,13 +230,14 @@ export class SaleRepository {
     const sale = await this.db.transaction(async () => {
       const seq = await this.nextSequence();
       const receiptNumber = formatReceiptNumber(this.context.receiptPrefix, new Date(soldAt), seq);
+      const cashSessionId = await this.openSessionId();
 
       const record: Sale = {
         id: saleId,
         companyId: this.context.companyId,
         storeId: this.context.storeId,
         registerId: this.context.registerId,
-        cashSessionId: null, // sessions de caisse : module 7 (rapports Z)
+        cashSessionId,
         userId: params.userId,
         receiptNumber,
         seqInRegister: seq,
@@ -360,6 +363,190 @@ export class SaleRepository {
           refId: saleId,
           userId,
           createdAt: now,
+        },
+        baseVersion: null,
+        deviceId: this.context.deviceId,
+      });
+    }
+  }
+
+  /**
+   * Rembourse tout ou partie d'une vente.
+   *
+   * Écrit une NOUVELLE vente à montants négatifs référençant l'originale, qui
+   * n'est jamais modifiée : le ticket remis au client reste tel qu'il a été
+   * émis, et le remboursement échappe lui aussi aux conflits de synchronisation
+   * (ADR 0006-A).
+   */
+  async recordRefund(params: {
+    saleId: string;
+    lines?: readonly { itemId: string; qtyMilli: number }[];
+    userId: string;
+    method: Payment['method'];
+    at?: string;
+  }): Promise<SaleDetails> {
+    const original = await this.findDetails(params.saleId);
+    if (!original) throw new SaleError('Vente introuvable');
+    if (original.sale.refundOfSaleId !== null) {
+      throw new SaleError('Un remboursement ne se rembourse pas');
+    }
+
+    const alreadyRefunded = await this.refundedAmountOf(params.saleId);
+    if (alreadyRefunded >= original.sale.totalCents) {
+      throw new SaleError('Cette vente est déjà intégralement remboursée');
+    }
+
+    const at = params.at ?? nowIso();
+    const refundSaleId = newId();
+    const draft = buildRefund({
+      original: original.sale,
+      originalItems: original.items,
+      lines: params.lines,
+      refundSaleId,
+      newItemId: newId,
+      userId: params.userId,
+      at,
+      method: params.method,
+    });
+
+    if (draft.items.length === 0) throw new SaleError('Aucune ligne à rembourser');
+
+    const refund = await this.db.transaction(async () => {
+      const seq = await this.nextSequence();
+      const record: Sale = {
+        ...draft.sale,
+        receiptNumber: formatReceiptNumber(this.context.receiptPrefix, new Date(at), seq),
+        seqInRegister: seq,
+        createdAt: at,
+        updatedAt: at,
+      };
+
+      await this.insertSale(record);
+      await this.outbox.enqueue({
+        entity: 'sale',
+        entityId: record.id,
+        op: 'create',
+        payload: record as unknown as Record<string, unknown>,
+        baseVersion: null,
+        deviceId: this.context.deviceId,
+      });
+
+      for (const item of draft.items) {
+        await this.insertItem(item);
+        await this.outbox.enqueue({
+          entity: 'sale_item',
+          entityId: item.id,
+          op: 'create',
+          payload: item as unknown as Record<string, unknown>,
+          baseVersion: null,
+          deviceId: this.context.deviceId,
+        });
+      }
+
+      for (const payment of draft.payments) {
+        await this.insertPayment(payment);
+        await this.outbox.enqueue({
+          entity: 'payment',
+          entityId: payment.id,
+          op: 'create',
+          payload: payment as unknown as Record<string, unknown>,
+          baseVersion: null,
+          deviceId: this.context.deviceId,
+        });
+      }
+
+      // Les articles rendus réintègrent le stock : un mouvement « return »,
+      // positif, symétrique de celui qu'avait produit la vente.
+      await this.restoreStock(draft.items, record.id, params.userId, at);
+
+      return record;
+    });
+
+    return { sale: refund, items: draft.items, payments: draft.payments };
+  }
+
+  /**
+   * Session de caisse ouverte, s'il y en a une.
+   *
+   * Rattacher la vente permet de calculer l'attendu en tiroir à la clôture.
+   * Aucune session ouverte n'empêche jamais de vendre : le champ reste nul et
+   * la vente compte dans les rapports du jour comme les autres.
+   */
+  private async openSessionId(): Promise<string | null> {
+    const rows = await this.db.select<{ id: string }>(
+      `SELECT id FROM cash_session
+       WHERE register_id = ? AND status = 'open' AND deleted_at IS NULL
+       ORDER BY opened_at DESC LIMIT 1`,
+      [this.context.registerId],
+    );
+    return rows[0]?.id ?? null;
+  }
+
+  private async refundedAmountOf(saleId: string): Promise<number> {
+    const rows = await this.db.select<{ total: number | null }>(
+      `SELECT sum(total_cents) AS total FROM sale
+       WHERE refund_of_sale_id = ? AND deleted_at IS NULL`,
+      [saleId],
+    );
+    return Math.abs(rows[0]?.total ?? 0);
+  }
+
+  private async restoreStock(
+    items: readonly SaleItem[],
+    refundSaleId: string,
+    userId: string,
+    at: string,
+  ): Promise<void> {
+    for (const item of items) {
+      if (!item.productId) continue;
+
+      const tracked = await this.db.select<{ track_stock: number }>(
+        'SELECT track_stock FROM product WHERE id = ?',
+        [item.productId],
+      );
+      if (tracked[0]?.track_stock !== 1) continue;
+
+      const movementId = newId();
+      const delta = returnDelta(item.qtyMilli);
+
+      await this.db.execute(
+        `INSERT INTO stock_movement (id, company_id, store_id, product_id, type,
+                                     qty_milli_delta, ref_type, ref_id, user_id, created_at)
+         VALUES (?, ?, ?, ?, 'return', ?, 'refund', ?, ?, ?)`,
+        [
+          movementId,
+          this.context.companyId,
+          this.context.storeId,
+          item.productId,
+          delta,
+          refundSaleId,
+          userId,
+          at,
+        ],
+      );
+      await this.db.execute(
+        `INSERT INTO stock_level (product_id, store_id, qty_milli, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(product_id, store_id) DO UPDATE SET
+           qty_milli = qty_milli + excluded.qty_milli, updated_at = excluded.updated_at`,
+        [item.productId, this.context.storeId, delta, at],
+      );
+      await this.outbox.enqueue({
+        entity: 'stock_movement',
+        entityId: movementId,
+        op: 'create',
+        payload: {
+          id: movementId,
+          companyId: this.context.companyId,
+          storeId: this.context.storeId,
+          productId: item.productId,
+          type: 'return',
+          qtyMilliDelta: delta,
+          reason: null,
+          refType: 'refund',
+          refId: refundSaleId,
+          userId,
+          createdAt: at,
         },
         baseVersion: null,
         deviceId: this.context.deviceId,

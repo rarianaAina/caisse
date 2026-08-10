@@ -57,17 +57,18 @@ Tauri).
 ## Vérifier
 
 ```bash
-pnpm test             # 200 tests : monnaie, panier, PIN, rôles, schéma local, catalogue,
-                      #             stock, ventes, ticket et moteur de synchronisation
+pnpm test             # 241 tests : monnaie, panier, PIN, rôles, schéma local, catalogue,
+                      #             stock, ventes, ticket, rapports et moteur de synchronisation
 pnpm typecheck        # TypeScript strict sur les trois paquets
 pnpm build            # build complet
 curl http://localhost:3000/api/health
 
-# Parcours de bout en bout contre l'API (démarrée) : 134 vérifications
+# Parcours de bout en bout contre l'API (démarrée) : 162 vérifications
 bash apps/api/test/auth-flow.sh      # authentification, rôles, multi-tenant
 bash apps/api/test/catalog-flow.sh   # catalogue et stock
 bash apps/api/test/sync-flow.sh      # deux caisses simulées : fusion, conflits, idempotence
 bash apps/api/test/sale-flow.sh      # une vente complète : ticket, TVA, stock, rejeu
+bash apps/api/test/reports-flow.sh   # journée, remboursement, clôture de caisse
 ```
 
 ## Ouverture de session
@@ -128,6 +129,19 @@ taux — et la somme des parts tombe toujours juste au centime près.
 
 Le lecteur de code-barres est un simple clavier : aucun pilote, aucun plugin.
 
+## Historique et rapports
+
+Un **remboursement est une vente négative** qui référence l'originale, jamais un
+statut modifié : la vente d'origine reste exactement telle qu'elle a été émise,
+et elle échappe ainsi aux conflits de synchronisation.
+
+La **clôture de caisse** fige l'attendu au lieu de le recalculer — sans quoi une
+caisse en retard qui remonterait ses ventes après coup ferait apparaître un
+écart qui n'a jamais existé. Seules les espèces comptent dans le tiroir.
+
+Ouvrir une session sert à contrôler le tiroir, **pas** à autoriser la vente :
+vendre sans session ouverte reste possible.
+
 ## Deux rôles PostgreSQL, et pourquoi
 
 PostgreSQL laisse un **superutilisateur** et le **propriétaire d'une table**
@@ -180,4 +194,5 @@ fiable.
 - [ADR 0003 — catalogue, stock et amorçage de la synchronisation](docs/adr/0003-catalogue-et-stock.md)
 - [ADR 0004 — moteur de synchronisation](docs/adr/0004-moteur-de-synchronisation.md)
 - [ADR 0005 — écran de vente et encaissement](docs/adr/0005-ecran-de-vente.md)
+- [ADR 0006 — historique, remboursements et rapports](docs/adr/0006-historique-et-rapports.md)
 - [ADR 0004 — moteur de synchronisation](docs/adr/0004-moteur-de-synchronisation.md)

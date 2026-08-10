@@ -92,5 +92,5 @@ Détail et alternatives : module 6.
 | ~~4~~  | ~~moteur de synchronisation~~ — fait                             |
 | ~~5~~  | ~~écran de vente, panier, encaissement espèces~~ — fait          |
 | 6      | impression ESC/POS depuis Tauri                                  |
-| 7      | historique et rapports                                           |
+| ~~7~~  | ~~historique et rapports~~ — fait                                |
 | 8      | packaging Windows puis Linux                                     |

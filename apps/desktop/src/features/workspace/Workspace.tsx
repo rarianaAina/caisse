@@ -3,6 +3,8 @@ import { can } from '@caisse/shared';
 import type { LocalSession } from '../../core/auth/auth.service';
 import { useSession } from '../../app/SessionProvider';
 import { CatalogScreen } from '../catalog/CatalogScreen';
+import { HistoryScreen } from '../history/HistoryScreen';
+import { ReportsScreen } from '../reports/ReportsScreen';
 import { SaleScreen } from '../sale/SaleScreen';
 import { StockScreen } from '../stock/StockScreen';
 import { ConflictsScreen } from '../sync/ConflictsScreen';
@@ -14,14 +16,15 @@ const ROLE_LABELS: Record<string, string> = {
   cashier: 'Caissier',
 };
 
-type Tab = 'catalog' | 'stock' | 'sync' | 'sale' | 'history';
+type Tab = 'sale' | 'catalog' | 'stock' | 'history' | 'reports' | 'sync';
 
 const TABS: { id: Tab; label: string; available: boolean }[] = [
   { id: 'sale', label: 'Vente', available: true },
   { id: 'catalog', label: 'Catalogue', available: true },
   { id: 'stock', label: 'Stock', available: true },
+  { id: 'history', label: 'Historique', available: true },
+  { id: 'reports', label: 'Rapports', available: true },
   { id: 'sync', label: 'Synchronisation', available: true },
-  { id: 'history', label: 'Historique', available: false },
 ];
 
 /**
@@ -82,13 +85,19 @@ export function Workspace({ session }: { session: LocalSession }) {
 
       {sync && <StaleBanner engine={sync} />}
 
-      <main className={`mx-auto w-full flex-1 p-6 ${tab === 'sale' ? 'max-w-7xl' : 'max-w-6xl'}`}>
+      <main
+        className={`mx-auto w-full flex-1 p-6 ${tab === 'sale' || tab === 'reports' ? 'max-w-7xl' : 'max-w-6xl'}`}
+      >
         {!db ? (
           <p className="text-slate-500">Base locale indisponible.</p>
         ) : tab === 'sale' ? (
           <SaleScreen session={session} db={db} sync={sync} />
         ) : tab === 'catalog' ? (
           <CatalogScreen session={session} db={db} />
+        ) : tab === 'history' ? (
+          <HistoryScreen session={session} db={db} sync={sync} />
+        ) : tab === 'reports' ? (
+          <ReportsScreen session={session} db={db} sync={sync} />
         ) : tab === 'sync' ? (
           <ConflictsScreen session={session} db={db} engine={sync} />
         ) : tab === 'stock' ? (
