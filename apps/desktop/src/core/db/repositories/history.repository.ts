@@ -7,6 +7,7 @@ import {
   summarizeSales,
 } from '@caisse/shared';
 import type { SqlExecutor } from '../client';
+import { chunk } from '../chunk';
 import { mapPayment, mapSale, mapSaleItem } from './sale-rows';
 
 export interface SaleWithRefundState {
@@ -47,22 +48,28 @@ export class HistoryRepository {
   }
 
   async itemsOf(saleIds: readonly string[]): Promise<SaleItem[]> {
-    if (saleIds.length === 0) return [];
-    const rows = await this.db.select<Record<string, unknown>>(
-      `SELECT * FROM sale_item WHERE sale_id IN (${saleIds.map(() => '?').join(',')})
-       ORDER BY position`,
-      [...saleIds],
-    );
-    return rows.map(mapSaleItem);
+    const items: SaleItem[] = [];
+    for (const batch of chunk(saleIds)) {
+      const rows = await this.db.select<Record<string, unknown>>(
+        `SELECT * FROM sale_item WHERE sale_id IN (${batch.map(() => '?').join(',')})
+         ORDER BY position`,
+        [...batch],
+      );
+      items.push(...rows.map(mapSaleItem));
+    }
+    return items;
   }
 
   async paymentsOf(saleIds: readonly string[]): Promise<Payment[]> {
-    if (saleIds.length === 0) return [];
-    const rows = await this.db.select<Record<string, unknown>>(
-      `SELECT * FROM payment WHERE sale_id IN (${saleIds.map(() => '?').join(',')})`,
-      [...saleIds],
-    );
-    return rows.map(mapPayment);
+    const payments: Payment[] = [];
+    for (const batch of chunk(saleIds)) {
+      const rows = await this.db.select<Record<string, unknown>>(
+        `SELECT * FROM payment WHERE sale_id IN (${batch.map(() => '?').join(',')})`,
+        [...batch],
+      );
+      payments.push(...rows.map(mapPayment));
+    }
+    return payments;
   }
 
   /** Synthèse d'une journée, prête à afficher. */
@@ -80,13 +87,16 @@ export class HistoryRepository {
    * milliers de tickets, et la liste doit rester instantanée au comptoir.
    */
   async refundedBySale(saleIds: readonly string[]): Promise<Map<string, number>> {
-    if (saleIds.length === 0) return new Map();
-    const rows = await this.db.select<{ refund_of_sale_id: string; total: number }>(
-      `SELECT refund_of_sale_id, sum(total_cents) AS total FROM sale
-       WHERE deleted_at IS NULL AND refund_of_sale_id IN (${saleIds.map(() => '?').join(',')})
-       GROUP BY refund_of_sale_id`,
-      [...saleIds],
-    );
-    return new Map(rows.map((row) => [row.refund_of_sale_id, Math.abs(row.total)]));
+    const refunded = new Map<string, number>();
+    for (const batch of chunk(saleIds)) {
+      const rows = await this.db.select<{ refund_of_sale_id: string; total: number }>(
+        `SELECT refund_of_sale_id, sum(total_cents) AS total FROM sale
+         WHERE deleted_at IS NULL AND refund_of_sale_id IN (${batch.map(() => '?').join(',')})
+         GROUP BY refund_of_sale_id`,
+        [...batch],
+      );
+      for (const row of rows) refunded.set(row.refund_of_sale_id, Math.abs(row.total));
+    }
+    return refunded;
   }
 }

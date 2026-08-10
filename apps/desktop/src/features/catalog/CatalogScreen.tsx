@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  type Category,
-  type Product,
-  can,
-  formatMoney,
-  formatTaxRate,
-  matchesSearch,
-} from '@caisse/shared';
+import { type Category, type Product, can, formatMoney, formatTaxRate } from '@caisse/shared';
 import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { CatalogRepository } from '../../core/db/repositories/catalog.repository';
@@ -25,8 +18,13 @@ interface CatalogScreenProps {
  * comptoir, le résultat doit apparaître à la frappe. `matchesSearch` normalise
  * les accents, si bien que « cafe » trouve « Café ».
  */
+/** Une page de catalogue. Au-delà, on pagine plutôt que de tout charger. */
+const PAGE_SIZE = 50;
+
 export function CatalogScreen({ session, db }: CatalogScreenProps) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -55,23 +53,27 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
   const editable = can(session.user.role, 'manageCatalog');
 
   const reload = useCallback(async (): Promise<void> => {
-    const [loadedProducts, loadedCategories] = await Promise.all([
-      catalog.listProducts(),
+    const [found, loadedCategories] = await Promise.all([
+      catalog.searchProducts({
+        term: search,
+        ...(categoryFilter ? { categoryId: categoryFilter } : {}),
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
+      }),
       catalog.listCategories(),
     ]);
-    setProducts(loadedProducts);
+    setProducts(found.items);
+    setTotal(found.total);
     setCategories(loadedCategories);
-  }, [catalog]);
+  }, [catalog, search, categoryFilter, page]);
 
   useEffect(() => {
-    void reload();
+    const timer = setTimeout(() => void reload(), 120);
+    return () => clearTimeout(timer);
   }, [reload]);
 
-  const visible = products.filter(
-    (product) =>
-      matchesSearch(product, search) &&
-      (categoryFilter === '' || product.categoryId === categoryFilter),
-  );
+  const visible = products;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const save = async (values: ProductFormValues): Promise<void> => {
     const target = editing === 'new' ? null : editing;
@@ -116,13 +118,19 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
       <div className="flex flex-wrap items-center gap-3">
         <input
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setPage(0);
+          }}
           placeholder="Rechercher un produit, une référence, un code-barres…"
           className="min-w-64 flex-1 rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-caisse-600"
         />
         <select
           value={categoryFilter}
-          onChange={(event) => setCategoryFilter(event.target.value)}
+          onChange={(event) => {
+            setCategoryFilter(event.target.value);
+            setPage(0);
+          }}
           className="rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-caisse-600"
         >
           <option value="">Toutes les catégories</option>
@@ -204,7 +212,7 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
             {visible.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
-                  {products.length === 0
+                  {search === '' && categoryFilter === ''
                     ? 'Aucun produit. Créez le premier article du catalogue.'
                     : 'Aucun produit ne correspond à cette recherche.'}
                 </td>
@@ -213,6 +221,32 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
           </tbody>
         </table>
       </div>
+
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-slate-500">
+            {total} produits — page {page + 1} sur {pageCount}
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={page === 0}
+              onClick={() => setPage((current) => current - 1)}
+              className="rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              Précédent
+            </button>
+            <button
+              type="button"
+              disabled={page + 1 >= pageCount}
+              onClick={() => setPage((current) => current + 1)}
+              className="rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              Suivant
+            </button>
+          </div>
+        </div>
+      )}
 
       {editable && (
         <div className="rounded-xl border border-slate-200 bg-white p-4">

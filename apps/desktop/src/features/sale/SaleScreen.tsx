@@ -13,7 +13,6 @@ import {
   formatQty,
   isFractionalUnit,
   looksLikeBarcode,
-  matchesSearch,
   newId,
   parseAmount,
   parseQtyToMilli,
@@ -43,8 +42,12 @@ interface SaleScreenProps {
  * dans SQLite. La remontée vers le serveur est un effet de bord, déclenché
  * après coup et sans bloquer le comptoir.
  */
+/** Nombre d'articles affichés d'un coup : au-delà, la recherche prend le relais. */
+const PAGE_SIZE = 60;
+
 export function SaleScreen({ session, db, sync }: SaleScreenProps) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [total, setTotal] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -75,23 +78,30 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
   const totals = computeTotals(cart);
 
   const reload = useCallback(async (): Promise<void> => {
-    const [loadedProducts, loadedCategories] = await Promise.all([
-      catalog.listProducts({ activeOnly: true }),
+    // La recherche est faite par SQLite, pas en mémoire : un catalogue de
+    // quincaillerie compte des dizaines de milliers de références.
+    const [found, loadedCategories] = await Promise.all([
+      catalog.searchProducts({
+        term: search,
+        activeOnly: true,
+        ...(categoryFilter ? { categoryId: categoryFilter } : {}),
+        limit: PAGE_SIZE,
+      }),
       catalog.listCategories(),
     ]);
-    setProducts(loadedProducts);
+    setProducts(found.items);
+    setTotal(found.total);
     setCategories(loadedCategories);
-  }, [catalog]);
+  }, [catalog, search, categoryFilter]);
 
+  // La frappe est temporisée : interroger la base à chaque touche saturerait
+  // l'écran sur un gros catalogue.
   useEffect(() => {
-    void reload();
+    const timer = setTimeout(() => void reload(), 120);
+    return () => clearTimeout(timer);
   }, [reload]);
 
-  const visible = products.filter(
-    (product) =>
-      matchesSearch(product, search) &&
-      (categoryFilter === '' || product.categoryId === categoryFilter),
-  );
+  const visible = products;
 
   const add = useCallback((product: Product, qtyMilli?: number): void => {
     setCart((current) => addProduct(current, product, newId(), qtyMilli));
@@ -110,9 +120,12 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
     if (term === '') return;
 
     if (looksLikeBarcode(term)) {
-      const scanned = products.find((product) => product.barcode === term);
-      if (scanned) return add(scanned);
-      setError(`Aucun produit pour le code ${term}`);
+      // Le code-barres est résolu en base : le produit scanné n'est pas
+      // forcément dans la page affichée.
+      void catalog.findByBarcode(term).then((scanned) => {
+        if (scanned) add(scanned);
+        else setError(`Aucun produit pour le code ${term}`);
+      });
       return;
     }
     if (visible.length === 1 && visible[0]) add(visible[0]);
@@ -216,9 +229,14 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
           ))}
           {visible.length === 0 && (
             <p className="col-span-full rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
-              {products.length === 0
+              {search === ''
                 ? 'Aucun article actif. Ajoutez-en depuis l’onglet Catalogue.'
                 : 'Aucun article ne correspond.'}
+            </p>
+          )}
+          {total > visible.length && (
+            <p className="col-span-full text-center text-sm text-slate-500">
+              {visible.length} sur {total} articles — affinez la recherche
             </p>
           )}
         </div>

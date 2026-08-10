@@ -11,12 +11,20 @@ use tauri_plugin_sql::{Migration, MigrationKind};
 ///
 /// Règle : une migration publiée n'est jamais modifiée — on en ajoute une.
 fn migrations() -> Vec<Migration> {
-    vec![Migration {
-        version: 1,
-        description: "schéma initial : tenant, catalogue, stock, ventes, file de synchro",
-        sql: include_str!("../migrations/0001_init.sql"),
-        kind: MigrationKind::Up,
-    }]
+    vec![
+        Migration {
+            version: 1,
+            description: "schéma initial : tenant, catalogue, stock, ventes, file de synchro",
+            sql: include_str!("../migrations/0001_init.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "clé de recherche produit, pour ne plus charger tout le catalogue",
+            sql: include_str!("../migrations/0002_search_index.sql"),
+            kind: MigrationKind::Up,
+        },
+    ]
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -35,7 +43,9 @@ pub fn run() {
             commands::db::execute_batch,
             commands::printing::print_raw,
             commands::printing::probe_printer,
-            commands::printing::list_printers
+            commands::printing::list_printers,
+            commands::backup::backup_database,
+            commands::backup::list_backups
         ])
         .run(tauri::generate_context!())
         .expect("erreur au démarrage de l'application Tauri");

@@ -89,11 +89,29 @@ Deux réserves, assumées et documentées :
 - les **installeurs Windows** sont produits par l'intégration continue et
   n'ont pas encore été installés sur un poste Windows.
 
+## Sauvegarde de la caisse
+
+La base locale contient les ventes du jour, **y compris celles qui ne sont pas
+encore remontées au serveur** : elles n'existent nulle part ailleurs.
+
+Une copie est faite automatiquement au premier démarrage de chaque journée, et
+les sept dernières sont conservées dans le dossier `sauvegardes/` de la
+configuration de l'application. L'onglet **Réglages** affiche leur chemin et
+permet d'en déclencher une à la demande — avant de fermer boutique, ou avant une
+manipulation risquée.
+
+**Restaurer** : fermer l'application, remplacer `caisse.db` par la copie
+choisie, supprimer les fichiers `caisse.db-wal` et `caisse.db-shm` s'ils
+existent, relancer. L'opération n'est volontairement pas proposée dans
+l'interface : écraser la base pendant que l'application tourne détruirait les
+ventes saisies depuis la copie.
+
 ## Vérifier
 
 ```bash
-pnpm test             # 283 tests : devises, monnaie, panier, PIN, rôles, schéma local,
-                      #             catalogue, stock, ventes, ticket, ESC/POS, rapports, synchro
+pnpm test             # 306 tests : devises, monnaie, panier, PIN, rôles, schéma local,
+                      #             catalogue, stock, ventes, ticket, ESC/POS, rapports, synchro,
+                      #             recherche en volume, limitation des tentatives de connexion
 pnpm typecheck        # TypeScript strict sur les trois paquets
 pnpm build            # build complet
 curl http://localhost:3000/api/health
@@ -260,4 +278,4 @@ distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
 - [ADR 0007 — impression ESC/POS](docs/adr/0007-impression-escpos.md)
 - [ADR 0008 — packaging et distribution](docs/adr/0008-packaging.md)
 - [ADR 0009 — échelle des devises](docs/adr/0009-devises.md)
-- [ADR 0004 — moteur de synchronisation](docs/adr/0004-moteur-de-synchronisation.md)
+- [ADR 0010 — volume et robustesse](docs/adr/0010-volume-et-robustesse.md)

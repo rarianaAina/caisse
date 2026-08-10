@@ -4,6 +4,7 @@ import { AuthService, type LocalSession } from '../core/auth/auth.service';
 import { httpSyncTransport } from '../core/api/client';
 import { SyncEngine } from '../core/sync/engine';
 import { type SqlExecutor, getDb, isTauriRuntime } from '../core/db/client';
+import { runStartupMaintenance } from '../core/db/startup';
 
 type Phase =
   | { kind: 'loading' }
@@ -89,6 +90,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         const service = new AuthService(executor);
         setAuth(service);
         await showLockScreen(service);
+
+        // Entretien lancé APRÈS l'affichage de l'écran de PIN, sans l'attendre :
+        // la sauvegarde peut durer plusieurs secondes sur une grosse base, et
+        // rien ne justifie de faire patienter le caissier devant un écran vide.
+        void runStartupMaintenance(executor).then((report) => {
+          for (const problem of report.problems) console.error('[entretien]', problem);
+        });
       } catch (cause) {
         setPhase({
           kind: 'no-runtime',

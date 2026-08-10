@@ -1,12 +1,20 @@
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 import type { SqlExecutor } from '../../src/core/db/client';
 
-const MIGRATION = readFileSync(
-  fileURLToPath(new URL('../../src-tauri/migrations/0001_init.sql', import.meta.url)),
-  'utf8',
-);
+/**
+ * Toutes les migrations, dans l'ordre des noms de fichiers.
+ *
+ * Lues depuis le dossier plutôt qu'énumérées ici : une migration ajoutée et
+ * oubliée dans les tests donnerait un schéma de test différent du schéma réel,
+ * et les tests passeraient sur une base que la caisse n'aura jamais.
+ */
+const MIGRATIONS_DIR = fileURLToPath(new URL('../../src-tauri/migrations/', import.meta.url));
+const MIGRATIONS = readdirSync(MIGRATIONS_DIR)
+  .filter((file) => file.endsWith('.sql'))
+  .sort()
+  .map((file) => readFileSync(MIGRATIONS_DIR + file, 'utf8'));
 
 /**
  * Implémentation de `SqlExecutor` sur `node:sqlite`, pour les tests.
@@ -20,7 +28,7 @@ export class NodeSqliteExecutor implements SqlExecutor {
 
   constructor() {
     this.db = new DatabaseSync(':memory:');
-    this.db.exec(MIGRATION);
+    for (const migration of MIGRATIONS) this.db.exec(migration);
   }
 
   async execute(sql: string, params: unknown[] = []): Promise<void> {

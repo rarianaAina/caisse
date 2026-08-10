@@ -10,6 +10,7 @@ import {
 } from '@caisse/shared';
 import { PrismaService } from '../../database/prisma.service';
 import { toCompany, toStore, toUser } from '../../common/mappers';
+import { LoginThrottleService } from './login-throttle.service';
 import { PasswordService } from './password.service';
 import { TokenService } from './token.service';
 
@@ -31,6 +32,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly passwords: PasswordService,
     private readonly tokens: TokenService,
+    private readonly throttle: LoginThrottleService,
   ) {}
 
   /**
@@ -106,7 +108,12 @@ export class AuthService {
     );
   }
 
-  async login(input: LoginInput): Promise<SessionResponse> {
+  async login(input: LoginInput, ip = 'inconnue'): Promise<SessionResponse> {
+    // Vérifié AVANT toute requête : un compte bloqué ne doit coûter ni accès
+    // à la base ni calcul argon2, sinon la limite devient elle-même un levier
+    // de surcharge.
+    this.throttle.assertAllowed(input.email, ip);
+
     // La recherche a lieu avant que l'entreprise soit connue : elle passe donc
     // par une fonction SECURITY DEFINER (cf. migration 20260810120000).
     const rows = await this.prisma.$queryRaw<UserLookupRow[]>`
@@ -123,9 +130,11 @@ export class AuthService {
 
     if (!found || !valid) {
       if (!found) await this.passwords.verify(input.password, null);
+      this.throttle.recordFailure(input.email, ip);
       throw new UnauthorizedException('Identifiants invalides');
     }
 
+    this.throttle.recordSuccess(input.email, ip);
     return this.loadSession(found.id, found.company_id, found.role as UserRole, null);
   }
 

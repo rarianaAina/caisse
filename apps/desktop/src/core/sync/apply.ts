@@ -1,4 +1,4 @@
-import type { ChangeEvent, SyncEntity } from '@caisse/shared';
+import { type ChangeEvent, type SyncEntity, buildSearchKey } from '@caisse/shared';
 import type { SqlExecutor } from '../db/client';
 
 /**
@@ -176,7 +176,23 @@ export class ChangeApplier {
     }
 
     await this.upsert(spec, change.payload);
+
+    // Un produit arrivé du serveur doit être trouvable : sans clé de recherche,
+    // il existe en base mais reste invisible à l'écran de vente.
+    if (change.entity === 'product') await this.refreshSearchKey(change.payload);
+
     return 'applied';
+  }
+
+  private async refreshSearchKey(payload: Record<string, unknown>): Promise<void> {
+    await this.db.execute('UPDATE product SET search_key = ? WHERE id = ?', [
+      buildSearchKey({
+        name: String(payload['name'] ?? ''),
+        sku: payload['sku'] === null ? null : String(payload['sku'] ?? ''),
+        barcode: payload['barcode'] === null ? null : String(payload['barcode'] ?? ''),
+      }),
+      String(payload['id'] ?? ''),
+    ]);
   }
 
   private async upsert(spec: TableSpec, payload: Record<string, unknown>): Promise<void> {
@@ -247,6 +263,8 @@ export class ChangeApplier {
   /** Écrit l'état serveur directement, sans garde : arbitrage d'un conflit. */
   async forceApply(entity: SyncEntity, payload: Record<string, unknown>): Promise<void> {
     const spec = TABLES[entity];
-    if (spec) await this.upsert(spec, payload);
+    if (!spec) return;
+    await this.upsert(spec, payload);
+    if (entity === 'product') await this.refreshSearchKey(payload);
   }
 }

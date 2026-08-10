@@ -23,6 +23,10 @@ export const META_KEYS = {
   enrolledAt: 'enrolled_at',
   /** Réglages d'impression : propres au poste, jamais synchronisés. */
   printerSettings: 'printer_settings',
+  /** Dernière sauvegarde locale réussie, pour n'en déclencher qu'une par jour. */
+  lastBackupAt: 'last_backup_at',
+  /** Version du schéma pour laquelle la clé de recherche a été reconstruite. */
+  searchIndexBuilt: 'search_index_built',
 } as const;
 
 export type MetaKey = (typeof META_KEYS)[keyof typeof META_KEYS];

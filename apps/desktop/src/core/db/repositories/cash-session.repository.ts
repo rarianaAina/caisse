@@ -6,6 +6,7 @@ import {
   nowIso,
 } from '@caisse/shared';
 import type { SqlExecutor } from '../client';
+import { chunk } from '../chunk';
 import { mapPayment, mapSale } from './sale-rows';
 import { OutboxRepository } from './outbox.repository';
 
@@ -230,10 +231,14 @@ export class CashSessionRepository {
     const sales = saleRows.map(mapSale);
     if (sales.length === 0) return { sales, payments: [] };
 
-    const paymentRows = await this.db.select<Record<string, unknown>>(
-      `SELECT * FROM payment WHERE sale_id IN (${sales.map(() => '?').join(',')})`,
-      sales.map((sale) => sale.id),
-    );
-    return { sales, payments: paymentRows.map(mapPayment) };
+    const payments = [];
+    for (const batch of chunk(sales.map((sale) => sale.id))) {
+      const rows = await this.db.select<Record<string, unknown>>(
+        `SELECT * FROM payment WHERE sale_id IN (${batch.map(() => '?').join(',')})`,
+        batch,
+      );
+      payments.push(...rows.map(mapPayment));
+    }
+    return { sales, payments };
   }
 }

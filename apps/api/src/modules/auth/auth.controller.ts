@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Ip, Post } from '@nestjs/common';
 import {
   type AuthContext,
   type LoginInput,
@@ -30,11 +30,20 @@ export class AuthController {
     return this.auth.register(body);
   }
 
+  /**
+   * L'IP sert à limiter les tentatives. Derrière un reverse proxy, elle n'est
+   * exacte que si l'application fait confiance à `X-Forwarded-For` — c'est
+   * réglé au déploiement (`TRUST_PROXY`), et une IP fausse ne rend pas la
+   * limite dangereuse : elle la rend seulement plus large.
+   */
   @Public()
   @Post('login')
   @HttpCode(200)
-  login(@Body(new ZodValidationPipe(loginSchema)) body: LoginInput): Promise<SessionResponse> {
-    return this.auth.login(body);
+  login(
+    @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
+    @Ip() ip: string,
+  ): Promise<SessionResponse> {
+    return this.auth.login(body, ip);
   }
 
   @Public()

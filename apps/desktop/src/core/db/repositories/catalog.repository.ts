@@ -6,7 +6,9 @@ import {
   type ProductUnit,
   type UpdateCategoryInput,
   type UpdateProductInput,
+  buildSearchKey,
   newId,
+  normalizeSearch,
   nowIso,
 } from '@caisse/shared';
 import type { SqlExecutor } from '../client';
@@ -87,6 +89,24 @@ export class CatalogConflictError extends Error {
     super(message);
     this.name = 'CatalogConflictError';
   }
+}
+
+/**
+ * Remplit les clés de recherche manquantes, hors de tout contexte d'entreprise.
+ *
+ * Exposée comme fonction libre parce qu'elle tourne au démarrage, avant même
+ * qu'une session soit ouverte : à ce moment-là, la caisse ne connaît pas encore
+ * l'entreprise courante.
+ */
+export async function rebuildSearchIndex(db: SqlExecutor): Promise<number> {
+  const rows = await db.select<ProductRow>('SELECT * FROM product WHERE search_key IS NULL');
+  for (const row of rows) {
+    await db.execute('UPDATE product SET search_key = ? WHERE id = ?', [
+      buildSearchKey({ name: row.name, sku: row.sku, barcode: row.barcode }),
+      row.id,
+    ]);
+  }
+  return rows.length;
 }
 
 /**
@@ -240,6 +260,62 @@ export class CatalogRepository {
 
   /* ─── Produits ──────────────────────────────────────────────────────────*/
 
+  /**
+   * Recherche paginée, exécutée par SQLite.
+   *
+   * Remplace le chargement complet du catalogue en mémoire : une quincaillerie
+   * de 30 000 références rendait l'écran de vente inutilisable. La recherche
+   * porte sur `search_key`, normalisée à l'écriture, si bien que « cafe »
+   * trouve « Café ».
+   */
+  async searchProducts(options: {
+    term?: string;
+    categoryId?: string;
+    activeOnly?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ items: Product[]; total: number }> {
+    const clauses = ['deleted_at IS NULL'];
+    const params: unknown[] = [];
+
+    if (options.categoryId) {
+      clauses.push('category_id = ?');
+      params.push(options.categoryId);
+    }
+    if (options.activeOnly) clauses.push('is_active = 1');
+
+    const term = normalizeSearch(options.term ?? '');
+    if (term !== '') {
+      clauses.push('search_key LIKE ?');
+      params.push(`%${term}%`);
+    }
+
+    const where = clauses.join(' AND ');
+    const counted = await this.db.select<{ c: number }>(
+      `SELECT count(*) AS c FROM product WHERE ${where}`,
+      params,
+    );
+
+    const rows = await this.db.select<ProductRow>(
+      `SELECT * FROM product WHERE ${where} ORDER BY name LIMIT ? OFFSET ?`,
+      [...params, options.limit ?? 50, options.offset ?? 0],
+    );
+
+    return { items: rows.map(toProduct), total: counted[0]?.c ?? 0 };
+  }
+
+  /**
+   * Reconstruit les clés de recherche manquantes.
+   *
+   * Nécessaire après la migration qui a ajouté la colonne, et utile si une
+   * voie d'écriture oublie de la remplir : sans clé, un produit devient
+   * introuvable, ce qui se voit tout de suite mais se répare mal à la main.
+   */
+  rebuildSearchIndex(): Promise<number> {
+    return rebuildSearchIndex(this.db);
+  }
+
+  /** @deprecated Charge tout le catalogue : utiliser `searchProducts`. */
   async listProducts(
     options: { categoryId?: string; activeOnly?: boolean } = {},
   ): Promise<Product[]> {
@@ -304,8 +380,8 @@ export class CatalogRepository {
       await this.db.execute(
         `INSERT INTO product (id, company_id, category_id, sku, barcode, name, description,
                               unit, price_cents, cost_cents, tax_rate_bp, track_stock,
-                              is_active, created_at, updated_at, version)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+                              is_active, created_at, updated_at, version, search_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
         [
           id,
           product.companyId,
@@ -322,6 +398,7 @@ export class CatalogRepository {
           bool(product.isActive),
           now,
           now,
+          buildSearchKey(product),
         ],
       );
       await this.outbox.enqueue({
@@ -384,7 +461,8 @@ export class CatalogRepository {
       await this.db.execute(
         `UPDATE product SET category_id = ?, sku = ?, barcode = ?, name = ?, description = ?,
                             unit = ?, price_cents = ?, cost_cents = ?, tax_rate_bp = ?,
-                            track_stock = ?, is_active = ?, updated_at = ?, version = version + 1
+                            track_stock = ?, is_active = ?, updated_at = ?, version = version + 1,
+                            search_key = ?
          WHERE id = ?`,
         [
           merged.categoryId,
@@ -399,6 +477,7 @@ export class CatalogRepository {
           bool(merged.trackStock),
           bool(merged.isActive),
           now,
+          buildSearchKey(merged),
           id,
         ],
       );
@@ -427,9 +506,10 @@ export class CatalogRepository {
     await this.db.transaction(async () => {
       await this.db.execute(
         `UPDATE product SET deleted_at = ?, updated_at = ?, is_active = 0,
-                            sku = NULL, barcode = NULL, version = version + 1
+                            sku = NULL, barcode = NULL, version = version + 1,
+                            search_key = ?
          WHERE id = ?`,
-        [now, now, id],
+        [now, now, buildSearchKey({ name: existing.name }), id],
       );
       await this.outbox.enqueue({
         entity: 'product',

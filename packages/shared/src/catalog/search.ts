@@ -35,3 +35,24 @@ export function matchesSearch(
     (product.barcode !== null && product.barcode.toLowerCase().includes(needle))
   );
 }
+
+/**
+ * Clé de recherche stockée en base, pour ne plus charger tout le catalogue en
+ * mémoire.
+ *
+ * Elle concatène ce sur quoi un vendeur cherche réellement — le nom, la
+ * référence, le code-barres — sous forme normalisée. SQLite ne sait pas retirer
+ * les diacritiques : la valeur est donc calculée à l'écriture, par la caisse
+ * comme par le moteur de synchronisation, et toute nouvelle voie d'écriture
+ * doit l'appeler.
+ */
+export function buildSearchKey(product: {
+  name: string;
+  sku?: string | null;
+  barcode?: string | null;
+}): string {
+  return [product.name, product.sku ?? '', product.barcode ?? '']
+    .filter((part) => part !== '')
+    .map((part) => normalizeSearch(part))
+    .join(' ');
+}
