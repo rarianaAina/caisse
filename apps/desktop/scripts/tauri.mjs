@@ -33,6 +33,9 @@ const SNAP_LEAKED_VARS = [
   'GSETTINGS_SCHEMA_DIR',
   'LOCPATH',
   'SNAP_LIBRARY_PATH',
+  // Pointe vers le dossier du snap : GTK y chercherait ses icônes, schémas et
+  // caches de modules. Supprimée, la valeur par défaut (~/.local/share) reprend.
+  'XDG_DATA_HOME',
 ];
 
 /**
