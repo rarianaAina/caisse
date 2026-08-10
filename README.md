@@ -307,6 +307,7 @@ distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
 
 - [Architecture](docs/architecture.md)
 - [Mettre le serveur en production](docs/deploiement.md)
+- [Mettre à jour les caisses installées](docs/mises-a-jour.md)
 - [Protocole de synchronisation](docs/sync-protocol.md)
 - [ADR 0001 — décisions fondatrices](docs/adr/0001-decisions-fondatrices.md)
 - [ADR 0002 — authentification et rattachement des postes](docs/adr/0002-authentification.md)

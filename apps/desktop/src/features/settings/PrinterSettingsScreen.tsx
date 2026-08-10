@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { LocalSession } from '../../core/auth/auth.service';
 import { BackupPanel } from './BackupPanel';
+import { UpdatePanel } from './UpdatePanel';
 import type { SqlExecutor } from '../../core/db/client';
 import {
   DEFAULT_PRINTER_SETTINGS,
@@ -311,6 +312,8 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
       </section>
 
       <BackupPanel db={db} />
+
+      <UpdatePanel currentVersion={__APP_VERSION__} />
     </div>
   );
 }

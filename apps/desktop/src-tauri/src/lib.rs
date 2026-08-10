@@ -30,6 +30,13 @@ fn migrations() -> Vec<Migration> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Mise à jour : le plugin ne fait qu'exposer la vérification et
+        // l'installation au front. RIEN n'est téléchargé ni installé sans une
+        // action explicite de l'utilisateur — une caisse ne doit pas se mettre
+        // à jour au milieu d'un service, ni consommer un forfait mobile sans
+        // qu'on le lui demande.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
                 // Chemin relatif : tauri-plugin-sql le résout dans le dossier
