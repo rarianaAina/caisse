@@ -1,10 +1,21 @@
 import { useState } from 'react';
-import type { SessionResponse, Store } from '@caisse/shared';
+import {
+  PIN_MAX_LENGTH,
+  PIN_MIN_LENGTH,
+  type SessionResponse,
+  type Store,
+  isValidPin,
+} from '@caisse/shared';
 import { ApiError, api } from '../../core/api/client';
 
 interface EnrollScreenProps {
   deviceId: string;
-  onEnrolled: (session: SessionResponse, storeId: string, deviceName: string) => Promise<void>;
+  onEnrolled: (
+    session: SessionResponse,
+    storeId: string,
+    deviceName: string,
+    pin: string,
+  ) => Promise<void>;
 }
 
 type Mode = 'login' | 'register';
@@ -19,6 +30,8 @@ export function EnrollScreen({ deviceId, onEnrolled }: EnrollScreenProps) {
   const [stores, setStores] = useState<Store[]>([]);
   const [storeId, setStoreId] = useState('');
   const [deviceName, setDeviceName] = useState('Caisse comptoir');
+  const [pin, setPin] = useState('');
+  const [pinConfirm, setPinConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -63,7 +76,15 @@ export function EnrollScreen({ deviceId, onEnrolled }: EnrollScreenProps) {
 
   const confirmEnrollment = (): void => {
     if (!session || !storeId) return;
-    void run(() => onEnrolled(session, storeId, deviceName.trim() || 'Caisse'));
+    if (!isValidPin(pin)) {
+      setError(`Le code PIN doit contenir de ${PIN_MIN_LENGTH} à ${PIN_MAX_LENGTH} chiffres`);
+      return;
+    }
+    if (pin !== pinConfirm) {
+      setError('Les deux codes PIN ne correspondent pas');
+      return;
+    }
+    void run(() => onEnrolled(session, storeId, deviceName.trim() || 'Caisse', pin));
   };
 
   const field =
@@ -187,6 +208,39 @@ export function EnrollScreen({ deviceId, onEnrolled }: EnrollScreenProps) {
                 ))}
               </select>
             </div>
+            <div className="rounded-lg bg-caisse-50 p-4">
+              <label className={label} htmlFor="pin">
+                Votre code PIN ({PIN_MIN_LENGTH} à {PIN_MAX_LENGTH} chiffres)
+              </label>
+              <input
+                id="pin"
+                type="password"
+                inputMode="numeric"
+                value={pin}
+                onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))}
+                maxLength={PIN_MAX_LENGTH}
+                className={field}
+                autoComplete="new-password"
+              />
+              <label className={`${label} mt-3`} htmlFor="pinConfirm">
+                Confirmation
+              </label>
+              <input
+                id="pinConfirm"
+                type="password"
+                inputMode="numeric"
+                value={pinConfirm}
+                onChange={(event) => setPinConfirm(event.target.value.replace(/\D/g, ''))}
+                maxLength={PIN_MAX_LENGTH}
+                className={field}
+                autoComplete="new-password"
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                C’est ce code qui ouvrira la caisse au quotidien, sans connexion. Le mot de passe ne
+                sert qu’en ligne.
+              </p>
+            </div>
+
             <div>
               <label className={label} htmlFor="deviceName">
                 Nom de ce poste

@@ -47,6 +47,11 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+/** Définition de son propre code PIN, par l'utilisateur connecté. */
+export const setOwnPinSchema = z.object({
+  pin: pinSchema,
+});
+
 export const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
@@ -89,6 +94,7 @@ export const updateUserSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
+export type SetOwnPinInput = z.infer<typeof setOwnPinSchema>;
 export type EnrollDeviceInput = z.infer<typeof enrollDeviceSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;

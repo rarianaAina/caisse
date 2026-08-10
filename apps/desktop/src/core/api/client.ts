@@ -93,6 +93,10 @@ export const api = {
   refresh: (refreshToken: string) =>
     request<SessionResponse>('/auth/refresh', { method: 'POST', body: { refreshToken } }),
 
+  /** Définit son propre PIN — indispensable pour ouvrir la caisse hors-ligne. */
+  setPin: (token: string, pin: string) =>
+    request<void>('/auth/pin', { method: 'POST', body: { pin }, token }),
+
   logout: (token: string, refreshToken: string) =>
     request<void>('/auth/logout', { method: 'POST', body: { refreshToken }, token }),
 

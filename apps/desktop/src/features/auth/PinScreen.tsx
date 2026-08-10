@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PIN_MAX_LENGTH, PIN_MIN_LENGTH, type LocalUser } from '@caisse/shared';
+import { PIN_MAX_LENGTH, PIN_MIN_LENGTH, type LocalUser, isValidPin } from '@caisse/shared';
 import { Keypad } from '../../components/ui/Keypad';
 
 interface PinScreenProps {
@@ -7,6 +7,8 @@ interface PinScreenProps {
   storeName: string;
   registerName: string;
   onSubmit: (userId: string, pin: string) => Promise<void>;
+  /** Définit un PIN quand aucun compte local n’en a — ou qu’il a été oublié. */
+  onRecover: (email: string, password: string, pin: string) => Promise<void>;
   error: string | null;
   busy: boolean;
 }
@@ -29,9 +31,12 @@ export function PinScreen({
   storeName,
   registerName,
   onSubmit,
+  onRecover,
   error,
   busy,
 }: PinScreenProps) {
+  const [recovering, setRecovering] = useState(users.length === 0);
+  const [recoverError, setRecoverError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(users[0]?.id ?? null);
   const [pin, setPin] = useState('');
 
@@ -96,47 +101,175 @@ export function PinScreen({
             ))}
           </ul>
 
-          {users.length === 0 && (
+          {users.length === 0 && !recovering && (
             <p className="mt-5 rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
-              Aucun utilisateur n’a de code PIN sur ce poste. Attribuez-en un depuis un compte
-              responsable, en ligne.
+              Aucun utilisateur n’a de code PIN sur ce poste.
             </p>
           )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setRecovering((current) => !current);
+              setRecoverError(null);
+            }}
+            className="mt-5 text-sm text-caisse-700 underline underline-offset-2"
+          >
+            {recovering ? 'Revenir à la saisie du PIN' : 'Définir ou réinitialiser un code PIN'}
+          </button>
         </section>
 
-        <section className="rounded-2xl bg-white p-6 shadow-lg">
-          <p className="text-sm text-slate-500">
-            Code PIN{selected ? ` de ${selected.fullName}` : ''}
-          </p>
-
-          <div className="mt-4 flex h-14 items-center gap-3" aria-live="polite">
-            {Array.from({ length: PIN_MAX_LENGTH }, (_, index) => (
-              <span
-                key={index}
-                className={`h-3 w-3 rounded-full transition ${
-                  index < pin.length ? 'bg-caisse-600' : 'bg-slate-200'
-                }`}
-              />
-            ))}
-          </div>
-
-          {error && (
-            <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </p>
-          )}
-
-          <Keypad
-            disabled={!selected || busy}
-            onDigit={(digit) =>
-              setPin((current) => (current.length >= PIN_MAX_LENGTH ? current : current + digit))
-            }
-            onBackspace={() => setPin((current) => current.slice(0, -1))}
-            onValidate={() => void validate()}
-            validateLabel="Ouvrir la session"
+        {recovering ? (
+          <RecoverPanel
+            busy={busy}
+            error={recoverError}
+            onSubmit={async (email, password, newPin) => {
+              setRecoverError(null);
+              try {
+                await onRecover(email, password, newPin);
+                setRecovering(false);
+              } catch (cause) {
+                setRecoverError(
+                  cause instanceof Error ? cause.message : 'Impossible de définir le code PIN',
+                );
+              }
+            }}
           />
-        </section>
+        ) : (
+          <section className="rounded-2xl bg-white p-6 shadow-lg">
+            <p className="text-sm text-slate-500">
+              Code PIN{selected ? ` de ${selected.fullName}` : ''}
+            </p>
+
+            <div className="mt-4 flex h-14 items-center gap-3" aria-live="polite">
+              {Array.from({ length: PIN_MAX_LENGTH }, (_, index) => (
+                <span
+                  key={index}
+                  className={`h-3 w-3 rounded-full transition ${
+                    index < pin.length ? 'bg-caisse-600' : 'bg-slate-200'
+                  }`}
+                />
+              ))}
+            </div>
+
+            {error && (
+              <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                {error}
+              </p>
+            )}
+
+            <Keypad
+              disabled={!selected || busy}
+              onDigit={(digit) =>
+                setPin((current) => (current.length >= PIN_MAX_LENGTH ? current : current + digit))
+              }
+              onBackspace={() => setPin((current) => current.slice(0, -1))}
+              onValidate={() => void validate()}
+              validateLabel="Ouvrir la session"
+            />
+          </section>
+        )}
       </div>
     </main>
+  );
+}
+
+/**
+ * Définition d'un PIN sur un poste déjà rattaché.
+ *
+ * Demande le mot de passe du compte : sans cela, n'importe qui pourrait
+ * s'attribuer un code d'accès à la caisse.
+ */
+function RecoverPanel({
+  busy,
+  error,
+  onSubmit,
+}: {
+  busy: boolean;
+  error: string | null;
+  onSubmit: (email: string, password: string, pin: string) => Promise<void>;
+}) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const field =
+    'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-caisse-600';
+
+  const submit = (event: React.FormEvent): void => {
+    event.preventDefault();
+    if (!isValidPin(newPin)) {
+      setLocalError(`Le code PIN doit contenir de ${PIN_MIN_LENGTH} à ${PIN_MAX_LENGTH} chiffres`);
+      return;
+    }
+    setLocalError(null);
+    void onSubmit(email.trim(), password, newPin);
+  };
+
+  return (
+    <section className="rounded-2xl bg-white p-6 shadow-lg">
+      <h2 className="font-semibold text-slate-900">Définir un code PIN</h2>
+      <p className="mt-1 text-sm text-slate-500">
+        Une connexion est nécessaire, le temps de vérifier votre mot de passe.
+      </p>
+
+      {(localError ?? error) && (
+        <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          {localError ?? error}
+        </p>
+      )}
+
+      <form onSubmit={submit} className="mt-4 space-y-3">
+        <div>
+          <label className="block text-sm font-medium text-slate-700" htmlFor="recoverEmail">
+            Adresse e-mail
+          </label>
+          <input
+            id="recoverEmail"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+            className={field}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700" htmlFor="recoverPassword">
+            Mot de passe
+          </label>
+          <input
+            id="recoverPassword"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            className={field}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700" htmlFor="recoverPin">
+            Nouveau code PIN ({PIN_MIN_LENGTH} à {PIN_MAX_LENGTH} chiffres)
+          </label>
+          <input
+            id="recoverPin"
+            type="password"
+            inputMode="numeric"
+            value={newPin}
+            onChange={(event) => setNewPin(event.target.value.replace(/\D/g, ''))}
+            maxLength={PIN_MAX_LENGTH}
+            required
+            className={field}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={busy}
+          className="w-full rounded-lg bg-caisse-600 py-3 font-medium text-white transition hover:bg-caisse-700 disabled:opacity-50"
+        >
+          {busy ? 'Enregistrement…' : 'Enregistrer le code PIN'}
+        </button>
+      </form>
+    </section>
   );
 }

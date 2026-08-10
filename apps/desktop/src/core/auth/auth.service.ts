@@ -97,8 +97,15 @@ export class AuthService {
     session: SessionResponse;
     storeId: string;
     deviceName: string;
+    /** PIN de l'utilisateur qui rattache le poste. */
+    pin: string;
   }): Promise<void> {
     const { deviceId } = await this.deviceState();
+
+    // L'ordre compte : le PIN doit exister côté serveur AVANT l'enrôlement,
+    // sinon la copie locale des utilisateurs descendrait sans empreinte et la
+    // caisse serait inutilisable hors-ligne.
+    await api.setPin(params.session.tokens.accessToken, params.pin);
 
     const provision = await api.enrollDevice(params.session.tokens.accessToken, {
       deviceId,
@@ -111,6 +118,33 @@ export class AuthService {
     await this.provisioning.save(provision);
     await this.storeTokens(params.session);
     await this.syncClock(provision.serverTime);
+  }
+
+  /**
+   * Définit un PIN sur un poste DÉJÀ rattaché.
+   *
+   * Nécessaire dans deux cas réels : un poste enrôlé avant que le PIN soit
+   * demandé, et un PIN oublié. Demande une connexion, puis rafraîchit la copie
+   * locale des utilisateurs pour que la nouvelle empreinte descende.
+   */
+  async recoverPin(params: { email: string; password: string; pin: string }): Promise<void> {
+    const state = await this.deviceState();
+    if (!state.storeId) throw new Error('Poste non rattaché');
+
+    const session = await api.login(params.email, params.password);
+    await api.setPin(session.tokens.accessToken, params.pin);
+
+    // Réenrôler le même poste est idempotent côté serveur : c'est le moyen le
+    // plus simple de récupérer la liste des utilisateurs à jour.
+    const provision = await api.enrollDevice(session.tokens.accessToken, {
+      deviceId: state.deviceId,
+      name: 'Caisse',
+      storeId: state.storeId,
+      ...(state.registerId ? { registerId: state.registerId } : {}),
+    });
+
+    await this.provisioning.save(provision);
+    await this.storeTokens(session);
   }
 
   /** Liste proposée sur l'écran de session : uniquement les comptes à PIN. */

@@ -5,6 +5,7 @@ import {
   type RegisterInput,
   type SessionResponse,
   type UserRole,
+  hashPin,
   newId,
 } from '@caisse/shared';
 import { PrismaService } from '../../database/prisma.service';
@@ -188,6 +189,24 @@ export class AuthService {
     );
     if (!user) throw new UnauthorizedException('Utilisateur introuvable');
     return toUser(user);
+  }
+
+  /**
+   * Définit le code PIN de l'utilisateur connecté.
+   *
+   * Volontairement sans capacité requise : un PIN n'est pas une élévation de
+   * droits, c'est le moyen de rouvrir SA session sur une caisse hors-ligne.
+   * L'exiger d'un compte propriétaire serait absurde — il serait le seul à
+   * pouvoir s'en attribuer un.
+   */
+  async setOwnPin(auth: AuthContext, pin: string): Promise<void> {
+    const pinHash = await hashPin(pin);
+    await this.prisma.withTenant(auth.companyId, (tx) =>
+      tx.user.update({
+        where: { id: auth.userId },
+        data: { pinHash, updatedAt: new Date(), version: { increment: 1 } },
+      }),
+    );
   }
 
   private async emailTaken(email: string): Promise<boolean> {

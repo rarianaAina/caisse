@@ -21,7 +21,14 @@ interface SessionContextValue {
   db: SqlExecutor | null;
   /** Moteur de synchronisation, actif dès qu'une session est ouverte. */
   sync: SyncEngine | null;
-  enroll: (session: SessionResponse, storeId: string, deviceName: string) => Promise<void>;
+  enroll: (
+    session: SessionResponse,
+    storeId: string,
+    deviceName: string,
+    pin: string,
+  ) => Promise<void>;
+  /** Définit un PIN sur un poste déjà rattaché (PIN oublié, ou jamais défini). */
+  recoverPin: (email: string, password: string, pin: string) => Promise<void>;
   signInWithPin: (userId: string, pin: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -98,12 +105,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       busy,
       db,
       sync,
-      enroll: async (session, storeId, deviceName) => {
+      enroll: async (session, storeId, deviceName, pin) => {
         if (!auth) return;
         setBusy(true);
         setError(null);
         try {
-          await auth.enroll({ session, storeId, deviceName });
+          await auth.enroll({ session, storeId, deviceName, pin });
+          await showLockScreen(auth);
+        } finally {
+          setBusy(false);
+        }
+      },
+      recoverPin: async (email, password, pin) => {
+        if (!auth) return;
+        setBusy(true);
+        setError(null);
+        try {
+          await auth.recoverPin({ email, password, pin });
           await showLockScreen(auth);
         } finally {
           setBusy(false);

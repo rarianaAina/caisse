@@ -5,10 +5,12 @@ import {
   type RefreshInput,
   type RegisterInput,
   type SessionResponse,
+  type SetOwnPinInput,
   type User,
   loginSchema,
   refreshSchema,
   registerSchema,
+  setOwnPinSchema,
 } from '@caisse/shared';
 import { CurrentAuth } from '../../common/decorators/current-auth.decorator';
 import { Public } from '../../common/decorators/public.decorator';
@@ -51,6 +53,16 @@ export class AuthController {
     @Body() body: { refreshToken?: string },
   ): Promise<void> {
     await this.auth.logout(auth, body?.refreshToken);
+  }
+
+  /** Définit son propre code PIN : c'est ce qui rend la caisse utilisable hors-ligne. */
+  @Post('pin')
+  @HttpCode(204)
+  async setPin(
+    @CurrentAuth() auth: AuthContext,
+    @Body(new ZodValidationPipe(setOwnPinSchema)) body: SetOwnPinInput,
+  ): Promise<void> {
+    await this.auth.setOwnPin(auth, body.pin);
   }
 
   @Get('me')

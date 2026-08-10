@@ -4,7 +4,7 @@ import { PinScreen } from './features/auth/PinScreen';
 import { Workspace } from './features/workspace/Workspace';
 
 function Router() {
-  const { phase, error, busy, enroll, signInWithPin } = useSession();
+  const { phase, error, busy, enroll, signInWithPin, recoverPin } = useSession();
 
   switch (phase.kind) {
     case 'loading':
@@ -29,7 +29,9 @@ function Router() {
       return (
         <EnrollScreen
           deviceId={phase.deviceId}
-          onEnrolled={(session, storeId, deviceName) => enroll(session, storeId, deviceName)}
+          onEnrolled={(session, storeId, deviceName, pin) =>
+            enroll(session, storeId, deviceName, pin)
+          }
         />
       );
 
@@ -40,6 +42,7 @@ function Router() {
           storeName={phase.storeName}
           registerName={phase.registerName}
           onSubmit={signInWithPin}
+          onRecover={recoverPin}
           error={error}
           busy={busy}
         />
