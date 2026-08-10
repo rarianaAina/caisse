@@ -10,6 +10,7 @@ import {
   type Product,
   type ProductQuery,
   type UpdateProductInput,
+  diffFields,
   newId,
 } from '@caisse/shared';
 import type { Prisma, PrismaClient, Product as PrismaProduct } from '@prisma/client';
@@ -108,7 +109,7 @@ export class ProductsService {
           isActive: input.isActive,
         },
       });
-      await this.publish(tx, auth, product, 'create');
+      await this.publish(tx, auth, product, 'create', diffFields({}, toProduct(product)));
 
       // Le stock de départ est un MOUVEMENT, pas un niveau écrit : il rejoint
       // le journal et se comporte comme tout autre delta.
@@ -159,7 +160,13 @@ export class ProductsService {
           version: { increment: 1 },
         },
       });
-      await this.publish(tx, auth, product, 'update');
+      await this.publish(
+        tx,
+        auth,
+        product,
+        'update',
+        diffFields(toProduct(existing), toProduct(product)),
+      );
       return product;
     });
 
@@ -188,7 +195,7 @@ export class ProductsService {
           version: { increment: 1 },
         },
       });
-      await this.publish(tx, auth, product, 'delete');
+      await this.publish(tx, auth, product, 'delete', ['deletedAt', 'sku', 'barcode', 'isActive']);
     });
   }
 
@@ -238,6 +245,7 @@ export class ProductsService {
         userId: auth.userId,
         createdAt: movement.createdAt.toISOString(),
       },
+      changedFields: [],
       version: 1,
       originDeviceId: auth.deviceId,
       actorUserId: auth.userId,
@@ -282,6 +290,7 @@ export class ProductsService {
     auth: AuthContext,
     row: PrismaProduct,
     op: 'create' | 'update' | 'delete',
+    changedFields: string[],
   ): Promise<void> {
     await this.changes.record(tx, {
       companyId: auth.companyId,
@@ -289,6 +298,7 @@ export class ProductsService {
       entityId: row.id,
       op,
       payload: toProduct(row) as unknown as Record<string, unknown>,
+      changedFields,
       version: row.version,
       originDeviceId: auth.deviceId,
       actorUserId: auth.userId,

@@ -4,7 +4,8 @@ import type { LocalSession } from '../../core/auth/auth.service';
 import { useSession } from '../../app/SessionProvider';
 import { CatalogScreen } from '../catalog/CatalogScreen';
 import { StockScreen } from '../stock/StockScreen';
-import { PendingBadge } from './PendingBadge';
+import { ConflictsScreen } from '../sync/ConflictsScreen';
+import { StaleBanner, SyncBadge } from '../sync/SyncBadge';
 
 const ROLE_LABELS: Record<string, string> = {
   owner: 'Propriétaire',
@@ -12,11 +13,12 @@ const ROLE_LABELS: Record<string, string> = {
   cashier: 'Caissier',
 };
 
-type Tab = 'catalog' | 'stock' | 'sale' | 'history';
+type Tab = 'catalog' | 'stock' | 'sync' | 'sale' | 'history';
 
 const TABS: { id: Tab; label: string; available: boolean }[] = [
   { id: 'catalog', label: 'Catalogue', available: true },
   { id: 'stock', label: 'Stock', available: true },
+  { id: 'sync', label: 'Synchronisation', available: true },
   { id: 'sale', label: 'Vente', available: false },
   { id: 'history', label: 'Historique', available: false },
 ];
@@ -27,7 +29,7 @@ const TABS: { id: Tab; label: string; available: boolean }[] = [
  * une dépendance supplémentaire (elle viendra si l'arborescence s'étoffe).
  */
 export function Workspace({ session }: { session: LocalSession }) {
-  const { signOut, db } = useSession();
+  const { signOut, db, sync } = useSession();
   const [tab, setTab] = useState<Tab>('catalog');
   const { user, company, store, register } = session;
 
@@ -42,7 +44,7 @@ export function Workspace({ session }: { session: LocalSession }) {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            {db && <PendingBadge db={db} />}
+            {sync && <SyncBadge engine={sync} onOpenConflicts={() => setTab('sync')} />}
             <div className="text-right">
               <p className="font-medium text-slate-900">{user.fullName}</p>
               <p className="text-sm text-slate-500">{ROLE_LABELS[user.role] ?? user.role}</p>
@@ -77,11 +79,15 @@ export function Workspace({ session }: { session: LocalSession }) {
         </nav>
       </header>
 
+      {sync && <StaleBanner engine={sync} />}
+
       <main className="mx-auto w-full max-w-6xl flex-1 p-6">
         {!db ? (
           <p className="text-slate-500">Base locale indisponible.</p>
         ) : tab === 'catalog' ? (
           <CatalogScreen session={session} db={db} />
+        ) : tab === 'sync' ? (
+          <ConflictsScreen session={session} db={db} engine={sync} />
         ) : tab === 'stock' ? (
           can(user.role, 'sell') ? (
             <StockScreen session={session} db={db} />

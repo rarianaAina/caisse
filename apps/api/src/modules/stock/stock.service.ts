@@ -197,6 +197,7 @@ export class StockService {
       entityId: movement.id,
       op: 'create',
       payload: toStockMovement(movement) as unknown as Record<string, unknown>,
+      changedFields: [], // un mouvement est immuable
       version: 1, // un mouvement est immuable : sa version ne change jamais
       originDeviceId: auth.deviceId,
       actorUserId: auth.userId,

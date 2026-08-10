@@ -1,14 +1,16 @@
 import { Global, Module } from '@nestjs/common';
 import { ChangeLogService } from './change-log.service';
+import { SyncController } from './sync.controller';
+import { SyncService } from './sync.service';
 
 /**
- * Module de synchronisation. Au module 3, il n'expose que le journal des
- * changements, alimenté par les services métier. Le moteur (push / pull /
- * résolution de conflits) viendra au module 4 et se contentera de le lire.
+ * Synchronisation : le journal des changements (alimenté par les services
+ * métier) et le moteur qui l'expose aux caisses.
  */
 @Global()
 @Module({
-  providers: [ChangeLogService],
+  controllers: [SyncController],
+  providers: [ChangeLogService, SyncService],
   exports: [ChangeLogService],
 })
 export class SyncModule {}

@@ -13,6 +13,9 @@ export interface EnqueueParams {
   deviceId: string;
 }
 
+/** Au-delà, la mutation est abandonnée et signalée, pas réessayée sans fin. */
+export const MAX_ATTEMPTS = 5;
+
 export interface OutboxRow {
   seq: number;
   mutation_id: string;
@@ -60,19 +63,45 @@ export class OutboxRepository {
     return mutationId;
   }
 
-  /** Mutations à envoyer, dans leur ordre d'émission. */
+  /**
+   * Mutations à envoyer, dans leur ordre d'émission.
+   *
+   * Les mutations définitivement refusées (au-delà de MAX_ATTEMPTS) sortent de
+   * la file : les réémettre en boucle bloquerait tout ce qui suit, et une
+   * caisse ne doit jamais se retrouver incapable de remonter ses ventes à
+   * cause d'un produit mal formé.
+   */
   async pending(limit = 200): Promise<OutboxRow[]> {
     return this.db.select<OutboxRow>(
-      `SELECT * FROM outbox WHERE status IN ('pending', 'failed') ORDER BY seq LIMIT ?`,
-      [limit],
+      `SELECT * FROM outbox
+       WHERE (status = 'pending' OR (status = 'failed' AND attempts < ?))
+       ORDER BY seq LIMIT ?`,
+      [MAX_ATTEMPTS, limit],
     );
   }
 
   async countPending(): Promise<number> {
     const rows = await this.db.select<{ c: number }>(
-      `SELECT count(*) AS c FROM outbox WHERE status IN ('pending', 'failed')`,
+      `SELECT count(*) AS c FROM outbox
+       WHERE status = 'pending' OR (status = 'failed' AND attempts < ?)`,
+      [MAX_ATTEMPTS],
     );
     return rows[0]?.c ?? 0;
+  }
+
+  /** Mutations abandonnées, à montrer à l'utilisateur plutôt qu'à masquer. */
+  async abandoned(): Promise<OutboxRow[]> {
+    return this.db.select<OutboxRow>(
+      `SELECT * FROM outbox WHERE status = 'failed' AND attempts >= ? ORDER BY seq`,
+      [MAX_ATTEMPTS],
+    );
+  }
+
+  async markConflict(mutationId: string): Promise<void> {
+    await this.db.execute('UPDATE outbox SET status = ? WHERE mutation_id = ?', [
+      'conflict',
+      mutationId,
+    ]);
   }
 
   async markSent(mutationIds: string[]): Promise<void> {

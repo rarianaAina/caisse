@@ -1,6 +1,8 @@
 import { createContext, use, useCallback, useEffect, useMemo, useState } from 'react';
 import type { LocalUser, SessionResponse } from '@caisse/shared';
 import { AuthService, type LocalSession } from '../core/auth/auth.service';
+import { httpSyncTransport } from '../core/api/client';
+import { SyncEngine } from '../core/sync/engine';
 import { type SqlExecutor, getDb, isTauriRuntime } from '../core/db/client';
 
 type Phase =
@@ -17,6 +19,8 @@ interface SessionContextValue {
   busy: boolean;
   /** Exécuteur SQL local, pour construire les dépôts des écrans métier. */
   db: SqlExecutor | null;
+  /** Moteur de synchronisation, actif dès qu'une session est ouverte. */
+  sync: SyncEngine | null;
   enroll: (session: SessionResponse, storeId: string, deviceName: string) => Promise<void>;
   signInWithPin: (userId: string, pin: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -40,6 +44,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [auth, setAuth] = useState<AuthService | null>(null);
   const [db, setDb] = useState<SqlExecutor | null>(null);
+  const [sync, setSync] = useState<SyncEngine | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -92,6 +97,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       error,
       busy,
       db,
+      sync,
       enroll: async (session, storeId, deviceName) => {
         if (!auth) return;
         setBusy(true);
@@ -108,7 +114,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         setBusy(true);
         setError(null);
         try {
-          setPhase({ kind: 'ready', session: await auth.signInWithPin(userId, pin) });
+          const session = await auth.signInWithPin(userId, pin);
+          setPhase({ kind: 'ready', session });
+
+          // La synchronisation ne démarre qu'une fois la session ouverte, et
+          // ne bloque jamais l'écran : un échec la fait simplement réessayer.
+          if (db) {
+            const engine = new SyncEngine(db, httpSyncTransport, {
+              deviceId: session.deviceId,
+              storeId: session.store.id,
+              accessToken: () => auth.accessToken(),
+            });
+            engine.start();
+            setSync(engine);
+          }
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : 'Échec de l’ouverture de session');
         } finally {
@@ -117,12 +136,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       },
       signOut: async () => {
         if (!auth) return;
+        sync?.stop();
+        setSync(null);
         await auth.signOut();
         setError(null);
         await showLockScreen(auth);
       },
     }),
-    [auth, busy, db, error, phase, showLockScreen],
+    [auth, busy, db, error, phase, showLockScreen, sync],
   );
 
   return <SessionContext value={value}>{children}</SessionContext>;

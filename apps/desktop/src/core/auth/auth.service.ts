@@ -147,6 +147,38 @@ export class AuthService {
     return this.buildSession(user);
   }
 
+  /**
+   * Jeton d'accès valide, rafraîchi si nécessaire.
+   *
+   * Renvoie `null` si le poste n'a pas de session serveur utilisable : le
+   * moteur de synchronisation traite ce cas comme « hors-ligne » et n'empêche
+   * jamais la caisse de fonctionner.
+   */
+  async accessToken(): Promise<string | null> {
+    const [token, expiresAt, refreshToken] = await Promise.all([
+      this.meta.get(META_KEYS.accessToken),
+      this.meta.get(META_KEYS.accessExpiresAt),
+      this.meta.get(META_KEYS.refreshToken),
+    ]);
+
+    // Marge d'une minute : un jeton qui expire pendant le vol de la requête
+    // provoquerait un échec inutile.
+    const stillValid = expiresAt !== null && Date.parse(expiresAt) - Date.now() > 60_000;
+    if (token && stillValid) return token;
+    if (!refreshToken) return null;
+
+    try {
+      const session = await api.refresh(refreshToken);
+      await this.storeTokens(session);
+      await this.syncClock(new Date().toISOString());
+      return session.tokens.accessToken;
+    } catch {
+      // Session expirée ou poste révoqué : on ne casse rien, la caisse reste
+      // utilisable hors-ligne et l'utilisateur devra se reconnecter.
+      return null;
+    }
+  }
+
   /** Restaure la session du dernier utilisateur, si le poste est déjà enrôlé. */
   async restoreSession(): Promise<LocalSession | null> {
     const lastUserId = await this.meta.get(META_KEYS.lastUserId);

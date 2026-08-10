@@ -1,0 +1,252 @@
+import type { ChangeEvent, SyncEntity } from '@caisse/shared';
+import type { SqlExecutor } from '../db/client';
+
+/**
+ * Application locale d'un changement venu du serveur.
+ *
+ * Les tables sont décrites une fois, ici, plutôt qu'en autant de requêtes
+ * écrites à la main : une colonne oubliée dans un `ON CONFLICT` produirait une
+ * divergence silencieuse entre deux caisses, le pire défaut possible pour ce
+ * module.
+ */
+
+interface Column {
+  /** Clé dans le payload (camelCase, format du protocole). */
+  key: string;
+  /** Colonne SQLite (snake_case). */
+  column: string;
+  type?: 'bool';
+}
+
+interface TableSpec {
+  table: string;
+  primaryKey: string[];
+  columns: Column[];
+}
+
+const col = (key: string, column: string, type?: 'bool'): Column => ({ key, column, type });
+
+const SYNC_META: Column[] = [
+  col('createdAt', 'created_at'),
+  col('updatedAt', 'updated_at'),
+  col('deletedAt', 'deleted_at'),
+  col('version', 'version'),
+];
+
+const TABLES: Partial<Record<SyncEntity, TableSpec>> = {
+  company: {
+    table: 'company',
+    primaryKey: ['id'],
+    columns: [
+      col('id', 'id'),
+      col('name', 'name'),
+      col('currency', 'currency'),
+      col('country', 'country'),
+      col('pricesIncludeTax', 'prices_include_tax', 'bool'),
+      ...SYNC_META,
+    ],
+  },
+  store: {
+    table: 'store',
+    primaryKey: ['id'],
+    columns: [
+      col('id', 'id'),
+      col('companyId', 'company_id'),
+      col('name', 'name'),
+      col('code', 'code'),
+      col('address', 'address'),
+      col('phone', 'phone'),
+      ...SYNC_META,
+    ],
+  },
+  register: {
+    table: 'register',
+    primaryKey: ['id'],
+    columns: [
+      col('id', 'id'),
+      col('companyId', 'company_id'),
+      col('storeId', 'store_id'),
+      col('name', 'name'),
+      col('receiptPrefix', 'receipt_prefix'),
+      ...SYNC_META,
+    ],
+  },
+  app_user: {
+    table: 'app_user',
+    primaryKey: ['id'],
+    columns: [
+      col('id', 'id'),
+      col('companyId', 'company_id'),
+      col('email', 'email'),
+      col('fullName', 'full_name'),
+      col('role', 'role'),
+      col('pinHash', 'pin_hash'),
+      col('isActive', 'is_active', 'bool'),
+      ...SYNC_META,
+    ],
+  },
+  category: {
+    table: 'category',
+    primaryKey: ['id'],
+    columns: [
+      col('id', 'id'),
+      col('companyId', 'company_id'),
+      col('parentId', 'parent_id'),
+      col('name', 'name'),
+      col('color', 'color'),
+      col('position', 'position'),
+      ...SYNC_META,
+    ],
+  },
+  product: {
+    table: 'product',
+    primaryKey: ['id'],
+    columns: [
+      col('id', 'id'),
+      col('companyId', 'company_id'),
+      col('categoryId', 'category_id'),
+      col('sku', 'sku'),
+      col('barcode', 'barcode'),
+      col('name', 'name'),
+      col('description', 'description'),
+      col('unit', 'unit'),
+      col('priceCents', 'price_cents'),
+      col('costCents', 'cost_cents'),
+      col('taxRateBp', 'tax_rate_bp'),
+      col('trackStock', 'track_stock', 'bool'),
+      col('isActive', 'is_active', 'bool'),
+      col('imagePath', 'image_path'),
+      ...SYNC_META,
+    ],
+  },
+  stock_movement: {
+    table: 'stock_movement',
+    primaryKey: ['id'],
+    columns: [
+      col('id', 'id'),
+      col('companyId', 'company_id'),
+      col('storeId', 'store_id'),
+      col('productId', 'product_id'),
+      col('type', 'type'),
+      col('qtyMilliDelta', 'qty_milli_delta'),
+      col('reason', 'reason'),
+      col('refType', 'ref_type'),
+      col('refId', 'ref_id'),
+      col('userId', 'user_id'),
+      col('createdAt', 'created_at'),
+    ],
+  },
+};
+
+function encode(value: unknown, type?: 'bool'): unknown {
+  if (type === 'bool') return value ? 1 : 0;
+  if (value === undefined) return null;
+  return value;
+}
+
+export class ChangeApplier {
+  constructor(private readonly db: SqlExecutor) {}
+
+  /**
+   * Applique un changement, sauf si la caisse a une modification locale en
+   * attente sur la même entité.
+   *
+   * Sans cette garde, un pull écraserait une saisie que l'utilisateur vient de
+   * faire et qui n'est pas encore partie. Elle sera appliquée au cycle suivant,
+   * une fois la mutation locale poussée et arbitrée par le serveur.
+   */
+  async apply(change: ChangeEvent): Promise<'applied' | 'skipped' | 'unsupported'> {
+    const spec = TABLES[change.entity];
+    if (!spec) return 'unsupported';
+
+    if (await this.hasPendingLocalChange(change.entity, change.entityId)) return 'skipped';
+    if (await this.isStaleVersion(spec, change)) return 'skipped';
+
+    // Un mouvement de stock est immuable : on ne le réécrit jamais, et son
+    // arrivée doit se répercuter sur le cache de niveau.
+    if (change.entity === 'stock_movement') {
+      const known = await this.db.select<{ id: string }>(
+        'SELECT id FROM stock_movement WHERE id = ?',
+        [change.entityId],
+      );
+      if (known.length > 0) return 'skipped';
+      await this.upsert(spec, change.payload);
+      await this.bumpStockLevel(change.payload);
+      return 'applied';
+    }
+
+    await this.upsert(spec, change.payload);
+    return 'applied';
+  }
+
+  private async upsert(spec: TableSpec, payload: Record<string, unknown>): Promise<void> {
+    const present = spec.columns.filter((column) => column.key in payload);
+    if (present.length === 0) return;
+
+    const columns = present.map((column) => column.column);
+    const values = present.map((column) => encode(payload[column.key], column.type));
+    const placeholders = present.map(() => '?').join(', ');
+    const updates = present
+      .filter((column) => !spec.primaryKey.includes(column.column))
+      .map((column) => `${column.column} = excluded.${column.column}`)
+      .join(', ');
+
+    await this.db.execute(
+      `INSERT INTO ${spec.table} (${columns.join(', ')}) VALUES (${placeholders})
+       ON CONFLICT(${spec.primaryKey.join(', ')}) DO UPDATE SET ${updates}`,
+      values,
+    );
+  }
+
+  private async bumpStockLevel(payload: Record<string, unknown>): Promise<void> {
+    const productId = String(payload['productId'] ?? '');
+    const storeId = String(payload['storeId'] ?? '');
+    const delta = Number(payload['qtyMilliDelta'] ?? 0);
+    if (!productId || !storeId || delta === 0) return;
+
+    await this.db.execute(
+      `INSERT INTO stock_level (product_id, store_id, qty_milli, updated_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(product_id, store_id) DO UPDATE SET
+         qty_milli = qty_milli + excluded.qty_milli, updated_at = excluded.updated_at`,
+      [productId, storeId, delta, String(payload['createdAt'] ?? new Date().toISOString())],
+    );
+  }
+
+  /**
+   * Le journal est rejoué dans l'ordre, mais l'état local peut déjà être plus
+   * récent : lorsqu'une mutation poussée est fusionnée, le serveur renvoie
+   * l'état résultant, que la caisse applique aussitôt. L'événement de journal
+   * qui l'avait précédée arrive ensuite au pull, avec une version antérieure —
+   * l'appliquer ferait régresser la valeur et les deux nœuds divergeraient
+   * définitivement.
+   *
+   * La version ne recule jamais : c'est le garde-fou.
+   */
+  private async isStaleVersion(spec: TableSpec, change: ChangeEvent): Promise<boolean> {
+    const hasVersion = spec.columns.some((column) => column.column === 'version');
+    if (!hasVersion) return false;
+
+    const rows = await this.db.select<{ version: number }>(
+      `SELECT version FROM ${spec.table} WHERE id = ?`,
+      [change.entityId],
+    );
+    const local = rows[0]?.version;
+    return local !== undefined && change.version <= local;
+  }
+
+  private async hasPendingLocalChange(entity: string, entityId: string): Promise<boolean> {
+    const rows = await this.db.select<{ c: number }>(
+      `SELECT count(*) AS c FROM outbox
+       WHERE entity = ? AND entity_id = ? AND status IN ('pending', 'inflight', 'failed')`,
+      [entity, entityId],
+    );
+    return (rows[0]?.c ?? 0) > 0;
+  }
+
+  /** Écrit l'état serveur directement, sans garde : arbitrage d'un conflit. */
+  async forceApply(entity: SyncEntity, payload: Record<string, unknown>): Promise<void> {
+    const spec = TABLES[entity];
+    if (spec) await this.upsert(spec, payload);
+  }
+}

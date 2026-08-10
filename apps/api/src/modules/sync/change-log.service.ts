@@ -10,6 +10,12 @@ export interface ChangeEntry {
   op: MutationOp;
   /** État COMPLET de la ligne après application, en camelCase. */
   payload: Record<string, unknown>;
+  /**
+   * Champs réellement modifiés. Indispensable à la fusion par champ : c'est ce
+   * qui permet de répondre à « qu'a changé le serveur depuis la version connue
+   * de cette caisse ? ».
+   */
+  changedFields: string[];
   version: number;
   /** Poste à l'origine de l'écriture : il ne se la verra pas renvoyée au pull. */
   originDeviceId?: string | null;
@@ -38,6 +44,7 @@ export class ChangeLogService {
         entityId: entry.entityId,
         op: entry.op,
         payload: entry.payload as never,
+        changedFields: entry.changedFields,
         version: entry.version,
         originDeviceId: entry.originDeviceId ?? null,
         actorUserId: entry.actorUserId ?? null,

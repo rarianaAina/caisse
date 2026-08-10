@@ -3,6 +3,8 @@ import type {
   Device,
   EnrollDeviceInput,
   ProvisionResponse,
+  PullResponse,
+  PushResponse,
   RegisterInput,
   SessionResponse,
 } from '@caisse/shared';
@@ -98,6 +100,26 @@ export const api = {
     request<ProvisionResponse>('/devices/enroll', { method: 'POST', body: input, token }),
 
   listDevices: (token: string) => request<Device[]>('/devices', { token }),
+
+  /**
+   * Synchronisation. Délai plus généreux que les autres appels : un lot de
+   * mutations après plusieurs jours hors-ligne peut être long à traiter, et
+   * abandonner trop tôt relancerait le même lot indéfiniment.
+   */
+  syncPush: (token: string, body: unknown) =>
+    request<PushResponse>('/sync/push', { method: 'POST', body, token, timeoutMs: 60_000 }),
+
+  syncPull: (token: string, query: Record<string, string>) =>
+    request<PullResponse>(`/sync/pull?${new URLSearchParams(query).toString()}`, {
+      token,
+      timeoutMs: 60_000,
+    }),
+};
+
+/** Transport HTTP du moteur de synchronisation (interface `SyncTransport`). */
+export const httpSyncTransport = {
+  push: (token: string, body: unknown) => api.syncPush(token, body),
+  pull: (token: string, query: Record<string, string>) => api.syncPull(token, query),
 };
 
 export type { AuthTokens };

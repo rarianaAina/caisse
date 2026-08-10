@@ -57,14 +57,16 @@ Tauri).
 ## Vérifier
 
 ```bash
-pnpm test             # 113 tests : monnaie, PIN, rôles, schéma local, session hors-ligne, catalogue et stock
+pnpm test             # 153 tests : monnaie, PIN, rôles, schéma local, session hors-ligne,
+                      #             catalogue, stock et moteur de synchronisation
 pnpm typecheck        # TypeScript strict sur les trois paquets
 pnpm build            # build complet
 curl http://localhost:3000/api/health
 
-# Parcours de bout en bout contre l'API (démarrée) : 78 vérifications
-bash apps/api/test/auth-flow.sh
-bash apps/api/test/catalog-flow.sh
+# Parcours de bout en bout contre l'API (démarrée) : 113 vérifications
+bash apps/api/test/auth-flow.sh      # authentification, rôles, multi-tenant
+bash apps/api/test/catalog-flow.sh   # catalogue et stock
+bash apps/api/test/sync-flow.sh      # deux caisses simulées : fusion, conflits, idempotence
 ```
 
 ## Ouverture de session
@@ -85,6 +87,32 @@ utilisateur.
 Les droits sont décrits une seule fois, dans `CAPABILITIES` (`packages/shared`) :
 l'API les applique via `@RequireCapability(...)`, l'interface via `can(...)`. Un
 bouton masqué correspond donc exactement à une route refusée.
+
+## Synchronisation
+
+```
+écriture locale ──► SQLite + file outbox (même transaction)
+                       │
+                       ├─ PUSH ─► le serveur arbitre, journalise, répond
+                       └─ PULL ◄─ change_log depuis le dernier curseur
+```
+
+Toute écriture s'applique localement et enfile sa mutation **dans la même
+transaction** : si la vente est enregistrée, sa remontée l'est aussi. L'ordre
+push → pull est délibéré : le serveur arbitre ce que la caisse sait avant qu'on
+applique ce qu'il sait.
+
+| Situation                                     | Résolution                                     |
+| --------------------------------------------- | ---------------------------------------------- |
+| Ventes, paiements, mouvements de stock        | Append-only : aucun conflit possible           |
+| Deux caisses modifient des champs différents  | Fusion : les deux survivent                    |
+| Même champ, non sensible                      | Dernier écrivain gagne (départage par poste)   |
+| Même champ sensible (prix, rôle)              | **Arbitrage humain** — rien n'est écrasé       |
+| Modification hors-ligne d'un produit supprimé | La **suppression l'emporte**                   |
+| Caisse muette depuis 24 h                     | Bandeau d'avertissement, **la vente continue** |
+
+L'encaissement n'est **jamais** bloqué. Alternatives écartées et raisons :
+[ADR 0004](docs/adr/0004-moteur-de-synchronisation.md).
 
 ## Deux rôles PostgreSQL, et pourquoi
 
@@ -136,3 +164,5 @@ fiable.
 - [ADR 0001 — décisions fondatrices](docs/adr/0001-decisions-fondatrices.md)
 - [ADR 0002 — authentification et rattachement des postes](docs/adr/0002-authentification.md)
 - [ADR 0003 — catalogue, stock et amorçage de la synchronisation](docs/adr/0003-catalogue-et-stock.md)
+- [ADR 0004 — moteur de synchronisation](docs/adr/0004-moteur-de-synchronisation.md)
+- [ADR 0004 — moteur de synchronisation](docs/adr/0004-moteur-de-synchronisation.md)

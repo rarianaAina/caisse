@@ -9,6 +9,7 @@ import {
   type Category,
   type CreateCategoryInput,
   type UpdateCategoryInput,
+  diffFields,
   newId,
 } from '@caisse/shared';
 import type { PrismaClient } from '@prisma/client';
@@ -49,7 +50,7 @@ export class CategoriesService {
           position: input.position,
         },
       });
-      await this.publish(tx, auth, category, 'create');
+      await this.publish(tx, auth, category, 'create', diffFields({}, toCategory(category)));
       return category;
     });
 
@@ -81,7 +82,13 @@ export class CategoriesService {
           version: { increment: 1 },
         },
       });
-      await this.publish(tx, auth, category, 'update');
+      await this.publish(
+        tx,
+        auth,
+        category,
+        'update',
+        diffFields(toCategory(existing), toCategory(category)),
+      );
       return category;
     });
 
@@ -112,7 +119,7 @@ export class CategoriesService {
         where: { id },
         data: { deletedAt: new Date(), updatedAt: new Date(), version: { increment: 1 } },
       });
-      await this.publish(tx, auth, category, 'delete');
+      await this.publish(tx, auth, category, 'delete', ['deletedAt']);
     });
   }
 
@@ -151,6 +158,7 @@ export class CategoriesService {
     auth: AuthContext,
     row: Parameters<typeof toCategory>[0],
     op: 'create' | 'update' | 'delete',
+    changedFields: string[],
   ): Promise<void> {
     await this.changes.record(tx, {
       companyId: auth.companyId,
@@ -158,6 +166,7 @@ export class CategoriesService {
       entityId: row.id,
       op,
       payload: toCategory(row) as unknown as Record<string, unknown>,
+      changedFields,
       version: row.version,
       originDeviceId: auth.deviceId,
       actorUserId: auth.userId,

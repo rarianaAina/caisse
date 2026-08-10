@@ -422,6 +422,10 @@ model ChangeLog {
   op             String
   /// État COMPLET de la ligne après application, en camelCase
   payload        Json
+  /// Champs réellement modifiés par cette écriture. Sans cette liste, le
+  /// serveur ne pourrait pas dire à une caisse en retard ce qu'IL a changé
+  /// depuis, et la fusion par champ serait impossible.
+  changedFields  String[] @map("changed_fields")
   version        Int
   /// Permet au client d'ignorer ses propres écritures au retour
   originDeviceId String?  @map("origin_device_id") @db.Uuid
