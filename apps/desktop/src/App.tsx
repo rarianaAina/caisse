@@ -4,7 +4,8 @@ import { PinScreen } from './features/auth/PinScreen';
 import { Workspace } from './features/workspace/Workspace';
 
 function Router() {
-  const { phase, error, busy, enroll, setServer, signInWithPin, recoverPin } = useSession();
+  const { phase, error, busy, enroll, setServer, createStandalone, signInWithPin, recoverPin } =
+    useSession();
 
   switch (phase.kind) {
     case 'loading':
@@ -31,6 +32,7 @@ function Router() {
           deviceId={phase.deviceId}
           serverUrl={phase.serverUrl}
           onServerChange={setServer}
+          onCreateStandalone={createStandalone}
           onEnrolled={(session, storeId, deviceName, pin) =>
             enroll(session, storeId, deviceName, pin)
           }

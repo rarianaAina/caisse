@@ -30,12 +30,20 @@ const TABS: { id: Tab; label: string; available: boolean }[] = [
 ];
 
 /**
+ * Sur une caisse autonome, l'onglet de synchronisation n'a aucun sens : il n'y
+ * a pas de serveur, donc jamais de conflit ni de file à surveiller. L'afficher
+ * ferait douter d'un réglage manquant.
+ */
+const visibleTabs = (autonome: boolean) =>
+  TABS.filter((entry) => entry.available && !(autonome && entry.id === 'sync'));
+
+/**
  * Coquille de l'application une fois la session ouverte.
  * Navigation par état plutôt que par routeur : deux écrans ne justifient pas
  * une dépendance supplémentaire (elle viendra si l'arborescence s'étoffe).
  */
 export function Workspace({ session }: { session: LocalSession }) {
-  const { signOut, db, sync } = useSession();
+  const { signOut, db, sync, standalone } = useSession();
   const [tab, setTab] = useState<Tab>('sale');
   const { user, company, store, register } = session;
 
@@ -50,7 +58,16 @@ export function Workspace({ session }: { session: LocalSession }) {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            {sync && <SyncBadge engine={sync} onOpenConflicts={() => setTab('sync')} />}
+            {!standalone && sync ? (
+              <SyncBadge engine={sync} onOpenConflicts={() => setTab('sync')} />
+            ) : standalone ? (
+              <span
+                className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500"
+                title="Aucun serveur : les données restent sur ce poste."
+              >
+                Caisse autonome
+              </span>
+            ) : null}
             <div className="text-right">
               <p className="font-medium text-slate-900">{user.fullName}</p>
               <p className="text-sm text-slate-500">{ROLE_LABELS[user.role] ?? user.role}</p>
@@ -66,7 +83,7 @@ export function Workspace({ session }: { session: LocalSession }) {
         </div>
 
         <nav className="flex gap-1 px-6">
-          {TABS.map((entry) => (
+          {visibleTabs(standalone).map((entry) => (
             <button
               key={entry.id}
               type="button"

@@ -21,6 +21,11 @@ export const META_KEYS = {
   /** Décalage entre l'horloge du poste et celle du serveur, en millisecondes. */
   clockOffsetMs: 'clock_offset_ms',
   enrolledAt: 'enrolled_at',
+  /**
+   * `standalone` : entreprise créée sur le poste, aucun serveur.
+   * `connected`  : poste rattaché à un serveur.
+   */
+  mode: 'mode',
   /** Adresse du serveur de synchronisation, saisie au rattachement du poste. */
   serverUrl: 'server_url',
   /** Réglages d'impression : propres au poste, jamais synchronisés. */

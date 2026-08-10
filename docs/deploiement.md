@@ -186,8 +186,9 @@ Et désactiver la connexion SSH par mot de passe au profit d'une clé.
 Ce déploiement suppose un serveur joignable depuis les boutiques. À Madagascar,
 ce n'est pas toujours acquis. Deux remarques :
 
-1. **Une caisse seule n'a besoin de rien de tout ceci.** Elle fonctionne
-   entièrement hors ligne ; le serveur ne devient utile qu'à partir de deux
+1. **Une caisse seule n'a besoin de rien de tout ceci.** À l'installation, le
+   choix « Caisse seule » crée l'entreprise sur le poste : ni serveur, ni
+   connexion, à aucun moment. Le serveur ne devient utile qu'à partir de deux
    caisses ou deux boutiques à faire converger.
 2. Pour plusieurs postes dans un même local sans Internet, la réponse n'est pas
    ce serveur mais **une caisse qui fait serveur pour les autres** sur le réseau

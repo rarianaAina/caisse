@@ -91,9 +91,20 @@ Deux réserves, assumées et documentées :
 
 ## Mettre le serveur en production
 
-Une caisse seule n'a besoin d'aucun serveur : elle vend, encaisse et imprime
-hors ligne. Le serveur sert à faire converger plusieurs caisses ou plusieurs
-boutiques, et à conserver les ventes ailleurs que sur le disque du comptoir.
+L'application de caisse s'installe et fonctionne hors ligne : elle vend,
+encaisse et imprime sans réseau. Le serveur sert à faire converger plusieurs
+caisses ou plusieurs boutiques, et à conserver les ventes ailleurs que sur le
+disque du comptoir.
+
+Au premier lancement, la caisse propose trois façons de démarrer :
+
+|                    |                                                                               |
+| ------------------ | ----------------------------------------------------------------------------- |
+| **Caisse seule**   | L'entreprise est créée sur le poste. Aucun serveur, aucune connexion, jamais. |
+| **Rejoindre**      | Un poste de plus dans une entreprise qui existe déjà sur un serveur.          |
+| **Créer en ligne** | Une nouvelle entreprise sur un serveur, pour plusieurs caisses ou boutiques.  |
+
+Le premier cas est le plus courant et ne demande rien d'autre que l'installeur.
 
 ```bash
 cp .env.production.example .env.production   # puis remplir les quatre secrets
@@ -136,7 +147,7 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 310 tests : devises, monnaie, panier, PIN, rôles, schéma local,
+pnpm test             # 317 tests : devises, monnaie, panier, PIN, rôles, schéma local,
                       #             catalogue, stock, ventes, ticket, ESC/POS, rapports, synchro,
                       #             recherche en volume, limitation des tentatives de connexion
 pnpm typecheck        # TypeScript strict sur les trois paquets
@@ -308,3 +319,4 @@ distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
 - [ADR 0009 — échelle des devises](docs/adr/0009-devises.md)
 - [ADR 0010 — volume et robustesse](docs/adr/0010-volume-et-robustesse.md)
 - [ADR 0011 — le serveur en production](docs/adr/0011-serveur-en-production.md)
+- [ADR 0012 — la caisse autonome](docs/adr/0012-caisse-autonome.md)

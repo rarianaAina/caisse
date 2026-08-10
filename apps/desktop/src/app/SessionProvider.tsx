@@ -22,8 +22,19 @@ interface SessionContextValue {
   db: SqlExecutor | null;
   /** Moteur de synchronisation, actif dès qu'une session est ouverte. */
   sync: SyncEngine | null;
+  /** Vrai si ce poste fonctionne sans serveur. */
+  standalone: boolean;
   /** Enregistre l'adresse du serveur pour ce poste, avant le rattachement. */
   setServer: (url: string) => Promise<string>;
+  /** Crée l'entreprise sur ce poste, sans serveur. */
+  createStandalone: (params: {
+    companyName: string;
+    currency: string;
+    storeName: string;
+    registerName: string;
+    fullName: string;
+    pin: string;
+  }) => Promise<void>;
   enroll: (
     session: SessionResponse,
     storeId: string,
@@ -55,11 +66,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [auth, setAuth] = useState<AuthService | null>(null);
   const [db, setDb] = useState<SqlExecutor | null>(null);
   const [sync, setSync] = useState<SyncEngine | null>(null);
+  const [standalone, setStandalone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const showLockScreen = useCallback(async (service: AuthService): Promise<void> => {
     const state = await service.deviceState();
+    setStandalone((await service.mode()) === 'standalone');
     if (!state.enrolled) {
       setPhase({ kind: 'enroll', deviceId: state.deviceId, serverUrl: state.serverUrl });
       return;
@@ -115,7 +128,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       busy,
       db,
       sync,
+      standalone,
       setServer: async (url) => (auth ? auth.setServer(url) : url),
+      createStandalone: async (params) => {
+        if (!auth) return;
+        setBusy(true);
+        setError(null);
+        try {
+          await auth.createStandalone(params);
+          await showLockScreen(auth);
+        } finally {
+          setBusy(false);
+        }
+      },
       enroll: async (session, storeId, deviceName, pin) => {
         if (!auth) return;
         setBusy(true);
@@ -148,7 +173,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
           // La synchronisation ne démarre qu'une fois la session ouverte, et
           // ne bloque jamais l'écran : un échec la fait simplement réessayer.
-          if (db) {
+          //
+          // En mode autonome, elle ne démarre pas du tout : il n'y a pas de
+          // serveur à joindre, et un moteur qui échoue en boucle afficherait un
+          // état d'erreur permanent sur une caisse qui va parfaitement bien.
+          const connected = (await auth.mode()) === 'connected';
+          setStandalone(!connected);
+          if (db && connected) {
             const engine = new SyncEngine(db, httpSyncTransport, {
               deviceId: session.deviceId,
               storeId: session.store.id,
@@ -172,7 +203,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         await showLockScreen(auth);
       },
     }),
-    [auth, busy, db, error, phase, showLockScreen, sync],
+    [auth, busy, db, error, phase, showLockScreen, standalone, sync],
   );
 
   return <SessionContext value={value}>{children}</SessionContext>;

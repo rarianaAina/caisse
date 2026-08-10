@@ -15,6 +15,15 @@ interface EnrollScreenProps {
   serverUrl: string;
   /** Enregistre l'adresse du serveur et renvoie sa forme normalisée. */
   onServerChange: (url: string) => Promise<string>;
+  /** Crée l'entreprise sur ce poste, sans aucun serveur. */
+  onCreateStandalone: (params: {
+    companyName: string;
+    currency: string;
+    storeName: string;
+    registerName: string;
+    fullName: string;
+    pin: string;
+  }) => Promise<void>;
   onEnrolled: (
     session: SessionResponse,
     storeId: string,
@@ -23,7 +32,12 @@ interface EnrollScreenProps {
   ) => Promise<void>;
 }
 
-type Mode = 'login' | 'register';
+/**
+ * Trois façons de démarrer, dans l'ordre du plus courant au plus rare :
+ * une caisse seule, un poste ajouté à une entreprise existante, une entreprise
+ * créée sur un serveur.
+ */
+type Mode = 'standalone' | 'login' | 'register';
 
 /**
  * Rattachement du poste à une boutique — la SEULE étape qui exige une
@@ -33,10 +47,11 @@ export function EnrollScreen({
   deviceId,
   serverUrl,
   onServerChange,
+  onCreateStandalone,
   onEnrolled,
 }: EnrollScreenProps) {
   const [server, setServer] = useState(serverUrl);
-  const [mode, setMode] = useState<Mode>('login');
+  const [mode, setMode] = useState<Mode>('standalone');
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
   const [storeId, setStoreId] = useState('');
@@ -89,16 +104,38 @@ export function EnrollScreen({
     });
   };
 
-  const confirmEnrollment = (): void => {
-    if (!session || !storeId) return;
+  /** Vrai si les deux saisies de PIN sont valides et identiques. */
+  const pinIsValid = (): boolean => {
     if (!isValidPin(pin)) {
       setError(`Le code PIN doit contenir de ${PIN_MIN_LENGTH} à ${PIN_MAX_LENGTH} chiffres`);
-      return;
+      return false;
     }
     if (pin !== pinConfirm) {
       setError('Les deux codes PIN ne correspondent pas');
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const submitStandalone = (event: React.FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    if (!pinIsValid()) return;
+    const form = new FormData(event.currentTarget);
+    void run(() =>
+      onCreateStandalone({
+        companyName: String(form.get('companyName')).trim(),
+        currency: String(form.get('currency')),
+        storeName: String(form.get('storeName')).trim() || 'Boutique principale',
+        registerName: deviceName.trim() || 'Caisse 1',
+        fullName: String(form.get('fullName')).trim(),
+        pin,
+      }),
+    );
+  };
+
+  const confirmEnrollment = (): void => {
+    if (!session || !storeId) return;
+    if (!pinIsValid()) return;
     void run(() => onEnrolled(session, storeId, deviceName.trim() || 'Caisse', pin));
   };
 
@@ -106,12 +143,50 @@ export function EnrollScreen({
     'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 outline-none focus:border-caisse-600';
   const label = 'block text-sm font-medium text-slate-700';
 
+  // Le même bloc sert aux deux parcours : c'est le PIN, et lui seul, qui ouvre
+  // la caisse au quotidien.
+  const pinBlock = (hint: string) => (
+    <div className="rounded-lg bg-caisse-50 p-4">
+      <label className={label} htmlFor="pin">
+        Votre code PIN ({PIN_MIN_LENGTH} à {PIN_MAX_LENGTH} chiffres)
+      </label>
+      <input
+        id="pin"
+        type="password"
+        inputMode="numeric"
+        value={pin}
+        onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))}
+        maxLength={PIN_MAX_LENGTH}
+        className={field}
+        autoComplete="new-password"
+      />
+      <label className={`${label} mt-3`} htmlFor="pinConfirm">
+        Confirmation
+      </label>
+      <input
+        id="pinConfirm"
+        type="password"
+        inputMode="numeric"
+        value={pinConfirm}
+        onChange={(event) => setPinConfirm(event.target.value.replace(/\D/g, ''))}
+        maxLength={PIN_MAX_LENGTH}
+        className={field}
+        autoComplete="new-password"
+      />
+      <p className="mt-2 text-xs text-slate-500">{hint}</p>
+    </div>
+  );
+
   return (
     <main className="flex min-h-full items-center justify-center bg-slate-100 p-6">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-        <h1 className="text-2xl font-semibold text-slate-900">Rattacher cette caisse</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">
+          {mode === 'standalone' ? 'Installer cette caisse' : 'Rattacher cette caisse'}
+        </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Une connexion est nécessaire une seule fois. Ensuite, la caisse fonctionne hors-ligne.
+          {mode === 'standalone'
+            ? 'Aucune connexion, aucun serveur : tout reste sur ce poste.'
+            : 'Une connexion est nécessaire une seule fois. Ensuite, la caisse fonctionne hors-ligne.'}
         </p>
 
         {error && (
@@ -122,29 +197,12 @@ export function EnrollScreen({
 
         {!session ? (
           <>
-            <div className="mt-6">
-              <label className={label} htmlFor="server">
-                Adresse du serveur
-              </label>
-              <input
-                id="server"
-                value={server}
-                onChange={(event) => setServer(event.target.value)}
-                placeholder="https://api.mondomaine.mg"
-                className={field}
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <p className="mt-1 text-xs text-slate-500">
-                Fournie par l’installateur. Elle n’est demandée qu’ici : la caisse la retient.
-              </p>
-            </div>
-
-            <div className="mt-4 flex rounded-lg bg-slate-100 p-1">
+            <div className="mt-6 grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
               {(
                 [
-                  ['login', 'J’ai un compte'],
-                  ['register', 'Créer mon entreprise'],
+                  ['standalone', 'Caisse seule'],
+                  ['login', 'Rejoindre'],
+                  ['register', 'Créer en ligne'],
                 ] as const
               ).map(([value, text]) => (
                 <button
@@ -154,7 +212,7 @@ export function EnrollScreen({
                     setMode(value);
                     setError(null);
                   }}
-                  className={`flex-1 rounded-md py-2 text-sm font-medium transition ${
+                  className={`rounded-md py-2 text-sm font-medium transition ${
                     mode === value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
                   }`}
                 >
@@ -163,77 +221,169 @@ export function EnrollScreen({
               ))}
             </div>
 
-            <form onSubmit={submitCredentials} className="mt-5 space-y-4">
-              {mode === 'register' && (
-                <>
+            {mode === 'standalone' ? (
+              <form onSubmit={submitStandalone} className="mt-5 space-y-4">
+                <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+                  Cette caisse fonctionnera seule, sans serveur ni abonnement. Un serveur pourra
+                  être ajouté plus tard si le commerce ouvre une deuxième caisse.
+                </p>
+                <div>
+                  <label className={label} htmlFor="companyName">
+                    Nom du commerce
+                  </label>
+                  <input id="companyName" name="companyName" required className={field} />
+                </div>
+                <div>
+                  <label className={label} htmlFor="storeName">
+                    Nom de la boutique
+                  </label>
+                  <input
+                    id="storeName"
+                    name="storeName"
+                    defaultValue="Boutique principale"
+                    className={field}
+                  />
+                </div>
+                <div>
+                  <label className={label} htmlFor="currency">
+                    Devise
+                  </label>
+                  <select id="currency" name="currency" defaultValue="MGA" className={field}>
+                    {SUPPORTED_CURRENCIES.map((entry) => (
+                      <option key={entry.code} value={entry.code}>
+                        {entry.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Elle détermine l’arrondi de tous les montants et ne peut plus être changée
+                    ensuite.
+                  </p>
+                </div>
+                <div>
+                  <label className={label} htmlFor="fullName">
+                    Votre nom
+                  </label>
+                  <input id="fullName" name="fullName" required className={field} />
+                </div>
+                <div>
+                  <label className={label} htmlFor="deviceNameStandalone">
+                    Nom de cette caisse
+                  </label>
+                  <input
+                    id="deviceNameStandalone"
+                    value={deviceName}
+                    onChange={(event) => setDeviceName(event.target.value)}
+                    className={field}
+                  />
+                </div>
+                {pinBlock(
+                  'C’est ce code qui ouvrira la caisse chaque jour. Il n’y a pas de mot de passe : sans serveur, il ne servirait à rien.',
+                )}
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="w-full rounded-lg bg-caisse-600 py-3 font-medium text-white transition hover:bg-caisse-700 disabled:opacity-50"
+                >
+                  {busy ? 'Création…' : 'Créer la caisse'}
+                </button>
+                <p className="text-center text-xs text-slate-400">
+                  Identifiant du poste : {deviceId}
+                </p>
+              </form>
+            ) : (
+              <>
+                <div className="mt-4">
+                  <label className={label} htmlFor="server">
+                    Adresse du serveur
+                  </label>
+                  <input
+                    id="server"
+                    value={server}
+                    onChange={(event) => setServer(event.target.value)}
+                    placeholder="https://api.mondomaine.mg"
+                    className={field}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Fournie par l’installateur. Elle n’est demandée qu’ici : la caisse la retient.
+                  </p>
+                </div>
+
+                <form onSubmit={submitCredentials} className="mt-5 space-y-4">
+                  {mode === 'register' && (
+                    <>
+                      <div>
+                        <label className={label} htmlFor="companyName">
+                          Nom de l’entreprise
+                        </label>
+                        <input id="companyName" name="companyName" required className={field} />
+                      </div>
+                      <div>
+                        <label className={label} htmlFor="storeName">
+                          Nom de la boutique
+                        </label>
+                        <input
+                          id="storeName"
+                          name="storeName"
+                          defaultValue="Boutique principale"
+                          className={field}
+                        />
+                      </div>
+                      <div>
+                        <label className={label} htmlFor="currency">
+                          Devise
+                        </label>
+                        <select id="currency" name="currency" defaultValue="MGA" className={field}>
+                          {SUPPORTED_CURRENCIES.map((entry) => (
+                            <option key={entry.code} value={entry.code}>
+                              {entry.label}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Elle détermine l’arrondi de tous les montants et ne peut plus être changée
+                          ensuite.
+                        </p>
+                      </div>
+                      <div>
+                        <label className={label} htmlFor="fullName">
+                          Votre nom
+                        </label>
+                        <input id="fullName" name="fullName" required className={field} />
+                      </div>
+                    </>
+                  )}
                   <div>
-                    <label className={label} htmlFor="companyName">
-                      Nom de l’entreprise
+                    <label className={label} htmlFor="email">
+                      Adresse e-mail
                     </label>
-                    <input id="companyName" name="companyName" required className={field} />
+                    <input id="email" name="email" type="email" required className={field} />
                   </div>
                   <div>
-                    <label className={label} htmlFor="storeName">
-                      Nom de la boutique
+                    <label className={label} htmlFor="password">
+                      Mot de passe
                     </label>
                     <input
-                      id="storeName"
-                      name="storeName"
-                      defaultValue="Boutique principale"
+                      id="password"
+                      name="password"
+                      type="password"
+                      required
+                      minLength={mode === 'register' ? 10 : 1}
                       className={field}
                     />
                   </div>
-                  <div>
-                    <label className={label} htmlFor="currency">
-                      Devise
-                    </label>
-                    <select id="currency" name="currency" defaultValue="MGA" className={field}>
-                      {SUPPORTED_CURRENCIES.map((entry) => (
-                        <option key={entry.code} value={entry.code}>
-                          {entry.label}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Elle détermine l’arrondi de tous les montants et ne peut plus être changée
-                      ensuite.
-                    </p>
-                  </div>
-                  <div>
-                    <label className={label} htmlFor="fullName">
-                      Votre nom
-                    </label>
-                    <input id="fullName" name="fullName" required className={field} />
-                  </div>
-                </>
-              )}
-              <div>
-                <label className={label} htmlFor="email">
-                  Adresse e-mail
-                </label>
-                <input id="email" name="email" type="email" required className={field} />
-              </div>
-              <div>
-                <label className={label} htmlFor="password">
-                  Mot de passe
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  minLength={mode === 'register' ? 10 : 1}
-                  className={field}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={busy}
-                className="w-full rounded-lg bg-caisse-600 py-3 font-medium text-white transition hover:bg-caisse-700 disabled:opacity-50"
-              >
-                {busy ? 'Connexion…' : 'Continuer'}
-              </button>
-            </form>
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="w-full rounded-lg bg-caisse-600 py-3 font-medium text-white transition hover:bg-caisse-700 disabled:opacity-50"
+                  >
+                    {busy ? 'Connexion…' : 'Continuer'}
+                  </button>
+                </form>
+              </>
+            )}
           </>
         ) : (
           <div className="mt-6 space-y-4">
@@ -257,38 +407,9 @@ export function EnrollScreen({
                 ))}
               </select>
             </div>
-            <div className="rounded-lg bg-caisse-50 p-4">
-              <label className={label} htmlFor="pin">
-                Votre code PIN ({PIN_MIN_LENGTH} à {PIN_MAX_LENGTH} chiffres)
-              </label>
-              <input
-                id="pin"
-                type="password"
-                inputMode="numeric"
-                value={pin}
-                onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))}
-                maxLength={PIN_MAX_LENGTH}
-                className={field}
-                autoComplete="new-password"
-              />
-              <label className={`${label} mt-3`} htmlFor="pinConfirm">
-                Confirmation
-              </label>
-              <input
-                id="pinConfirm"
-                type="password"
-                inputMode="numeric"
-                value={pinConfirm}
-                onChange={(event) => setPinConfirm(event.target.value.replace(/\D/g, ''))}
-                maxLength={PIN_MAX_LENGTH}
-                className={field}
-                autoComplete="new-password"
-              />
-              <p className="mt-2 text-xs text-slate-500">
-                C’est ce code qui ouvrira la caisse au quotidien, sans connexion. Le mot de passe ne
-                sert qu’en ligne.
-              </p>
-            </div>
+            {pinBlock(
+              'C’est ce code qui ouvrira la caisse au quotidien, sans connexion. Le mot de passe ne sert qu’en ligne.',
+            )}
 
             <div>
               <label className={label} htmlFor="deviceName">

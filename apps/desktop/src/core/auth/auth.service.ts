@@ -5,6 +5,7 @@ import {
   type Register,
   type SessionResponse,
   type Store,
+  hashPin,
   newId,
   nowIso,
   verifyPin,
@@ -111,6 +112,120 @@ export class AuthService {
   }
 
   /**
+   * Crée une entreprise SANS serveur : la caisse se suffit à elle-même.
+   *
+   * POURQUOI : jusqu'ici, le premier lancement exigeait une API joignable, ne
+   * serait-ce qu'un instant. Un commerçant qui achète une caisse unique n'a ni
+   * serveur, ni raison d'en avoir un — et à Madagascar, exiger une connexion le
+   * jour de l'installation revient parfois à ne pas pouvoir installer.
+   *
+   * La caisse écrit exactement ce que le serveur lui aurait renvoyé : mêmes
+   * tables, mêmes identifiants (UUID v7, engendrés localement), même chemin
+   * d'écriture (`ProvisionRepository`). Rien n'est « allégé » — c'est ce qui
+   * permettra d'y brancher un serveur plus tard sans réinstaller.
+   *
+   * Aucun mot de passe n'est créé : il ne servirait à rien sans serveur, et un
+   * mot de passe inutilisé est un mot de passe mal choisi. L'accès se fait par
+   * le PIN, comme sur toute caisse déjà rattachée.
+   */
+  async createStandalone(params: {
+    companyName: string;
+    currency: string;
+    storeName: string;
+    registerName: string;
+    fullName: string;
+    pin: string;
+  }): Promise<void> {
+    const { deviceId } = await this.deviceState();
+    const now = nowIso();
+    const companyId = newId();
+    const storeId = newId();
+    const registerId = newId();
+    const userId = newId();
+
+    const company: Company = {
+      id: companyId,
+      name: params.companyName,
+      currency: params.currency,
+      country: null,
+      pricesIncludeTax: true,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      version: 1,
+    };
+
+    const store: Store = {
+      id: storeId,
+      companyId,
+      name: params.storeName,
+      code: 'PRINCIPAL',
+      address: null,
+      phone: null,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      version: 1,
+    };
+
+    const register: Register = {
+      id: registerId,
+      companyId,
+      storeId,
+      name: params.registerName,
+      receiptPrefix: 'C1',
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      version: 1,
+    };
+
+    const user: LocalUser = {
+      id: userId,
+      companyId,
+      // Pas d'adresse : elle n'identifie un compte que face à un serveur.
+      email: null,
+      fullName: params.fullName,
+      role: 'owner',
+      pinHash: await hashPin(params.pin),
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      version: 1,
+    };
+
+    await this.provisioning.save({
+      device: {
+        id: deviceId,
+        companyId,
+        storeId,
+        registerId,
+        name: params.registerName,
+        platform: null,
+        appVersion: null,
+        lastSeenAt: null,
+        revokedAt: null,
+        createdAt: now,
+      },
+      company,
+      store,
+      register,
+      users: [user],
+      // Il n'y a pas d'heure « du serveur » : celle du poste fait foi, et le
+      // décalage d'horloge reste donc nul.
+      serverTime: now,
+    });
+
+    await this.meta.set(META_KEYS.mode, 'standalone');
+  }
+
+  /** `standalone` tant qu'aucun serveur n'a rattaché ce poste. */
+  async mode(): Promise<'standalone' | 'connected'> {
+    return (await this.meta.get(META_KEYS.mode)) === 'standalone' ? 'standalone' : 'connected';
+  }
+
+  /**
    * Rattache le poste à une boutique et recopie localement tout ce qui est
    * nécessaire au fonctionnement hors-ligne. C'est la SEULE étape qui exige
    * une connexion.
@@ -140,6 +255,7 @@ export class AuthService {
     await this.provisioning.save(provision);
     await this.storeTokens(params.session);
     await this.syncClock(provision.serverTime);
+    await this.meta.set(META_KEYS.mode, 'connected');
   }
 
   /**
