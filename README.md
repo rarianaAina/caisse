@@ -54,6 +54,22 @@ pnpm dev:tauri        # application de caisse (fenêtre native + SQLite)
 l'UI, mais **SQLite n'y est pas accessible** (il n'existe que dans la WebView
 Tauri).
 
+### Terminal d'un éditeur installé en snap (Linux)
+
+Un VS Code installé en snap injecte dans ses terminaux des variables pointant
+vers ses propres bibliothèques (`GTK_PATH`, `GDK_PIXBUF_MODULEDIR`, `LOCPATH`…),
+qui embarquent une **glibc plus ancienne que celle du système**. Le binaire natif
+les charge et meurt au démarrage :
+
+```
+symbol lookup error: /snap/core20/.../libpthread.so.0:
+undefined symbol: __libc_pthread_init, version GLIBC_PRIVATE
+```
+
+`pnpm tauri:dev` passe par [`scripts/tauri.mjs`](apps/desktop/scripts/tauri.mjs),
+qui retire ces variables avant de lancer la CLI. Rien à faire de particulier —
+et sous Windows ou macOS le script est transparent.
+
 ## Vérifier
 
 ```bash
