@@ -1,0 +1,9 @@
+# Fichiers générés : les reformater les fait diverger de ce que leur outil
+# réécrit, et chaque installation produirait alors un diff de plusieurs
+# milliers de lignes sans aucun changement de dépendance.
+pnpm-lock.yaml
+dist/
+**/dist/
+node_modules/
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/

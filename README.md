@@ -89,6 +89,33 @@ Deux réserves, assumées et documentées :
 - les **installeurs Windows** sont produits par l'intégration continue et
   n'ont pas encore été installés sur un poste Windows.
 
+## Mettre le serveur en production
+
+Une caisse seule n'a besoin d'aucun serveur : elle vend, encaisse et imprime
+hors ligne. Le serveur sert à faire converger plusieurs caisses ou plusieurs
+boutiques, et à conserver les ventes ailleurs que sur le disque du comptoir.
+
+```bash
+cp .env.production.example .env.production   # puis remplir les quatre secrets
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+curl https://api.mondomaine.mg/api/health
+```
+
+La pile contient PostgreSQL (sans port ouvert sur l'hôte), l'API, Caddy — qui
+obtient et renouvelle le certificat TLS tout seul — et une sauvegarde
+quotidienne. Le détail, la restauration et la surveillance :
+[docs/deploiement.md](docs/deploiement.md).
+
+L'adresse du serveur se saisit à l'écran de rattachement de la caisse et n'est
+plus figée à la compilation : la même installation sert tous les clients.
+
+**Vérifié** : image construite et exécutée, migrations appliquées, les cinq
+parcours d'API (162 vérifications) rejoués contre le conteneur, sauvegarde puis
+restauration réelles (14 entreprises → 0 → 14), configuration Caddy et compose
+validées par leurs outils. **Jamais essayé** : l'obtention réelle d'un
+certificat, qui demande un domaine public — elle aura lieu au premier
+déploiement.
+
 ## Sauvegarde de la caisse
 
 La base locale contient les ventes du jour, **y compris celles qui ne sont pas
@@ -109,7 +136,7 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 306 tests : devises, monnaie, panier, PIN, rôles, schéma local,
+pnpm test             # 310 tests : devises, monnaie, panier, PIN, rôles, schéma local,
                       #             catalogue, stock, ventes, ticket, ESC/POS, rapports, synchro,
                       #             recherche en volume, limitation des tentatives de connexion
 pnpm typecheck        # TypeScript strict sur les trois paquets
@@ -268,6 +295,7 @@ distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
 ## Documentation
 
 - [Architecture](docs/architecture.md)
+- [Mettre le serveur en production](docs/deploiement.md)
 - [Protocole de synchronisation](docs/sync-protocol.md)
 - [ADR 0001 — décisions fondatrices](docs/adr/0001-decisions-fondatrices.md)
 - [ADR 0002 — authentification et rattachement des postes](docs/adr/0002-authentification.md)
@@ -279,3 +307,4 @@ distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
 - [ADR 0008 — packaging et distribution](docs/adr/0008-packaging.md)
 - [ADR 0009 — échelle des devises](docs/adr/0009-devises.md)
 - [ADR 0010 — volume et robustesse](docs/adr/0010-volume-et-robustesse.md)
+- [ADR 0011 — le serveur en production](docs/adr/0011-serveur-en-production.md)

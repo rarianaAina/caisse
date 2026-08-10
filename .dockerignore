@@ -1,0 +1,21 @@
+# Ce qui n'a rien à faire dans le contexte de construction : la copie de
+# node_modules (plus d'un giga-octet, avec des binaires compilés pour l'hôte)
+# ralentirait chaque build et pourrait écraser les dépendances de l'image.
+node_modules
+**/node_modules
+dist
+**/dist
+*.tsbuildinfo
+
+# Le crate Tauri et ses artefacts : l'image n'embarque que l'API.
+apps/desktop/src-tauri/target
+apps/desktop/src-tauri/gen
+
+.git
+.github
+.env
+.env.production
+*.db
+*.db-shm
+*.db-wal
+docs

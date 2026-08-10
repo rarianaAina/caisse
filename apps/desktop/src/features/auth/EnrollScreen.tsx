@@ -11,6 +11,10 @@ import { ApiError, api } from '../../core/api/client';
 
 interface EnrollScreenProps {
   deviceId: string;
+  /** Adresse actuellement enregistrée pour ce poste. */
+  serverUrl: string;
+  /** Enregistre l'adresse du serveur et renvoie sa forme normalisée. */
+  onServerChange: (url: string) => Promise<string>;
   onEnrolled: (
     session: SessionResponse,
     storeId: string,
@@ -25,7 +29,13 @@ type Mode = 'login' | 'register';
  * Rattachement du poste à une boutique — la SEULE étape qui exige une
  * connexion. Une fois passée, la caisse fonctionne indéfiniment hors-ligne.
  */
-export function EnrollScreen({ deviceId, onEnrolled }: EnrollScreenProps) {
+export function EnrollScreen({
+  deviceId,
+  serverUrl,
+  onServerChange,
+  onEnrolled,
+}: EnrollScreenProps) {
+  const [server, setServer] = useState(serverUrl);
   const [mode, setMode] = useState<Mode>('login');
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
@@ -58,6 +68,10 @@ export function EnrollScreen({ deviceId, onEnrolled }: EnrollScreenProps) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     void run(async () => {
+      // L'adresse est enregistrée AVANT l'appel : c'est le serveur saisi ici
+      // qui doit recevoir la demande, pas celui compilé par défaut.
+      setServer(await onServerChange(server));
+
       const result =
         mode === 'login'
           ? await api.login(String(form.get('email')), String(form.get('password')))
@@ -108,7 +122,25 @@ export function EnrollScreen({ deviceId, onEnrolled }: EnrollScreenProps) {
 
         {!session ? (
           <>
-            <div className="mt-6 flex rounded-lg bg-slate-100 p-1">
+            <div className="mt-6">
+              <label className={label} htmlFor="server">
+                Adresse du serveur
+              </label>
+              <input
+                id="server"
+                value={server}
+                onChange={(event) => setServer(event.target.value)}
+                placeholder="https://api.mondomaine.mg"
+                className={field}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Fournie par l’installateur. Elle n’est demandée qu’ici : la caisse la retient.
+              </p>
+            </div>
+
+            <div className="mt-4 flex rounded-lg bg-slate-100 p-1">
               {(
                 [
                   ['login', 'J’ai un compte'],

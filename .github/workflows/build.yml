@@ -41,6 +41,26 @@ jobs:
       - run: pnpm -r test
       - run: pnpm exec prettier --check .
 
+  # L'image du serveur est construite à chaque poussée, sans être publiée : une
+  # erreur de Dockerfile doit se voir ici, pas le soir d'une mise en production.
+  image-serveur:
+    name: Image du serveur
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: false
+          tags: caisse-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   build:
     name: ${{ matrix.label }}
     needs: verify

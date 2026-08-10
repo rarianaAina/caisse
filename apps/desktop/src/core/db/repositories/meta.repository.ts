@@ -21,6 +21,8 @@ export const META_KEYS = {
   /** Décalage entre l'horloge du poste et celle du serveur, en millisecondes. */
   clockOffsetMs: 'clock_offset_ms',
   enrolledAt: 'enrolled_at',
+  /** Adresse du serveur de synchronisation, saisie au rattachement du poste. */
+  serverUrl: 'server_url',
   /** Réglages d'impression : propres au poste, jamais synchronisés. */
   printerSettings: 'printer_settings',
   /** Dernière sauvegarde locale réussie, pour n'en déclencher qu'une par jour. */

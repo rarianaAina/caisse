@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type ProvisionResponse, hashPin, newId, nowIso } from '@caisse/shared';
 import { AuthService, PinLockedError } from '../src/core/auth/auth.service';
 import { toNumberedPlaceholders } from '../src/core/db/client';
+import { getServerUrl, normalizeServerUrl, setServerUrl } from '../src/core/api/client';
 import { ProvisionRepository } from '../src/core/db/repositories/provision.repository';
 import { META_KEYS, MetaRepository } from '../src/core/db/repositories/meta.repository';
 import { NodeSqliteExecutor } from './helpers/sqlite-executor';
@@ -272,5 +273,35 @@ describe('horloge du poste', () => {
     await auth.syncClock(new Date(Date.now() + 1000).toISOString());
     const stored = await new MetaRepository(db).get(META_KEYS.clockOffsetMs);
     expect(stored).not.toBeNull();
+  });
+});
+
+describe('adresse du serveur', () => {
+  it('accepte une saisie sans protocole et impose HTTPS', () => {
+    // Le commerçant recopie ce qu'on lui a donné au téléphone : imposer une
+    // forme exacte ne ferait qu'échouer au moment de l'installation.
+    expect(normalizeServerUrl('api.mondomaine.mg')).toBe('https://api.mondomaine.mg');
+    expect(normalizeServerUrl('  api.mondomaine.mg/  ')).toBe('https://api.mondomaine.mg');
+  });
+
+  it('respecte http:// quand il est explicite', () => {
+    // Un serveur local sur le réseau de la boutique n'a pas de certificat.
+    expect(normalizeServerUrl('http://192.168.1.20:3000')).toBe('http://192.168.1.20:3000');
+  });
+
+  it('revient au défaut compilé si la saisie est vide', () => {
+    expect(normalizeServerUrl('   ')).toBe(normalizeServerUrl(''));
+  });
+
+  it('est conservée par le poste et restaurée au démarrage', async () => {
+    const service = new AuthService(db);
+    await service.setServer('api.client-a.mg');
+    expect(await new MetaRepository(db).get(META_KEYS.serverUrl)).toBe('https://api.client-a.mg');
+
+    // Un nouveau démarrage : la variable de module repart de la valeur compilée.
+    setServerUrl('http://localhost:3000');
+    const state = await new AuthService(db).deviceState();
+    expect(state.serverUrl).toBe('https://api.client-a.mg');
+    expect(getServerUrl()).toBe('https://api.client-a.mg');
   });
 });

@@ -35,8 +35,16 @@ status() { # status <méthode> <chemin> <corps> [jeton]
 
 field() { node -e "const d=require('/tmp/caisse-body.json');const v=$1;console.log(v===undefined?'':v)"; }
 
+# Le conteneur PostgreSQL est paramétrable : ce script sert aussi à valider
+# l'image de production, qui tourne contre une autre base que celle de
+# développement. Codé en dur, il comptait dans la mauvaise base et signalait
+# trois échecs qui n'existaient pas.
+PG="${PG_CONTAINER:-caisse-postgres}"
+PG_USER="${PG_USER:-caisse}"
+PG_DB="${PG_DB:-caisse}"
+
 changelog() { # changelog <entité> — nombre d'entrées pour l'entreprise de test
-  docker exec -i caisse-postgres psql -U caisse -d caisse -tAc \
+  docker exec -i "$PG" psql -U "$PG_USER" -d "$PG_DB" -tAc \
     "SELECT count(*) FROM change_log WHERE entity = '$1' AND company_id = '$COMPANY_ID'" 2>/dev/null | tr -d ' '
 }
 

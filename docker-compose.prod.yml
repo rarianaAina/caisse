@@ -1,0 +1,115 @@
+# ============================================================================
+# Pile de production.
+#
+#   cp .env.production.example .env.production   puis remplir les secrets
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#
+# Différences essentielles avec docker-compose.yml (développement) :
+#
+#   - PostgreSQL n'expose AUCUN port sur l'hôte. Une base de production
+#     joignable depuis Internet est trouvée par les scanners en quelques
+#     heures ; ici, seuls les conteneurs du réseau interne y accèdent.
+#   - Caddy termine le TLS et obtient le certificat tout seul.
+#   - Une sauvegarde quotidienne tourne en permanence.
+#   - Adminer n'est pas là : une console d'administration de base de données
+#     exposée en production est une porte ouverte de plus.
+# ============================================================================
+
+name: caisse
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:-caisse}
+      # Lu par le script d'initialisation ci-dessous.
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Joué UNE SEULE FOIS, à la création du volume : c'est là que le rôle
+      # applicatif reçoit un vrai mot de passe, avant que la migration qui le
+      # crée avec un mot de passe de développement ne s'exécute.
+      - ./deploy/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-caisse}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [interne]
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: caisse-api:${CAISSE_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 3000
+      # Le proxy est le seul à parler à l'API : sans cette option, toutes les
+      # tentatives de connexion sembleraient venir de la même adresse.
+      TRUST_PROXY: '1'
+      DATABASE_URL: postgresql://caisse_app:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-caisse}?schema=public
+      DIRECT_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-caisse}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-30d}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    networks: [interne, public]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [api]
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?}
+      ACME_EMAIL: ${ACME_EMAIL:?}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Les certificats survivent aux redémarrages : sans ce volume, chaque
+      # `up` en redemanderait un et Let's Encrypt finirait par refuser.
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [public]
+
+  sauvegarde:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:?}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?}
+      PGDATABASE: ${POSTGRES_DB:-caisse}
+      HEURE_SAUVEGARDE: ${HEURE_SAUVEGARDE:-02}
+      JOURS_CONSERVES: ${JOURS_CONSERVES:-14}
+    volumes:
+      - ./deploy/backup:/scripts:ro
+      - sauvegardes:/sauvegardes
+    entrypoint: ['/bin/sh', '/scripts/boucle.sh']
+    networks: [interne]
+
+volumes:
+  pgdata:
+  caddy-data:
+  caddy-config:
+  sauvegardes:
+
+networks:
+  # PostgreSQL n'est joignable que depuis ce réseau, qui n'a pas de route vers
+  # l'extérieur.
+  interne:
+    internal: true
+  public:

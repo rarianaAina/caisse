@@ -5,10 +5,12 @@ coverage/
 .turbo/
 *.tsbuildinfo
 
-# env
+# env — les fichiers d'exemple sont versionnés, les vrais jamais
 .env
 .env.local
 .env.*.local
+.env.production
+!.env.production.example
 
 # tauri / rust
 apps/desktop/src-tauri/target/

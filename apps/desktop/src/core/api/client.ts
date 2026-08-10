@@ -9,7 +9,35 @@ import type {
   SessionResponse,
 } from '@caisse/shared';
 
-const BASE_URL = (import.meta.env['VITE_API_URL'] ?? 'http://localhost:3000') + '/api';
+/**
+ * Adresse du serveur, propre au POSTE.
+ *
+ * Elle ne peut pas être figée à la compilation : chaque client a son propre
+ * serveur, et un logiciel qu'il faudrait recompiler pour chaque installation
+ * n'est pas un logiciel qu'on vend. La valeur est saisie au rattachement du
+ * poste puis conservée en base locale ; celle de l'environnement ne sert que de
+ * proposition par défaut, pratique en développement.
+ */
+const DEFAULT_SERVER_URL = String(import.meta.env['VITE_API_URL'] ?? 'http://localhost:3000');
+
+let serverUrl = DEFAULT_SERVER_URL;
+
+/** Normalise une saisie : « exemple.mg », « https://exemple.mg/ » → même adresse. */
+export function normalizeServerUrl(input: string): string {
+  const trimmed = input.trim().replace(/\/+$/, '');
+  if (trimmed === '') return DEFAULT_SERVER_URL;
+  return /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+export function setServerUrl(url: string): void {
+  serverUrl = normalizeServerUrl(url);
+}
+
+export function getServerUrl(): string {
+  return serverUrl;
+}
+
+export const DEFAULT_SERVER = DEFAULT_SERVER_URL;
 
 export class ApiError extends Error {
   constructor(
@@ -48,7 +76,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   let response: Response;
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
+    response = await fetch(`${serverUrl}/api${path}`, {
       method,
       headers: {
         'Content-Type': 'application/json',

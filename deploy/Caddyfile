@@ -1,0 +1,41 @@
+# ============================================================================
+# Terminaison TLS et proxy vers l'API.
+#
+# Caddy obtient et renouvelle le certificat Let's Encrypt tout seul, à partir
+# du seul nom de domaine. C'est la raison de ce choix plutôt que nginx : un
+# certificat expiré coupe toutes les caisses d'un coup, et le renouvellement
+# manuel s'oublie — celui-ci n'a rien à oublier.
+#
+# Prérequis : que {$API_DOMAIN} pointe (enregistrement A) vers ce serveur, et
+# que les ports 80 et 443 soient ouverts. Le port 80 sert à la validation du
+# certificat : le fermer empêche son émission.
+# ============================================================================
+{
+	email {$ACME_EMAIL}
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	# Les lots de synchronisation peuvent être volumineux après plusieurs
+	# jours hors ligne ; la limite reste alignée sur celle de l'API.
+	request_body {
+		max_size 5MB
+	}
+
+	reverse_proxy api:3000 {
+		# Sans cet en-tête, l'API voit l'adresse de Caddy et la limitation des
+		# tentatives de connexion traiterait toutes les caisses comme un seul
+		# client.
+		header_up X-Forwarded-For {remote_host}
+		health_uri /api/health/ready
+		health_interval 30s
+	}
+
+	log {
+		output file /data/acces.log {
+			roll_size 10MB
+			roll_keep 5
+		}
+	}
+}

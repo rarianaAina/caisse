@@ -13,7 +13,7 @@ import type { SqlExecutor } from '../db/client';
 import { META_KEYS, MetaRepository } from '../db/repositories/meta.repository';
 import { ProvisionRepository } from '../db/repositories/provision.repository';
 import { LocalTenantRepository } from '../db/repositories/user.repository';
-import { api } from '../api/client';
+import { api, getServerUrl, setServerUrl } from '../api/client';
 
 /** Ce que le poste sait de lui-même, lisible sans réseau. */
 export interface DeviceState {
@@ -22,6 +22,8 @@ export interface DeviceState {
   companyId: string | null;
   storeId: string | null;
   registerId: string | null;
+  /** Adresse du serveur effectivement employée par ce poste. */
+  serverUrl: string;
 }
 
 export interface LocalSession {
@@ -74,6 +76,12 @@ export class AuthService {
       deviceId = newId();
       await this.meta.set(META_KEYS.deviceId, deviceId);
     }
+
+    // L'adresse du serveur est restaurée AVANT tout appel réseau : c'est la
+    // première chose que fait l'application au démarrage, et sans elle un poste
+    // rattaché interrogerait l'adresse compilée par défaut.
+    const url = await this.meta.get(META_KEYS.serverUrl);
+    if (url) setServerUrl(url);
     const [companyId, storeId, registerId] = await Promise.all([
       this.meta.get(META_KEYS.companyId),
       this.meta.get(META_KEYS.storeId),
@@ -85,7 +93,21 @@ export class AuthService {
       companyId,
       storeId,
       registerId,
+      serverUrl: getServerUrl(),
     };
+  }
+
+  /**
+   * Enregistre l'adresse du serveur pour ce poste.
+   *
+   * Appelée avant le rattachement : sans elle, la caisse interrogerait
+   * l'adresse compilée par défaut, qui n'a de sens qu'en développement.
+   */
+  async setServer(url: string): Promise<string> {
+    setServerUrl(url);
+    const normalized = getServerUrl();
+    await this.meta.set(META_KEYS.serverUrl, normalized);
+    return normalized;
   }
 
   /**

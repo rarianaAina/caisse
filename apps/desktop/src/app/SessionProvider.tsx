@@ -10,7 +10,7 @@ type Phase =
   | { kind: 'loading' }
   /** Hors WebView Tauri : SQLite n'existe pas, l'application ne peut pas démarrer. */
   | { kind: 'no-runtime'; message: string }
-  | { kind: 'enroll'; deviceId: string }
+  | { kind: 'enroll'; deviceId: string; serverUrl: string }
   | { kind: 'locked'; users: LocalUser[]; storeName: string; registerName: string }
   | { kind: 'ready'; session: LocalSession };
 
@@ -22,6 +22,8 @@ interface SessionContextValue {
   db: SqlExecutor | null;
   /** Moteur de synchronisation, actif dès qu'une session est ouverte. */
   sync: SyncEngine | null;
+  /** Enregistre l'adresse du serveur pour ce poste, avant le rattachement. */
+  setServer: (url: string) => Promise<string>;
   enroll: (
     session: SessionResponse,
     storeId: string,
@@ -59,7 +61,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const showLockScreen = useCallback(async (service: AuthService): Promise<void> => {
     const state = await service.deviceState();
     if (!state.enrolled) {
-      setPhase({ kind: 'enroll', deviceId: state.deviceId });
+      setPhase({ kind: 'enroll', deviceId: state.deviceId, serverUrl: state.serverUrl });
       return;
     }
     const [users, context] = await Promise.all([
@@ -113,6 +115,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       busy,
       db,
       sync,
+      setServer: async (url) => (auth ? auth.setServer(url) : url),
       enroll: async (session, storeId, deviceName, pin) => {
         if (!auth) return;
         setBusy(true);
