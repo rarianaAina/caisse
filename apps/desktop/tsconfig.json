@@ -5,7 +5,8 @@
     "jsx": "react-jsx",
     "types": ["vite/client"],
     "noEmit": true,
-    "baseUrl": ".",
+    // Pas de `baseUrl` : déprécié en TS 6/7, et inutile — les `paths` sont
+    // résolus relativement à ce fichier.
     "paths": {
       "@/*": ["./src/*"]
     }
