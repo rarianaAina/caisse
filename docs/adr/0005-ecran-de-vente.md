@@ -43,14 +43,11 @@ Une vente touche cinq tables (`sale`, `sale_item`, `payment`, `stock_movement`,
 `outbox`) et ne doit jamais être partielle. L'écriture passe par
 `SqlExecutor.transaction()`.
 
-**Le point reste celui de l'ADR 0003-E** : le comportement de `BEGIN`/`COMMIT`
-avec le pool de connexions de `tauri-plugin-sql` n'a pas encore pu être
-vérifié, faute de chaîne d'outils Rust. En attendant, `checkIntegrity()`
-détecte les ventes sans ligne ou dont les paiements ne couvrent pas le total :
-mieux vaut signaler une vente douteuse que la laisser passer dans les rapports.
-
-Le remplacement par une commande Rust transactionnelle reste la cible ; il ne
-sera écrit qu'une fois compilable et testable, pas avant.
+**Ce point est désormais résolu** : l'écriture passe par la commande Rust
+`execute_batch`, qui exécute le lot sur une seule transaction sqlx (cf.
+ADR 0003-E). `checkIntegrity()` reste en place comme filet — détecter une vente
+sans ligne ou dont les paiements ne couvrent pas le total coûte peu et protège
+d'un défaut futur.
 
 ## F. Les ventes se synchronisent comme des entités immuables
 

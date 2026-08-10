@@ -48,17 +48,24 @@ insensible à la casse — donc **sensible aux accents**. C'est assumé : cette
 route sert à l'administration du catalogue, pas à l'encaissement. Si le besoin
 se confirme, l'extension PostgreSQL `unaccent` la comblera.
 
-## E. Point ouvert : les transactions locales sous Tauri
+## E. Transactions locales — résolu
 
-`SqlExecutor.transaction()` encadre les écritures par `BEGIN` / `COMMIT`. Sous
-`node:sqlite` (donc dans les tests), c'est exact. Sous `tauri-plugin-sql`, rien
-ne garantit que les deux ordres empruntent la même connexion du pool sqlx —
-**et ce point ne pourra être vérifié qu'une fois Rust installé**.
+`SqlExecutor.transaction()` encadrait les écritures par `BEGIN` / `COMMIT`.
+Exact sous `node:sqlite`, mais **le doute portait sur `tauri-plugin-sql`**.
 
-C'est exactement le cas qui a motivé la décision B③ (ADR 0001) : l'écriture
-d'une vente passera par une commande Rust transactionnelle au module 5. Si le
-premier essai réel confirme le problème, les écritures du catalogue emprunteront
-le même chemin.
+**Vérifié depuis, dans le code du plugin** : il ouvre la base avec
+`Pool::connect()`, soit dix connexions sqlx. Le risque était donc réel — les
+deux ordres pouvaient emprunter deux connexions différentes et laisser une
+vente à moitié écrite.
+
+**Corrigé** (ADR 0001-B③, appliqué) : une commande Rust `execute_batch` exécute
+tout un lot sur une seule transaction, une seule connexion, en réutilisant le
+pool du plugin. Côté TypeScript, `transaction()` accumule les écritures et les
+envoie en un appel ; une exception dans le bloc n'atteint jamais l'envoi, ce qui
+remplace le ROLLBACK.
+
+Validé par un parcours complet dans l'application : rattachement, ouverture de
+session, création de produit, encaissement.
 
 ## F. Navigation : par état, sans routeur
 

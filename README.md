@@ -76,6 +76,15 @@ n'a pas été confirmé sur un terminal snap** — le terminal système reste la
 fiable. Sous Windows et macOS, ces variables n'existent pas : le script y est
 transparent.
 
+## État
+
+Modules 1 à 5 et 7 livrés. **Parcours complet vérifié dans l'application** :
+rattachement d'un poste, ouverture de session par PIN hors-ligne, création de
+produit, encaissement, ticket.
+
+Restent l'impression ESC/POS (module 6) et le packaging Windows/Linux
+(module 8).
+
 ## Vérifier
 
 ```bash
