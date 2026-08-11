@@ -1,4 +1,5 @@
 mod commands;
+mod server;
 
 use tauri_plugin_sql::{Migration, MigrationKind};
 
@@ -36,6 +37,9 @@ fn migrations() -> Vec<Migration> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // État du serveur de salle : présent même quand il ne tourne pas, pour
+        // que l'interface puisse l'interroger sans cas particulier.
+        .manage(server::WaiterServer::default())
         // Mise à jour : le plugin ne fait qu'exposer la vérification et
         // l'installation au front. RIEN n'est téléchargé ni installé sans une
         // action explicite de l'utilisateur — une caisse ne doit pas se mettre
@@ -58,7 +62,10 @@ pub fn run() {
             commands::printing::probe_printer,
             commands::printing::list_printers,
             commands::backup::backup_database,
-            commands::backup::list_backups
+            commands::backup::list_backups,
+            commands::waiter::start_waiter_server,
+            commands::waiter::stop_waiter_server,
+            commands::waiter::waiter_server_status
         ])
         .run(tauri::generate_context!())
         .expect("erreur au démarrage de l'application Tauri");

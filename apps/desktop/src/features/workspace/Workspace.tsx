@@ -9,6 +9,7 @@ import { ReportsScreen } from '../reports/ReportsScreen';
 import { SaleScreen } from '../sale/SaleScreen';
 import { PrinterSettingsScreen } from '../settings/PrinterSettingsScreen';
 import { RoomScreen } from '../restaurant/RoomScreen';
+import { useKitchenTickets } from '../restaurant/useKitchenTickets';
 import { StockScreen } from '../stock/StockScreen';
 import { ConflictsScreen } from '../sync/ConflictsScreen';
 import { StaleBanner, SyncBadge } from '../sync/SyncBadge';
@@ -60,6 +61,11 @@ export function Workspace({ session }: { session: LocalSession }) {
   // Le type de commerce décide de l'onglet « Salle ». Lu au montage : il ne
   // change qu'aux réglages, et un changement suppose de toute façon de revenir
   // sur cet écran.
+  // Bons demandés depuis les téléphones des serveurs : l'écoute vit ici, pas
+  // dans l'écran de salle, car un serveur envoie une commande pendant que le
+  // patron regarde ses rapports.
+  useKitchenTickets(session, db);
+
   useEffect(() => {
     if (!db) return;
     void new MetaRepository(db)

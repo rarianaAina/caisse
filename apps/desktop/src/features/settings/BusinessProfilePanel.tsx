@@ -8,6 +8,7 @@ import {
   type PrinterTarget,
   describeTarget,
 } from '../../core/printing/printer';
+import { WaiterServerPanel } from './WaiterServerPanel';
 
 /**
  * Type de commerce, et ce qui en découle.
@@ -130,6 +131,12 @@ export function BusinessProfilePanel({ db }: { db: SqlExecutor }) {
       )}
 
       {message && <p className="mt-3 text-sm text-emerald-700">{message}</p>}
+
+      {profile === 'restaurant' && (
+        <div className="mt-5">
+          <WaiterServerPanel />
+        </div>
+      )}
     </section>
   );
 }

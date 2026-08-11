@@ -28,6 +28,18 @@ sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runti
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 
+# Serveur local pour les téléphones des serveurs de salle (module 15).
+axum = "0.8.4"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "net"] }
+# Vérification du PIN côté serveur, au MÊME format que celui produit par la
+# WebView : `pbkdf2-sha256$<itérations>$<sel>$<empreinte>`. Sans cela, un
+# serveur de salle devrait avoir un mot de passe distinct de celui de la caisse.
+pbkdf2 = { version = "0.12.2", default-features = false, features = ["hmac"] }
+hmac = { version = "0.12.1", default-features = false }
+sha2 = { version = "0.10.9", default-features = false }
+base64 = { version = "0.23.1", default-features = false, features = ["std"] }
+rand = { version = "0.9.5", default-features = false, features = ["thread_rng"] }
+
 # Uniquement sur Windows : accès au spouleur pour l'impression brute.
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [
@@ -42,3 +54,9 @@ lto = true
 opt-level = "s"
 panic = "abort"
 strip = true
+
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
+tempfile = "3.27.0"
+tokio = { version = "1.53.1", features = ["macros", "rt", "rt-multi-thread"] }
+tower = { version = "0.5.3", features = ["util"] }

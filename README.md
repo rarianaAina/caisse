@@ -147,7 +147,7 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 339 tests : devises, monnaie, panier, PIN, rôles, schéma local,
+pnpm test             # 339 tests TypeScript + 14 tests Rust : devises, monnaie, panier, PIN, rôles, schéma local,
                       #             catalogue, stock, ventes, ticket, ESC/POS, rapports, synchro,
                       #             recherche en volume, limitation des tentatives de connexion
 pnpm typecheck        # TypeScript strict sur les trois paquets
@@ -308,6 +308,7 @@ distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
 - [Architecture](docs/architecture.md)
 - [Mettre le serveur en production](docs/deploiement.md)
 - [Mettre à jour les caisses installées](docs/mises-a-jour.md)
+- [Installer un restaurant](docs/restaurant.md)
 - [Protocole de synchronisation](docs/sync-protocol.md)
 - [ADR 0001 — décisions fondatrices](docs/adr/0001-decisions-fondatrices.md)
 - [ADR 0002 — authentification et rattachement des postes](docs/adr/0002-authentification.md)
@@ -322,3 +323,4 @@ distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
 - [ADR 0011 — le serveur en production](docs/adr/0011-serveur-en-production.md)
 - [ADR 0012 — la caisse autonome](docs/adr/0012-caisse-autonome.md)
 - [ADR 0013 — le service en salle](docs/adr/0013-restaurant.md)
+- [ADR 0014 — le serveur de salle](docs/adr/0014-serveur-de-salle.md)

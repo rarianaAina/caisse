@@ -41,6 +41,30 @@ jobs:
       - run: pnpm -r test
       - run: pnpm exec prettier --check .
 
+  # Le code Rust porte l'authentification du serveur de salle et la
+  # vérification du PIN : ses tests doivent tourner à chaque poussée, pas
+  # seulement sur le poste de développement.
+  rust:
+    name: Tests Rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dépendances système de Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libglib2.0-dev libgtk-3-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - run: cargo test --lib
+        working-directory: apps/desktop/src-tauri
+
   # L'image du serveur est construite à chaque poussée, sans être publiée : une
   # erreur de Dockerfile doit se voir ici, pas le soir d'une mise en production.
   image-serveur:

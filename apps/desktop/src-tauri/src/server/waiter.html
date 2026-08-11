@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Salle</title>
+    <!--
+      Page servie par la caisse aux téléphones des serveurs.
+
+      Tout est dans ce fichier : aucun réseau extérieur n'est disponible dans un
+      restaurant sans Internet, donc aucune police, aucun script, aucune image
+      distante. C'est aussi ce qui permet à n'importe quel téléphone de
+      l'ouvrir sans rien installer.
+
+      Les cibles tactiles sont grandes (44 px au moins) : elle est utilisée
+      debout, d'une main, parfois avec des doigts mouillés.
+    -->
+    <style>
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      body {
+        margin: 0;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: #f1f5f9;
+        color: #0f172a;
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      header {
+        position: sticky;
+        top: 0;
+        background: #0f172a;
+        color: #fff;
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      header b {
+        font-size: 17px;
+      }
+      main {
+        padding: 12px;
+      }
+      button {
+        font: inherit;
+        border: none;
+        border-radius: 12px;
+        padding: 14px;
+        min-height: 48px;
+        background: #fff;
+        color: #0f172a;
+        text-align: left;
+        width: 100%;
+      }
+      button:active {
+        opacity: 0.7;
+      }
+      .primary {
+        background: #2563eb;
+        color: #fff;
+        font-weight: 600;
+        text-align: center;
+      }
+      .ghost {
+        background: transparent;
+        color: #fff;
+        width: auto;
+        padding: 8px 12px;
+        min-height: 0;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 10px;
+      }
+      .card {
+        border: 1px solid #e2e8f0;
+      }
+      .busy {
+        border-color: #93c5fd;
+        background: #eff6ff;
+      }
+      .muted {
+        color: #64748b;
+        font-size: 13px;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        background: #fff;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 8px;
+      }
+      input,
+      select {
+        font: inherit;
+        width: 100%;
+        padding: 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        background: #fff;
+      }
+      .pin {
+        font-size: 28px;
+        text-align: center;
+        letter-spacing: 8px;
+      }
+      .keypad {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .keypad button {
+        text-align: center;
+        font-size: 22px;
+        font-weight: 600;
+        min-height: 60px;
+      }
+      .bar {
+        position: sticky;
+        bottom: 0;
+        background: #f1f5f9;
+        padding: 10px 0;
+        display: grid;
+        gap: 8px;
+      }
+      .error {
+        background: #fee2e2;
+        color: #991b1b;
+        padding: 12px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+      }
+      .tag {
+        background: #fef3c7;
+        color: #92400e;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 12px;
+      }
+      .sent {
+        color: #059669;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <b id="titre">Salle</b>
+      <button id="retour" class="ghost" hidden>Retour</button>
+    </header>
+    <main id="ecran"></main>
+
+    <script>
+      const etat = { token: null, nom: null, tableId: null, orderId: null, course: 2, pin: '' };
+      const ecran = document.getElementById('ecran');
+      const titre = document.getElementById('titre');
+      const retour = document.getElementById('retour');
+
+      const argent = (cents) => new Intl.NumberFormat('fr-FR').format(cents);
+
+      async function api(chemin, options = {}) {
+        const reponse = await fetch(chemin, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(etat.token ? { Authorization: 'Bearer ' + etat.token } : {}),
+          },
+        });
+        if (reponse.status === 401) {
+          // Session expirée : on repart de l'écran de connexion plutôt que
+          // d'afficher une erreur incompréhensible en plein service.
+          etat.token = null;
+          connexion();
+          throw new Error('Session expirée');
+        }
+        if (!reponse.ok) throw new Error(await reponse.text());
+        return reponse.json();
+      }
+
+      function erreur(message) {
+        const bloc = document.createElement('div');
+        bloc.className = 'error';
+        bloc.textContent = message;
+        ecran.prepend(bloc);
+        setTimeout(() => bloc.remove(), 4000);
+      }
+
+      /* ─── Connexion ─────────────────────────────────────────────────── */
+
+      async function connexion() {
+        retour.hidden = true;
+        titre.textContent = 'Connexion';
+        const staff = await (await fetch('/api/staff')).json();
+
+        ecran.innerHTML = '<p class="muted">Qui prend le service ?</p><div id="liste"></div>';
+        const liste = document.getElementById('liste');
+        for (const membre of staff) {
+          const bouton = document.createElement('button');
+          bouton.className = 'card';
+          bouton.style.marginBottom = '8px';
+          bouton.textContent = membre.name;
+          bouton.onclick = () => saisiePin(membre);
+          liste.append(bouton);
+        }
+        if (staff.length === 0) {
+          ecran.innerHTML = '<p class="muted">Aucun compte avec code PIN sur cette caisse.</p>';
+        }
+      }
+
+      function saisiePin(membre) {
+        etat.pin = '';
+        titre.textContent = membre.name;
+        ecran.innerHTML = `
+          <input class="pin" id="pin" type="password" inputmode="none" readonly value="" />
+          <div class="keypad" id="clavier"></div>`;
+        const clavier = document.getElementById('clavier');
+        const champ = document.getElementById('pin');
+
+        const dessine = () => {
+          champ.value = '•'.repeat(etat.pin.length);
+        };
+
+        for (const touche of ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'OK']) {
+          const bouton = document.createElement('button');
+          bouton.textContent = touche;
+          if (touche === 'OK') bouton.className = 'primary';
+          bouton.onclick = async () => {
+            if (touche === 'C') etat.pin = etat.pin.slice(0, -1);
+            else if (touche === 'OK') {
+              try {
+                const session = await api('/api/session', {
+                  method: 'POST',
+                  body: JSON.stringify({ user_id: membre.id, pin: etat.pin }),
+                });
+                etat.token = session.token;
+                etat.nom = session.name;
+                salle();
+              } catch (cause) {
+                etat.pin = '';
+                dessine();
+                erreur(String(cause.message || cause));
+              }
+              return;
+            } else if (etat.pin.length < 8) etat.pin += touche;
+            dessine();
+          };
+          clavier.append(bouton);
+        }
+      }
+
+      /* ─── Salle ─────────────────────────────────────────────────────── */
+
+      async function salle() {
+        retour.hidden = true;
+        titre.textContent = 'Salle · ' + etat.nom;
+        const tables = await api('/api/tables');
+
+        ecran.innerHTML = '<div class="grid" id="tables"></div>';
+        const grille = document.getElementById('tables');
+
+        for (const table of tables) {
+          const bouton = document.createElement('button');
+          bouton.className = 'card' + (table.orderId ? ' busy' : '');
+          bouton.innerHTML =
+            '<b>' +
+            table.name +
+            '</b><br>' +
+            (table.orderId
+              ? '<span class="muted">' +
+                argent(table.dueCents) +
+                '</span>' +
+                (table.pending ? ' <span class="tag">' + table.pending + ' à envoyer</span>' : '')
+              : '<span class="muted">Libre · ' + table.seats + ' couverts</span>');
+          bouton.onclick = () => ouvrir(table);
+          grille.append(bouton);
+        }
+      }
+
+      async function ouvrir(table) {
+        const reponse = table.orderId
+          ? { orderId: table.orderId }
+          : await api('/api/orders', {
+              method: 'POST',
+              body: JSON.stringify({ table_id: table.id }),
+            });
+        etat.orderId = reponse.orderId;
+        etat.tableId = table.id;
+        commande(table.name);
+      }
+
+      /* ─── Commande ──────────────────────────────────────────────────── */
+
+      async function commande(nomTable) {
+        titre.textContent = nomTable;
+        retour.hidden = false;
+        retour.onclick = salle;
+
+        const [articles, produits] = await Promise.all([
+          api('/api/orders/' + etat.orderId + '/items'),
+          api('/api/products'),
+        ]);
+
+        const enAttente = articles.filter((a) => !a.sent).length;
+
+        ecran.innerHTML = `
+          <input id="recherche" placeholder="Chercher un plat…" />
+          <select id="course" style="margin-top:8px">
+            <option value="1">Entrée</option>
+            <option value="2" selected>Plat</option>
+            <option value="3">Dessert</option>
+          </select>
+          <div class="grid" id="produits" style="margin-top:10px"></div>
+          <h3>Commande</h3>
+          <div id="articles"></div>
+          <div class="bar">
+            <button class="primary" id="envoyer" ${enAttente ? '' : 'disabled'}>
+              Envoyer en cuisine (${enAttente})
+            </button>
+          </div>`;
+
+        document.getElementById('course').value = String(etat.course);
+        document.getElementById('course').onchange = (event) => {
+          etat.course = Number(event.target.value);
+        };
+
+        const dessineProduits = (liste) => {
+          const zone = document.getElementById('produits');
+          zone.innerHTML = '';
+          for (const produit of liste) {
+            const bouton = document.createElement('button');
+            bouton.className = 'card';
+            bouton.innerHTML =
+              produit.name + '<br><span class="muted">' + argent(produit.priceCents) + '</span>';
+            bouton.onclick = async () => {
+              try {
+                await api('/api/orders/' + etat.orderId + '/items', {
+                  method: 'POST',
+                  body: JSON.stringify({ product_id: produit.id, course: etat.course }),
+                });
+                commande(nomTable);
+              } catch (cause) {
+                erreur(String(cause.message || cause));
+              }
+            };
+            zone.append(bouton);
+          }
+        };
+        dessineProduits(produits);
+
+        let minuteur;
+        document.getElementById('recherche').oninput = (event) => {
+          clearTimeout(minuteur);
+          const terme = event.target.value;
+          minuteur = setTimeout(async () => {
+            dessineProduits(await api('/api/products?q=' + encodeURIComponent(terme)));
+          }, 200);
+        };
+
+        const zone = document.getElementById('articles');
+        for (const article of articles) {
+          const ligne = document.createElement('div');
+          ligne.className = 'row';
+          ligne.innerHTML =
+            '<div><b>' +
+            article.qtyMilli / 1000 +
+            ' × ' +
+            article.name +
+            '</b>' +
+            (article.sent
+              ? '<div class="sent">envoyé</div>'
+              : '<div class="muted">à envoyer</div>') +
+            '</div>';
+          const supprimer = document.createElement('button');
+          supprimer.textContent = '✕';
+          supprimer.style.width = 'auto';
+          supprimer.onclick = async () => {
+            // Un plat déjà parti en cuisine a été cuisiné : son retrait doit
+            // s'expliquer, exactement comme sur la caisse.
+            const motif = article.sent ? prompt('Motif de l’annulation ?') : '';
+            if (article.sent && !motif) return;
+            try {
+              await api('/api/orders/' + etat.orderId + '/items/' + article.id, {
+                method: 'DELETE',
+                body: JSON.stringify({ reason: motif }),
+              });
+              commande(nomTable);
+            } catch (cause) {
+              erreur(String(cause.message || cause));
+            }
+          };
+          ligne.append(supprimer);
+          zone.append(ligne);
+        }
+        if (articles.length === 0) {
+          zone.innerHTML = '<p class="muted">Rien pour l’instant.</p>';
+        }
+
+        document.getElementById('envoyer').onclick = async () => {
+          try {
+            await api('/api/orders/' + etat.orderId + '/send', {
+              method: 'POST',
+              body: JSON.stringify({}),
+            });
+            commande(nomTable);
+          } catch (cause) {
+            erreur(String(cause.message || cause));
+          }
+        };
+      }
+
+      connexion();
+    </script>
+  </body>
+</html>

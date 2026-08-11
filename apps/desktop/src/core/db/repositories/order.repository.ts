@@ -420,6 +420,24 @@ export class OrderRepository {
     return items.map((item) => ({ ...item, sentAt: now }));
   }
 
+  /**
+   * Lignes parties en cuisine à un instant précis.
+   *
+   * Sert à imprimer le bon d'un envoi déclenché depuis le téléphone d'un
+   * serveur : le serveur HTTP marque les lignes et prévient la caisse, qui
+   * imprime. La mise en page du bon vit en TypeScript et n'est écrite qu'une
+   * fois — deux versions du même document finiraient par diverger.
+   */
+  async itemsSentAt(orderId: string, sentAt: string): Promise<ServiceOrderItem[]> {
+    const rows = await this.db.select<Record<string, unknown>>(
+      `SELECT * FROM service_order_item
+        WHERE order_id = ? AND sent_at = ? AND voided_at IS NULL
+        ORDER BY position`,
+      [orderId, sentAt],
+    );
+    return rows.map(mapItem);
+  }
+
   /** Déplace une commande vers une autre table (clients qui changent de place). */
   async moveToTable(orderId: string, tableId: string | null): Promise<void> {
     if (tableId) {

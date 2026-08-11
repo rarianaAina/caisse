@@ -6,3 +6,4 @@ pub mod printing;
 // compilé, ce qui évite d'avoir à simuler une API absente.
 #[cfg(windows)]
 pub mod printing_windows;
+pub mod waiter;
