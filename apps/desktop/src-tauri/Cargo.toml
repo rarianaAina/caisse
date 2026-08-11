@@ -45,6 +45,12 @@ rand = { version = "0.9.5", default-features = false, features = ["thread_rng"] 
 windows = { version = "0.58", features = [
   "Win32_Foundation",
   "Win32_Graphics_Printing",
+  # `OpenPrinterW` est la SEULE fonction du spouleur conditionnée par cette
+  # fonctionnalité (vérifié dans le source du crate : `#[cfg(feature =
+  # "Win32_Graphics_Gdi")]` juste au-dessus de sa déclaration). Sans elle, la
+  # compilation Windows échoue sur ce seul symbole — et Windows est le seul
+  # endroit où ce module est compilé.
+  "Win32_Graphics_Gdi",
 ] }
 
 [profile.release]
