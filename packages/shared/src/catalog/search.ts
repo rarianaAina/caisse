@@ -50,8 +50,11 @@ export function buildSearchKey(product: {
   name: string;
   sku?: string | null;
   barcode?: string | null;
+  variantLabel?: string | null;
 }): string {
-  return [product.name, product.sku ?? '', product.barcode ?? '']
+  // La déclinaison entre dans la clé : sans elle, « vis 4x40 » ne trouverait
+  // rien alors que l'étiquette du rayon porte exactement ce texte.
+  return [product.name, product.sku ?? '', product.barcode ?? '', product.variantLabel ?? '']
     .filter((part) => part !== '')
     .map((part) => normalizeSearch(part))
     .join(' ');

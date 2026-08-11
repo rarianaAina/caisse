@@ -21,6 +21,8 @@ export interface ProductFormValues {
   taxRateBp: number;
   trackStock: boolean;
   isActive: boolean;
+  /** « 4×40 », « Rouge » : ce qui distingue cet article des autres du même type. */
+  variantLabel: string | null;
   initialQtyMilli?: number;
 }
 
@@ -72,6 +74,7 @@ export function ProductForm({
   const [taxRateBp, setTaxRateBp] = useState(product?.taxRateBp ?? 0);
   const [trackStock, setTrackStock] = useState(product?.trackStock ?? true);
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
+  const [variantLabel, setVariantLabel] = useState(product?.variantLabel ?? '');
   const [initialQty, setInitialQty] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -103,6 +106,7 @@ export function ProductForm({
         taxRateBp,
         trackStock,
         isActive,
+        variantLabel: variantLabel.trim() || null,
         ...(initialQtyMilli !== null && initialQtyMilli !== 0
           ? { initialQtyMilli: initialQtyMilli }
           : {}),
@@ -213,6 +217,24 @@ export function ProductForm({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className={label} htmlFor="variantLabel">
+              Déclinaison
+            </label>
+            <input
+              id="variantLabel"
+              value={variantLabel}
+              onChange={(event) => setVariantLabel(event.target.value)}
+              placeholder="4×40, Rouge, 25 kg…"
+              className={field}
+            />
+            {/* La déclinaison entre dans la recherche : l'étiquette du rayon
+                porte souvent « Vis 4x40 », et c'est ce qu'on tape. */}
+            <p className="mt-1 text-xs text-slate-500">
+              Ce qui distingue cet article des autres du même type. Facultatif.
+            </p>
           </div>
 
           <div>

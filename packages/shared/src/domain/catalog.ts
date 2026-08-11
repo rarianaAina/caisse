@@ -27,4 +27,17 @@ export interface Product extends SyncMeta {
   trackStock: boolean; // false = service, pas de décrément de stock
   isActive: boolean;
   imagePath: string | null;
+  /**
+   * Déclinaison : « Vis 4×40 » rattachée à « Vis à bois ».
+   *
+   * Une déclinaison reste un produit à part entière — son code-barres, son
+   * prix, son stock. Seul ce lien les regroupe à l'écran. Un vrai modèle de
+   * variantes (attributs, matrice) obligerait à toucher au panier, au stock et
+   * à la synchronisation pour un résultat identique en caisse, où l'on vend
+   * toujours une référence précise.
+   */
+  parentId: EntityId | null;
+  /** « 4×40 », « Rouge » : ce qui distingue cette déclinaison des autres. */
+  variantLabel: string | null;
+  supplierId: EntityId | null;
 }

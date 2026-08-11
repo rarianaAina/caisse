@@ -8,6 +8,7 @@ import { HistoryScreen } from '../history/HistoryScreen';
 import { ReportsScreen } from '../reports/ReportsScreen';
 import { SaleScreen } from '../sale/SaleScreen';
 import { PrinterSettingsScreen } from '../settings/PrinterSettingsScreen';
+import { PurchasingScreen } from '../purchasing/PurchasingScreen';
 import { RoomScreen } from '../restaurant/RoomScreen';
 import { useKitchenTickets } from '../restaurant/useKitchenTickets';
 import { StockScreen } from '../stock/StockScreen';
@@ -20,13 +21,23 @@ const ROLE_LABELS: Record<string, string> = {
   cashier: 'Caissier',
 };
 
-type Tab = 'sale' | 'room' | 'catalog' | 'stock' | 'history' | 'reports' | 'sync' | 'settings';
+type Tab =
+  | 'sale'
+  | 'room'
+  | 'catalog'
+  | 'stock'
+  | 'purchasing'
+  | 'history'
+  | 'reports'
+  | 'sync'
+  | 'settings';
 
 const TABS: { id: Tab; label: string; available: boolean }[] = [
   { id: 'sale', label: 'Vente', available: true },
   { id: 'room', label: 'Salle', available: true },
   { id: 'catalog', label: 'Catalogue', available: true },
   { id: 'stock', label: 'Stock', available: true },
+  { id: 'purchasing', label: 'Achats', available: true },
   { id: 'history', label: 'Historique', available: true },
   { id: 'reports', label: 'Rapports', available: true },
   { id: 'sync', label: 'Synchronisation', available: true },
@@ -136,6 +147,12 @@ export function Workspace({ session }: { session: LocalSession }) {
       >
         {!db ? (
           <p className="text-slate-500">Base locale indisponible.</p>
+        ) : tab === 'purchasing' ? (
+          can(user.role, 'adjustStock') ? (
+            <PurchasingScreen session={session} db={db} />
+          ) : (
+            <p className="text-slate-500">Accès refusé.</p>
+          )
         ) : tab === 'room' ? (
           <RoomScreen session={session} db={db} />
         ) : tab === 'sale' ? (

@@ -45,6 +45,10 @@ export const createProductSchema = z.object({
   taxRateBp: z.number().int().min(0).max(100_000).default(0),
   trackStock: z.boolean().default(true),
   isActive: z.boolean().default(true),
+  /** Produit dont celui-ci est une déclinaison. */
+  parentId: uuidSchema.nullable().optional(),
+  variantLabel: z.string().trim().max(60).nullable().optional(),
+  supplierId: uuidSchema.nullable().optional(),
   /** Stock de départ, converti en mouvement « initial » à la création. */
   initialQtyMilli: qtyMilliSchema.optional(),
   /** Boutique concernée par `initialQtyMilli` (implicite sur une caisse). */

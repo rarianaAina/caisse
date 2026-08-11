@@ -116,6 +116,9 @@ const TABLES: Partial<Record<SyncEntity, TableSpec>> = {
       col('trackStock', 'track_stock', 'bool'),
       col('isActive', 'is_active', 'bool'),
       col('imagePath', 'image_path'),
+      col('parentId', 'parent_id'),
+      col('variantLabel', 'variant_label'),
+      col('supplierId', 'supplier_id'),
       ...SYNC_META,
     ],
   },
@@ -190,6 +193,8 @@ export class ChangeApplier {
         name: String(payload['name'] ?? ''),
         sku: payload['sku'] === null ? null : String(payload['sku'] ?? ''),
         barcode: payload['barcode'] === null ? null : String(payload['barcode'] ?? ''),
+        variantLabel:
+          payload['variantLabel'] === null ? null : String(payload['variantLabel'] ?? ''),
       }),
       String(payload['id'] ?? ''),
     ]);

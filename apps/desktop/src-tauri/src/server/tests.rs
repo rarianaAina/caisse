@@ -47,6 +47,7 @@ async fn setup() -> (Arc<ServerState<tauri::test::MockRuntime>>, String, String)
         include_str!("../../migrations/0001_init.sql"),
         include_str!("../../migrations/0002_search_index.sql"),
         include_str!("../../migrations/0003_restaurant.sql"),
+        include_str!("../../migrations/0004_quincaillerie.sql"),
     ] {
         sqlx::raw_sql(migration)
             .execute(&pool)

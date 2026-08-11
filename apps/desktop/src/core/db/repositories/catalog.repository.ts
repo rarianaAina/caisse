@@ -44,6 +44,9 @@ interface ProductRow {
   track_stock: number;
   is_active: number;
   image_path: string | null;
+  parent_id: string | null;
+  variant_label: string | null;
+  supplier_id: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -78,6 +81,9 @@ const toProduct = (row: ProductRow): Product => ({
   trackStock: row.track_stock === 1,
   isActive: row.is_active === 1,
   imagePath: row.image_path,
+  parentId: row.parent_id,
+  variantLabel: row.variant_label,
+  supplierId: row.supplier_id,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
   deletedAt: row.deleted_at,
@@ -102,7 +108,12 @@ export async function rebuildSearchIndex(db: SqlExecutor): Promise<number> {
   const rows = await db.select<ProductRow>('SELECT * FROM product WHERE search_key IS NULL');
   for (const row of rows) {
     await db.execute('UPDATE product SET search_key = ? WHERE id = ?', [
-      buildSearchKey({ name: row.name, sku: row.sku, barcode: row.barcode }),
+      buildSearchKey({
+        name: row.name,
+        sku: row.sku,
+        barcode: row.barcode,
+        variantLabel: row.variant_label,
+      }),
       row.id,
     ]);
   }
@@ -370,6 +381,9 @@ export class CatalogRepository {
       trackStock: input.trackStock,
       isActive: input.isActive,
       imagePath: null,
+      parentId: input.parentId ?? null,
+      variantLabel: input.variantLabel ?? null,
+      supplierId: input.supplierId ?? null,
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -380,8 +394,9 @@ export class CatalogRepository {
       await this.db.execute(
         `INSERT INTO product (id, company_id, category_id, sku, barcode, name, description,
                               unit, price_cents, cost_cents, tax_rate_bp, track_stock,
-                              is_active, created_at, updated_at, version, search_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+                              is_active, parent_id, variant_label, supplier_id,
+                              created_at, updated_at, version, search_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
         [
           id,
           product.companyId,
@@ -396,6 +411,9 @@ export class CatalogRepository {
           product.taxRateBp,
           bool(product.trackStock),
           bool(product.isActive),
+          product.parentId,
+          product.variantLabel,
+          product.supplierId,
           now,
           now,
           buildSearchKey(product),
@@ -436,6 +454,9 @@ export class CatalogRepository {
       taxRateBp: input.taxRateBp ?? existing.taxRateBp,
       trackStock: input.trackStock ?? existing.trackStock,
       isActive: input.isActive ?? existing.isActive,
+      parentId: input.parentId !== undefined ? input.parentId : existing.parentId,
+      variantLabel: input.variantLabel !== undefined ? input.variantLabel : existing.variantLabel,
+      supplierId: input.supplierId !== undefined ? input.supplierId : existing.supplierId,
       updatedAt: now,
       version: existing.version + 1,
     };
@@ -453,6 +474,9 @@ export class CatalogRepository {
       'taxRateBp',
       'trackStock',
       'isActive',
+      'parentId',
+      'variantLabel',
+      'supplierId',
     ] as const) {
       if (input[key] !== undefined) patch[key] = merged[key];
     }
@@ -461,7 +485,8 @@ export class CatalogRepository {
       await this.db.execute(
         `UPDATE product SET category_id = ?, sku = ?, barcode = ?, name = ?, description = ?,
                             unit = ?, price_cents = ?, cost_cents = ?, tax_rate_bp = ?,
-                            track_stock = ?, is_active = ?, updated_at = ?, version = version + 1,
+                            track_stock = ?, is_active = ?, parent_id = ?, variant_label = ?,
+                            supplier_id = ?, updated_at = ?, version = version + 1,
                             search_key = ?
          WHERE id = ?`,
         [
@@ -476,6 +501,9 @@ export class CatalogRepository {
           merged.taxRateBp,
           bool(merged.trackStock),
           bool(merged.isActive),
+          merged.parentId,
+          merged.variantLabel,
+          merged.supplierId,
           now,
           buildSearchKey(merged),
           id,
