@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { type SyncSnapshot, type SyncEngine, isStale } from '../../core/sync/engine';
+import { getServerUrl } from '../../core/api/client';
 
 /**
  * État de la synchronisation, toujours visible.
@@ -47,7 +48,7 @@ export function SyncBadge({
     <button
       type="button"
       onClick={() => void runNow()}
-      title="Synchroniser maintenant"
+      title={`Synchroniser maintenant — serveur : ${getServerUrl()}`}
       className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${className}`}
     >
       {label}
@@ -66,7 +67,15 @@ function describe(
   if (snapshot.state === 'offline') {
     return {
       className: stale ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-600',
-      label: snapshot.pending > 0 ? `Hors-ligne · ${snapshot.pending} en attente` : 'Hors-ligne',
+      // « Hors-ligne » était trompeur : un commerçant comprend « pas
+      // d'Internet » et va vérifier son Wi-Fi, alors que l'état signifie
+      // exactement « le SERVEUR n'a pas répondu ». Les deux n'ont rien à voir :
+      // une caisse parfaitement connectée à Internet affiche cet état si son
+      // serveur est éteint.
+      label:
+        snapshot.pending > 0
+          ? `Serveur injoignable · ${snapshot.pending} en attente`
+          : 'Serveur injoignable',
     };
   }
   if (snapshot.state === 'error') {
@@ -88,8 +97,11 @@ export function StaleBanner({ engine }: { engine: SyncEngine }) {
   return (
     <div className="border-b border-amber-200 bg-amber-50 px-6 py-2.5 text-sm text-amber-900">
       Cette caisse n’a rien transmis depuis plus de 24 h — {snapshot.pending} modification
-      {snapshot.pending > 1 ? 's' : ''} en attente. La vente reste possible ; rétablissez la
-      connexion dès que vous le pouvez.
+      {snapshot.pending > 1 ? 's' : ''} en attente. <b>La vente reste possible.</b> Le serveur{' '}
+      {/* L'adresse est nommée : sans elle, le commerçant ne peut rien vérifier
+          et l'installateur ne peut rien diagnostiquer au téléphone. */}
+      <span className="font-mono">{getServerUrl()}</span> ne répond pas — vérifiez qu’il est allumé,
+      ou son adresse dans les réglages.
     </div>
   );
 }
