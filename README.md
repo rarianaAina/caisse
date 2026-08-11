@@ -147,7 +147,7 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 339 tests TypeScript + 14 tests Rust : devises, monnaie, panier, PIN, rôles, schéma local,
+pnpm test             # 356 tests TypeScript + 14 tests Rust : devises, monnaie, panier, PIN, rôles, schéma local,
                       #             catalogue, stock, ventes, ticket, ESC/POS, rapports, synchro,
                       #             recherche en volume, limitation des tentatives de connexion
 pnpm typecheck        # TypeScript strict sur les trois paquets
@@ -324,3 +324,4 @@ distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
 - [ADR 0012 — la caisse autonome](docs/adr/0012-caisse-autonome.md)
 - [ADR 0013 — le service en salle](docs/adr/0013-restaurant.md)
 - [ADR 0014 — le serveur de salle](docs/adr/0014-serveur-de-salle.md)
+- [ADR 0015 — achats et déclinaisons](docs/adr/0015-quincaillerie.md)
