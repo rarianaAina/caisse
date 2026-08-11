@@ -9,6 +9,7 @@ import {
   type TableStatus,
   activeItems,
   computeTotals,
+  itemsToDeliver,
   isFullyBilled,
   itemsToSend,
   newId,
@@ -78,6 +79,8 @@ const mapItem = (row: Record<string, unknown>): ServiceOrderItem => ({
   course: Number(row['course'] ?? 2),
   note: row['note'] === null ? null : String(row['note']),
   sentAt: row['sent_at'] === null ? null : String(row['sent_at']),
+  deliveredAt: row['delivered_at'] === null ? null : String(row['delivered_at']),
+  deliveredBy: row['delivered_by'] === null ? null : String(row['delivered_by']),
   voidedAt: row['voided_at'] === null ? null : String(row['voided_at']),
   voidedBy: row['voided_by'] === null ? null : String(row['voided_by']),
   voidReason: row['void_reason'] === null ? null : String(row['void_reason']),
@@ -337,6 +340,8 @@ export class OrderRepository {
       course: input.course ?? 2,
       note: input.note ?? null,
       sentAt: null,
+      deliveredAt: null,
+      deliveredBy: null,
       voidedAt: null,
       voidedBy: null,
       voidReason: null,
@@ -436,6 +441,92 @@ export class OrderRepository {
       [orderId, sentAt],
     );
     return rows.map(mapItem);
+  }
+
+  /**
+   * Marque des articles comme POSÉS SUR LA TABLE.
+   *
+   * Distinct de l'envoi en cuisine : `sendToKitchen` dit ce qui a été demandé,
+   * ceci dit ce que le client a devant lui. Un serveur qui reprend une table en
+   * cours de service n'a pas d'autre moyen de le savoir.
+   *
+   * Sans `itemIds`, tout ce qui est parti en cuisine est déclaré livré : c'est
+   * le geste courant quand on repose un plateau entier.
+   */
+  async markDelivered(
+    orderId: string,
+    userId: string,
+    itemIds?: readonly string[],
+  ): Promise<ServiceOrderItem[]> {
+    const candidats = itemsToDeliver(await this.itemsOf(orderId));
+    const choisis = itemIds ? candidats.filter((item) => itemIds.includes(item.id)) : candidats;
+    if (choisis.length === 0) return [];
+
+    const now = nowIso();
+    for (const item of choisis) {
+      // La garde sur `delivered_at IS NULL` évite d'écraser l'heure d'une
+      // livraison déjà enregistrée : c'est elle qui mesure le retard cuisine.
+      await this.db.execute(
+        `UPDATE service_order_item SET delivered_at = ?, delivered_by = ?
+          WHERE id = ? AND delivered_at IS NULL`,
+        [now, userId, item.id],
+      );
+    }
+    await this.touch(orderId);
+    return choisis.map((item) => ({ ...item, deliveredAt: now, deliveredBy: userId }));
+  }
+
+  /** Annule une livraison saisie par erreur (mauvaise table, doigt qui glisse). */
+  async undoDelivered(itemId: string): Promise<void> {
+    await this.db.execute(
+      'UPDATE service_order_item SET delivered_at = NULL, delivered_by = NULL WHERE id = ?',
+      [itemId],
+    );
+  }
+
+  /**
+   * Libère la table : le client est parti, un autre arrive.
+   *
+   * Ce n'est pas une annulation de commande. Une commande soldée se ferme
+   * toute seule au paiement ; cette opération sert au cas réel où il reste
+   * quelque chose — une bouteille offerte, une ligne saisie en trop, un départ
+   * sans consommer. Les lignes restantes sont ANNULÉES avec un motif, jamais
+   * effacées : ce qui est parti en cuisine a coûté de la matière, et doit
+   * pouvoir s'expliquer.
+   *
+   * Les lignes déjà facturées ne sont pas touchées : la vente existe.
+   */
+  async releaseTable(orderId: string, userId: string, reason: string): Promise<number> {
+    const order = await this.findOrder(orderId);
+    if (!order) throw new OrderError('Commande introuvable');
+    if (order.status !== 'open') return 0;
+    if (reason.trim() === '') throw new OrderError('Indiquez pourquoi la table est libérée');
+
+    const restants = activeItems(await this.itemsOf(orderId));
+    const now = nowIso();
+
+    for (const item of restants) {
+      await this.db.execute(
+        'UPDATE service_order_item SET voided_at = ?, voided_by = ?, void_reason = ? WHERE id = ?',
+        [now, userId, reason.trim(), item.id],
+      );
+    }
+
+    await this.db.execute(
+      `UPDATE service_order SET status = 'closed', closed_at = ?, updated_at = ? WHERE id = ?`,
+      [now, now, orderId],
+    );
+    return restants.length;
+  }
+
+  /** Nombre de couverts : il change souvent après l'installation des clients. */
+  async setGuests(orderId: string, guests: number): Promise<void> {
+    if (guests < 1) throw new OrderError('Il faut au moins un couvert');
+    await this.db.execute('UPDATE service_order SET guests = ?, updated_at = ? WHERE id = ?', [
+      guests,
+      nowIso(),
+      orderId,
+    ]);
   }
 
   /** Déplace une commande vers une autre table (clients qui changent de place). */
@@ -559,7 +650,14 @@ export class OrderRepository {
     for (const table of tables) {
       const order = byTable.get(table.id) ?? null;
       if (!order) {
-        statuses.push({ table, order: null, dueCents: 0, pendingCount: 0, occupiedMinutes: 0 });
+        statuses.push({
+          table,
+          order: null,
+          dueCents: 0,
+          pendingCount: 0,
+          awaitingCount: 0,
+          occupiedMinutes: 0,
+        });
         continue;
       }
       const items = await this.itemsOf(order.id);
@@ -570,6 +668,7 @@ export class OrderRepository {
         dueCents:
           live.length === 0 ? 0 : computeTotals((await this.toCart(order.id)).cart).totalCents,
         pendingCount: itemsToSend(items).length,
+        awaitingCount: itemsToDeliver(items).length,
         occupiedMinutes: Math.max(
           0,
           Math.round((now.getTime() - Date.parse(order.openedAt)) / 60000),

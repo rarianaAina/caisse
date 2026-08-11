@@ -8,7 +8,7 @@ use tauri::Manager;
 use tauri_plugin_sql::{DbInstances, DbPool};
 use tower::ServiceExt;
 
-use super::{router, sessions::SessionStore, ServerState};
+use super::{pool, router, sessions::SessionStore, ServerState};
 
 /// Le serveur de salle, éprouvé requête par requête.
 ///
@@ -48,6 +48,7 @@ async fn setup() -> (Arc<ServerState<tauri::test::MockRuntime>>, String, String)
         include_str!("../../migrations/0002_search_index.sql"),
         include_str!("../../migrations/0003_restaurant.sql"),
         include_str!("../../migrations/0004_quincaillerie.sql"),
+        include_str!("../../migrations/0005_service_en_salle.sql"),
     ] {
         sqlx::raw_sql(migration)
             .execute(&pool)
@@ -148,10 +149,14 @@ async fn refuse_tout_sans_jeton() {
     for (method, uri) in [
         ("GET", "/api/tables"),
         ("GET", "/api/products"),
+        ("GET", "/api/categories"),
         ("POST", "/api/orders"),
         ("GET", "/api/orders/x/items"),
         ("POST", "/api/orders/x/items"),
         ("POST", "/api/orders/x/send"),
+        ("POST", "/api/orders/x/deliver"),
+        ("POST", "/api/orders/x/release"),
+        ("POST", "/api/orders/x/move"),
     ] {
         let (status, _) = call(&state, method, uri, None, json!({})).await;
         assert_eq!(status, StatusCode::UNAUTHORIZED, "{method} {uri} non protégé");
@@ -424,4 +429,185 @@ async fn la_carte_se_filtre_par_categorie() {
     )
     .await;
     assert_eq!(desserts.as_array().map(Vec::len), Some(0));
+}
+
+#[tokio::test]
+async fn un_plat_se_marque_servi_mais_seulement_apres_l_envoi() {
+    let (state, table_id, product_id) = setup().await;
+    let token = logged_in(&state).await;
+
+    let (_, opened) = call(
+        &state,
+        "POST",
+        "/api/orders",
+        Some(&token),
+        json!({ "table_id": table_id }),
+    )
+    .await;
+    let order_id = opened["orderId"].as_str().unwrap().to_string();
+
+    call(
+        &state,
+        "POST",
+        &format!("/api/orders/{order_id}/items"),
+        Some(&token),
+        json!({ "product_id": product_id }),
+    )
+    .await;
+
+    // Un plat que la cuisine n'a pas reçu ne peut pas être sur la table :
+    // l'accepter ferait croire à un service terminé.
+    let (_, rien) = call(
+        &state,
+        "POST",
+        &format!("/api/orders/{order_id}/deliver"),
+        Some(&token),
+        json!({}),
+    )
+    .await;
+    assert_eq!(rien["delivered"], 0);
+
+    call(
+        &state,
+        "POST",
+        &format!("/api/orders/{order_id}/send"),
+        Some(&token),
+        json!({}),
+    )
+    .await;
+
+    let (_, servi) = call(
+        &state,
+        "POST",
+        &format!("/api/orders/{order_id}/deliver"),
+        Some(&token),
+        json!({}),
+    )
+    .await;
+    assert_eq!(servi["delivered"], 1);
+
+    let (_, items) = call(
+        &state,
+        "GET",
+        &format!("/api/orders/{order_id}/items"),
+        Some(&token),
+        json!({}),
+    )
+    .await;
+    assert_eq!(items[0]["sent"], true);
+    assert_eq!(items[0]["delivered"], true);
+
+    // Deux fois servi ne redéclenche rien : l'heure de la première livraison
+    // mesure l'attente réelle du client.
+    let (_, encore) = call(
+        &state,
+        "POST",
+        &format!("/api/orders/{order_id}/deliver"),
+        Some(&token),
+        json!({}),
+    )
+    .await;
+    assert_eq!(encore["delivered"], 0);
+}
+
+#[tokio::test]
+async fn liberer_une_table_la_rend_disponible_avec_un_motif() {
+    let (state, table_id, product_id) = setup().await;
+    let token = logged_in(&state).await;
+
+    let (_, opened) = call(
+        &state,
+        "POST",
+        "/api/orders",
+        Some(&token),
+        json!({ "table_id": table_id }),
+    )
+    .await;
+    let order_id = opened["orderId"].as_str().unwrap().to_string();
+    call(
+        &state,
+        "POST",
+        &format!("/api/orders/{order_id}/items"),
+        Some(&token),
+        json!({ "product_id": product_id }),
+    )
+    .await;
+
+    // Sans motif, rien ne se passe : ce qui est parti en cuisine a coûté de la
+    // matière et doit pouvoir s'expliquer.
+    let (refus, _) = call(
+        &state,
+        "POST",
+        &format!("/api/orders/{order_id}/release"),
+        Some(&token),
+        json!({ "reason": "   " }),
+    )
+    .await;
+    assert_eq!(refus, StatusCode::BAD_REQUEST);
+
+    let (status, libere) = call(
+        &state,
+        "POST",
+        &format!("/api/orders/{order_id}/release"),
+        Some(&token),
+        json!({ "reason": "Client parti" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(libere["cancelled"], 1);
+
+    // La table doit être immédiatement reprenable par le client suivant.
+    let (_, tables) = call(&state, "GET", "/api/tables", Some(&token), json!({})).await;
+    assert!(tables[0]["orderId"].is_null());
+}
+
+#[tokio::test]
+async fn une_commande_se_deplace_vers_une_table_libre_seulement() {
+    let (state, table_id, _) = setup().await;
+    let token = logged_in(&state).await;
+
+    let pool = pool(&state).await.expect("base");
+    sqlx::query("INSERT INTO dining_table (id, company_id, store_id, name, seats, position, created_at, updated_at) VALUES ('t2', 'c1', 's1', 'Table 2', 2, 2, '2026-08-11T10:00:00.000Z', '2026-08-11T10:00:00.000Z')")
+        .execute(&pool).await.expect("seconde table");
+
+    let (_, premiere) = call(
+        &state,
+        "POST",
+        "/api/orders",
+        Some(&token),
+        json!({ "table_id": table_id }),
+    )
+    .await;
+    let order_id = premiere["orderId"].as_str().unwrap().to_string();
+
+    let (status, deplacee) = call(
+        &state,
+        "POST",
+        &format!("/api/orders/{order_id}/move"),
+        Some(&token),
+        json!({ "table_id": "t2" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(deplacee["table"], "Table 2");
+
+    // Une deuxième commande occupe la table 1 : y déplacer celle-ci
+    // présenterait l'addition d'un client à un autre.
+    call(
+        &state,
+        "POST",
+        "/api/orders",
+        Some(&token),
+        json!({ "table_id": table_id }),
+    )
+    .await;
+    let (conflit, _) = call(
+        &state,
+        "POST",
+        &format!("/api/orders/{order_id}/move"),
+        Some(&token),
+        json!({ "table_id": table_id }),
+    )
+    .await;
+    assert_eq!(conflit, StatusCode::CONFLICT);
 }

@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { activeItems, computeTotals, isFullyBilled, itemsToSend, newId } from '@caisse/shared';
+import {
+  activeItems,
+  computeTotals,
+  isFullyBilled,
+  isFullyDelivered,
+  itemProgress,
+  itemsToDeliver,
+  itemsToSend,
+  newId,
+  progressByCourse,
+} from '@caisse/shared';
 import { OrderError, OrderRepository } from '../src/core/db/repositories/order.repository';
 import { SaleRepository } from '../src/core/db/repositories/sale.repository';
 import { NodeSqliteExecutor } from './helpers/sqlite-executor';
@@ -334,5 +344,149 @@ describe('annulation d’une commande', () => {
 
     // Annuler effacerait une vente déjà enregistrée : la caisse s'y refuse.
     await expect(orders.cancel(order.id, USER_ID, 'Erreur')).rejects.toThrow(OrderError);
+  });
+});
+
+describe('suivi du service à table', () => {
+  it('distingue « demandé à la cuisine » de « posé sur la table »', async () => {
+    const order = await orders.open({ tableId: null, userId: USER_ID });
+    const ligne = await orders.addItem(order.id, plat('Romazava', 12000), USER_ID);
+
+    expect(itemProgress((await orders.itemsOf(order.id))[0]!)).toBe('pris');
+
+    await orders.sendToKitchen(order.id);
+    expect(itemProgress((await orders.itemsOf(order.id))[0]!)).toBe('envoye');
+    // Envoyé n'est pas servi : c'est toute la question quand un serveur
+    // reprend une table en cours de service.
+    expect(itemsToDeliver(await orders.itemsOf(order.id))).toHaveLength(1);
+
+    await orders.markDelivered(order.id, USER_ID, [ligne.id]);
+    expect(itemProgress((await orders.itemsOf(order.id))[0]!)).toBe('livre');
+    expect(itemsToDeliver(await orders.itemsOf(order.id))).toHaveLength(0);
+  });
+
+  it('ne livre jamais ce qui n’est pas parti en cuisine', async () => {
+    const order = await orders.open({ tableId: null, userId: USER_ID });
+    await orders.addItem(order.id, plat('Coca', 3000), USER_ID);
+
+    // Un plat non demandé ne peut pas être sur la table ; l'accepter ferait
+    // croire à un service terminé alors que la cuisine n'a rien reçu.
+    expect(await orders.markDelivered(order.id, USER_ID)).toHaveLength(0);
+  });
+
+  it('livre un service entier d’un geste', async () => {
+    const order = await orders.open({ tableId: null, userId: USER_ID });
+    await orders.addItem(order.id, plat('Salade', 6000, 1), USER_ID);
+    await orders.addItem(order.id, plat('Poulet', 15000, 2), USER_ID);
+    await orders.sendToKitchen(order.id);
+
+    const entrees = (await orders.itemsOf(order.id)).filter((item) => item.course === 1);
+    await orders.markDelivered(
+      order.id,
+      USER_ID,
+      entrees.map((item) => item.id),
+    );
+
+    const avancement = progressByCourse(await orders.itemsOf(order.id));
+    expect(avancement).toEqual([
+      { course: 1, total: 1, sent: 1, delivered: 1 },
+      { course: 2, total: 1, sent: 1, delivered: 0 },
+    ]);
+    expect(isFullyDelivered(await orders.itemsOf(order.id))).toBe(false);
+
+    await orders.markDelivered(order.id, USER_ID);
+    expect(isFullyDelivered(await orders.itemsOf(order.id))).toBe(true);
+  });
+
+  it('n’écrase pas l’heure d’une livraison déjà enregistrée', async () => {
+    const order = await orders.open({ tableId: null, userId: USER_ID });
+    await orders.addItem(order.id, plat('Romazava', 12000), USER_ID);
+    await orders.sendToKitchen(order.id);
+    await orders.markDelivered(order.id, USER_ID);
+
+    const premiere = (await orders.itemsOf(order.id))[0]?.deliveredAt;
+    await orders.markDelivered(order.id, USER_ID);
+
+    // C'est cet horodatage qui mesure le retard de la cuisine : le réécrire
+    // effacerait la seule trace du temps d'attente.
+    expect((await orders.itemsOf(order.id))[0]?.deliveredAt).toBe(premiere);
+  });
+
+  it('corrige une livraison saisie par erreur', async () => {
+    const order = await orders.open({ tableId: null, userId: USER_ID });
+    const item = await orders.addItem(order.id, plat('Coca', 3000), USER_ID);
+    await orders.sendToKitchen(order.id);
+    await orders.markDelivered(order.id, USER_ID);
+
+    await orders.undoDelivered(item.id);
+    expect(itemProgress((await orders.itemsOf(order.id))[0]!)).toBe('envoye');
+  });
+});
+
+describe('libérer une table', () => {
+  it('ferme la commande et annule ce qui reste, avec motif', async () => {
+    const [table] = await orders.createTables({ roomId: null, count: 1 });
+    const order = await orders.open({ tableId: table?.id ?? '', userId: USER_ID });
+    await orders.addItem(order.id, plat('Coca', 3000), USER_ID);
+    await orders.sendToKitchen(order.id);
+
+    const annules = await orders.releaseTable(order.id, USER_ID, 'Client parti');
+
+    expect(annules).toBe(1);
+    expect((await orders.findOrder(order.id))?.status).toBe('closed');
+    // La table doit être immédiatement reprenable par le client suivant.
+    expect(await orders.openOrders()).toHaveLength(0);
+    const [ligne] = await orders.itemsOf(order.id);
+    expect(ligne?.voidReason).toBe('Client parti');
+  });
+
+  it('laisse intactes les lignes déjà facturées', async () => {
+    const [table] = await orders.createTables({ roomId: null, count: 1 });
+    const order = await orders.open({ tableId: table?.id ?? '', userId: USER_ID });
+    const paye = await orders.addItem(order.id, plat('Coca', 3000), USER_ID);
+    await orders.addItem(order.id, plat('Eau', 2000), USER_ID);
+
+    const part = await orders.toCart(order.id, [paye.id]);
+    const vente = await sales.record({
+      cart: part.cart,
+      totals: computeTotals(part.cart),
+      payments: [{ method: 'cash', amountCents: 3000 }],
+      userId: USER_ID,
+    });
+    await orders.markBilled(order.id, [paye.id], vente.sale.id);
+
+    await orders.releaseTable(order.id, USER_ID, 'Fin de service');
+
+    const lignes = await orders.itemsOf(order.id);
+    const facturee = lignes.find((item) => item.id === paye.id);
+    // La vente existe : effacer sa ligne ferait mentir l'historique.
+    expect(facturee?.voidedAt).toBeNull();
+    expect(facturee?.saleId).toBe(vente.sale.id);
+    expect(lignes.find((item) => item.id !== paye.id)?.voidedAt).not.toBeNull();
+  });
+
+  it('exige un motif', async () => {
+    const order = await orders.open({ tableId: null, userId: USER_ID });
+    await orders.addItem(order.id, plat('Coca', 3000), USER_ID);
+
+    await expect(orders.releaseTable(order.id, USER_ID, '   ')).rejects.toThrow(/pourquoi/);
+  });
+
+  it('reste sans effet sur une commande déjà close', async () => {
+    const order = await orders.open({ tableId: null, userId: USER_ID });
+    await orders.addItem(order.id, plat('Coca', 3000), USER_ID);
+    await orders.releaseTable(order.id, USER_ID, 'Client parti');
+
+    expect(await orders.releaseTable(order.id, USER_ID, 'Encore')).toBe(0);
+  });
+});
+
+describe('couverts', () => {
+  it('se corrigent après l’installation des clients', async () => {
+    const order = await orders.open({ tableId: null, userId: USER_ID, guests: 2 });
+    await orders.setGuests(order.id, 5);
+
+    expect((await orders.findOrder(order.id))?.guests).toBe(5);
+    await expect(orders.setGuests(order.id, 0)).rejects.toThrow(/au moins un/);
   });
 });

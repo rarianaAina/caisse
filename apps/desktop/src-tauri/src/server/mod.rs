@@ -218,6 +218,12 @@ async fn tables<R: Runtime>(
                 (SELECT count(*) FROM service_order_item i
                   WHERE i.order_id = o.id AND i.sent_at IS NULL AND i.voided_at IS NULL)
                   AS pending,
+                -- Parti en cuisine, pas encore posé sur la table : c'est ce
+                -- qu'un serveur doit aller chercher.
+                (SELECT count(*) FROM service_order_item i
+                  WHERE i.order_id = o.id AND i.sent_at IS NOT NULL
+                    AND i.delivered_at IS NULL AND i.voided_at IS NULL)
+                  AS awaiting,
                 (SELECT coalesce(sum(i.unit_price_cents * i.qty_milli / 1000 - i.discount_cents), 0)
                    FROM service_order_item i
                   WHERE i.order_id = o.id AND i.voided_at IS NULL AND i.sale_id IS NULL)
@@ -241,6 +247,7 @@ async fn tables<R: Runtime>(
                 "orderId": row.get::<Option<String>, _>("order_id"),
                 "openedAt": row.get::<Option<String>, _>("opened_at"),
                 "pending": row.get::<Option<i64>, _>("pending").unwrap_or(0),
+                "awaiting": row.get::<Option<i64>, _>("awaiting").unwrap_or(0),
                 "dueCents": row.get::<Option<i64>, _>("due").unwrap_or(0),
             })
         })
@@ -419,7 +426,8 @@ async fn order_items<R: Runtime>(
         .map_err(|error| (StatusCode::SERVICE_UNAVAILABLE, error))?;
 
     let rows = sqlx::query(
-        "SELECT id, name_snapshot, qty_milli, unit_price_cents, course, note, sent_at
+        "SELECT id, name_snapshot, qty_milli, unit_price_cents, course, note, sent_at,
+                delivered_at
            FROM service_order_item
           WHERE order_id = ? AND voided_at IS NULL AND sale_id IS NULL
           ORDER BY position",
@@ -440,6 +448,10 @@ async fn order_items<R: Runtime>(
                 "course": row.get::<i64, _>("course"),
                 "note": row.get::<Option<String>, _>("note"),
                 "sent": row.get::<Option<String>, _>("sent_at").is_some(),
+                // « envoyé » n'est pas « servi » : c'est la distinction qui
+                // permet à un serveur de reprendre une table sans demander aux
+                // clients ce qu'ils ont déjà reçu.
+                "delivered": row.get::<Option<String>, _>("delivered_at").is_some(),
             })
         })
         .collect();
@@ -634,6 +646,219 @@ async fn send_to_kitchen<R: Runtime>(
     Ok(Json(json!({ "sent": count })))
 }
 
+#[derive(Deserialize)]
+struct DeliverBody {
+    /// Lignes précises, ou toutes celles parties en cuisine si absent.
+    item_ids: Option<Vec<String>>,
+    course: Option<i64>,
+    /// Défait une livraison saisie par erreur (mauvaise table, doigt qui
+    /// glisse). Renvoyer le serveur vers la caisse pour corriger une faute de
+    /// dix secondes le pousserait à ne plus rien consigner du tout.
+    undo: Option<bool>,
+}
+
+/// Marque des plats comme POSÉS SUR LA TABLE.
+async fn deliver<R: Runtime>(
+    State(state): State<Arc<ServerState<R>>>,
+    Extension(CurrentUser(user_id)): Extension<CurrentUser>,
+    Path(order_id): Path<String>,
+    Json(body): Json<DeliverBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let pool = pool(&state)
+        .await
+        .map_err(|error| (StatusCode::SERVICE_UNAVAILABLE, error))?;
+
+    // Annulation : on repasse les lignes en « en cuisine ».
+    if body.undo.unwrap_or(false) {
+        let ids = body.item_ids.unwrap_or_default();
+        let mut defaites = 0u64;
+        for id in ids {
+            defaites += sqlx::query(
+                "UPDATE service_order_item SET delivered_at = NULL, delivered_by = NULL
+                  WHERE id = ? AND order_id = ?",
+            )
+            .bind(&id)
+            .bind(&order_id)
+            .execute(&pool)
+            .await
+            .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+            .rows_affected();
+        }
+        notify(&state, "salle-modifiee", json!({ "orderId": order_id }));
+        return Ok(Json(json!({ "delivered": 0, "undone": defaites })));
+    }
+
+    let now = now_iso();
+    // `delivered_at IS NULL` : ne jamais écraser une heure déjà posée, c'est
+    // elle qui mesure l'attente réelle du client.
+    let mut affected = 0u64;
+
+    match (body.item_ids, body.course) {
+        (Some(ids), _) => {
+            for id in ids {
+                let result = sqlx::query(
+                    "UPDATE service_order_item SET delivered_at = ?, delivered_by = ?
+                      WHERE id = ? AND order_id = ? AND sent_at IS NOT NULL
+                        AND delivered_at IS NULL AND voided_at IS NULL",
+                )
+                .bind(&now)
+                .bind(&user_id)
+                .bind(&id)
+                .bind(&order_id)
+                .execute(&pool)
+                .await
+                .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+                affected += result.rows_affected();
+            }
+        }
+        (None, Some(course)) => {
+            affected = sqlx::query(
+                "UPDATE service_order_item SET delivered_at = ?, delivered_by = ?
+                  WHERE order_id = ? AND course = ? AND sent_at IS NOT NULL
+                    AND delivered_at IS NULL AND voided_at IS NULL",
+            )
+            .bind(&now)
+            .bind(&user_id)
+            .bind(&order_id)
+            .bind(course)
+            .execute(&pool)
+            .await
+            .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+            .rows_affected();
+        }
+        (None, None) => {
+            affected = sqlx::query(
+                "UPDATE service_order_item SET delivered_at = ?, delivered_by = ?
+                  WHERE order_id = ? AND sent_at IS NOT NULL
+                    AND delivered_at IS NULL AND voided_at IS NULL",
+            )
+            .bind(&now)
+            .bind(&user_id)
+            .bind(&order_id)
+            .execute(&pool)
+            .await
+            .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+            .rows_affected();
+        }
+    }
+
+    if affected > 0 {
+        notify(&state, "salle-modifiee", json!({ "orderId": order_id }));
+    }
+    Ok(Json(json!({ "delivered": affected })))
+}
+
+#[derive(Deserialize)]
+struct ReleaseBody {
+    reason: String,
+}
+
+/// Libère la table : le client est parti, un autre arrive.
+///
+/// Ce n'est pas une annulation : une commande soldée se ferme d'elle-même au
+/// paiement. Cette opération sert au cas réel où il reste quelque chose. Les
+/// lignes restantes sont annulées AVEC MOTIF — ce qui est parti en cuisine a
+/// coûté de la matière et doit pouvoir s'expliquer — et les lignes déjà
+/// facturées ne sont pas touchées, puisque la vente existe.
+async fn release_table<R: Runtime>(
+    State(state): State<Arc<ServerState<R>>>,
+    Extension(CurrentUser(user_id)): Extension<CurrentUser>,
+    Path(order_id): Path<String>,
+    Json(body): Json<ReleaseBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let reason = body.reason.trim().to_string();
+    if reason.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "indiquez pourquoi la table est libérée".into(),
+        ));
+    }
+
+    let pool = pool(&state)
+        .await
+        .map_err(|error| (StatusCode::SERVICE_UNAVAILABLE, error))?;
+
+    let now = now_iso();
+    let annulees = sqlx::query(
+        "UPDATE service_order_item SET voided_at = ?, voided_by = ?, void_reason = ?
+          WHERE order_id = ? AND voided_at IS NULL AND sale_id IS NULL",
+    )
+    .bind(&now)
+    .bind(&user_id)
+    .bind(&reason)
+    .bind(&order_id)
+    .execute(&pool)
+    .await
+    .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+    .rows_affected();
+
+    sqlx::query(
+        "UPDATE service_order SET status = 'closed', closed_at = ?, updated_at = ?
+          WHERE id = ? AND status = 'open'",
+    )
+    .bind(&now)
+    .bind(&now)
+    .bind(&order_id)
+    .execute(&pool)
+    .await
+    .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    notify(&state, "salle-modifiee", json!({ "orderId": order_id }));
+    Ok(Json(json!({ "cancelled": annulees })))
+}
+
+#[derive(Deserialize)]
+struct MoveBody {
+    table_id: String,
+}
+
+/// Déplace une commande vers une autre table : les clients changent de place,
+/// ou deux tables sont réunies.
+async fn move_order<R: Runtime>(
+    State(state): State<Arc<ServerState<R>>>,
+    Path(order_id): Path<String>,
+    Json(body): Json<MoveBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let pool = pool(&state)
+        .await
+        .map_err(|error| (StatusCode::SERVICE_UNAVAILABLE, error))?;
+
+    // La table de destination doit être libre : deux commandes sur une même
+    // table, c'est l'addition d'un client présentée à un autre.
+    let occupee = sqlx::query("SELECT id FROM service_order WHERE table_id = ? AND status = 'open'")
+        .bind(&body.table_id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    if occupee.is_some_and(|row| row.get::<String, _>("id") != order_id) {
+        return Err((
+            StatusCode::CONFLICT,
+            "la table de destination est déjà occupée".into(),
+        ));
+    }
+
+    let nom = sqlx::query("SELECT name FROM dining_table WHERE id = ?")
+        .bind(&body.table_id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+        .ok_or((StatusCode::NOT_FOUND, "table inconnue".into()))?
+        .get::<String, _>("name");
+
+    sqlx::query("UPDATE service_order SET table_id = ?, label = ?, updated_at = ? WHERE id = ?")
+        .bind(&body.table_id)
+        .bind(&nom)
+        .bind(now_iso())
+        .bind(&order_id)
+        .execute(&pool)
+        .await
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    notify(&state, "salle-modifiee", json!({ "orderId": order_id }));
+    Ok(Json(json!({ "table": nom })))
+}
+
 /* ─── Page servie aux téléphones ───────────────────────────────────────── */
 
 async fn index() -> Html<&'static str> {
@@ -693,6 +918,9 @@ pub fn router<R: Runtime>(state: Arc<ServerState<R>>) -> Router {
         .route("/api/orders/{id}/items", get(order_items).post(add_item))
         .route("/api/orders/{id}/items/{item}", delete(remove_item))
         .route("/api/orders/{id}/send", post(send_to_kitchen))
+        .route("/api/orders/{id}/deliver", post(deliver))
+        .route("/api/orders/{id}/release", post(release_table))
+        .route("/api/orders/{id}/move", post(move_order))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             require_session::<R>,

@@ -86,8 +86,15 @@ clients. Publier depuis l'interface GitHub déclenche la diffusion.
 | `.AppImage` (Linux)    | oui                   | **oui**     |
 | `.deb` (Linux)         | oui                   | non         |
 
-Un client installé par `.msi` ou `.deb` doit donc être mis à jour à la main.
-Livrer le `.exe` sous Windows est le choix par défaut.
+**Ce qu'il faut livrer aux clients : le `.exe` sous Windows, l'`.AppImage` sous
+Linux.** Ce sont les deux seuls formats que l'application sait mettre à jour
+elle-même ; un client installé par `.msi` ou `.deb` exigerait un déplacement à
+chaque correction.
+
+L'`.AppImage` est un fichier unique, sans installation : le déposer dans
+`~/Applications`, le rendre exécutable (`chmod +x`), et créer un raccourci.
+Il pèse plus lourd (~79 Mo contre 4 Mo) parce qu'il embarque ses bibliothèques
+— c'est précisément ce qui le rend indépendant de la distribution du client.
 
 ## L'avertissement Windows, et ce qu'il coûte de le supprimer
 

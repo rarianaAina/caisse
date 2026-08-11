@@ -69,6 +69,38 @@ temps d'occupation et le nombre d'articles en attente d'envoi. Le compteur de
 minutes est le vrai signal : une table à quatre-vingt-dix minutes sans rien
 avoir envoyé, c'est un oubli.
 
+**Suivre ce qui est servi.** Un plat passe par trois états, et le téléphone
+comme la caisse les distinguent :
+
+|                  |                                         |
+| ---------------- | --------------------------------------- |
+| ○ **pris**       | Saisi, la cuisine ne le sait pas encore |
+| ◐ **en cuisine** | Envoyé, en préparation                  |
+| ● **servi**      | Posé sur la table                       |
+
+Le bouton **Servir** apparaît dès qu'un plat est parti en cuisine. « Tout
+servir » couvre un service entier — c'est ainsi qu'on repose un plateau, pas
+assiette par assiette. Une livraison saisie par erreur se défait d'un appui.
+
+C'est ce qui permet à un serveur qui reprend une table de savoir où en est le
+service **sans demander aux clients ce qu'ils ont déjà reçu**.
+
+**Libérer une table** (le client est parti, un autre arrive) : bouton
+« Libérer la table », sur le téléphone comme sur la caisse. Un motif est
+demandé, et les articles non facturés sont annulés avec ce motif — ce qui est
+parti en cuisine a coûté de la matière et doit pouvoir s'expliquer. Les
+articles déjà payés ne sont pas touchés.
+
+> Une table entièrement encaissée se libère toute seule. Ce geste sert au cas
+> où il reste quelque chose : une bouteille offerte, une ligne saisie en trop,
+> un départ sans consommer.
+
+**Changer de table** : les clients changent de place, ou deux tables sont
+réunies. La commande suit. La table de destination doit être libre.
+
+**Corriger le nombre de couverts** : il change souvent après l'installation.
+Sur la caisse, cliquer sur « N couvert(s) » dans l'en-tête de la commande.
+
 **L'addition** se fait sur la caisse. Pour partager : cocher les articles de
 chaque convive avant d'encaisser. Chaque part devient une vente distincte —
 c'est ce que veut la comptabilité, deux encaissements ont bien eu lieu.

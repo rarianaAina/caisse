@@ -10,7 +10,9 @@ import {
   activeItems,
   computeTotals,
   formatMoney,
+  itemsToDeliver,
   itemsToSend,
+  progressByCourse,
 } from '@caisse/shared';
 import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
@@ -128,6 +130,8 @@ export function OrderScreen({
 
   const vivants = activeItems(items);
   const aEnvoyer = itemsToSend(items);
+  const aServir = itemsToDeliver(items);
+  const avancement = progressByCourse(items);
   const facturables =
     selection.size > 0 ? vivants.filter((item) => selection.has(item.id)) : vivants;
 
@@ -193,6 +197,49 @@ export function OrderScreen({
       );
     });
 
+  /** Marque des plats comme posés sur la table. */
+  const servir = (itemIds?: string[]): Promise<void> =>
+    run(async () => {
+      const servis = await orders.markDelivered(orderId, session.user.id, itemIds);
+      setNotice(
+        servis.length > 0
+          ? `${String(servis.length)} article(s) servi(s)`
+          : 'Rien à servir : tout est déjà sur la table.',
+      );
+    });
+
+  /**
+   * Libère la table pour le client suivant.
+   *
+   * Une commande soldée se ferme d'elle-même au paiement : ce geste sert au
+   * cas réel où il reste quelque chose. Le motif est obligatoire, car ce qui
+   * est parti en cuisine a coûté de la matière.
+   */
+  const liberer = (): Promise<void> =>
+    run(async () => {
+      const nonServis = aServir.length;
+      const reason = window.prompt(
+        (nonServis > 0 ? `Attention : ${String(nonServis)} article(s) non servis.\n\n` : '') +
+          'Pourquoi libérer la table ? (client parti, fin de service…)',
+      );
+      if (!reason || reason.trim() === '') return;
+
+      const annules = await orders.releaseTable(orderId, session.user.id, reason);
+      setNotice(
+        annules > 0 ? `Table libérée · ${String(annules)} article(s) annulé(s)` : 'Table libérée.',
+      );
+      onClose();
+    });
+
+  const changerCouverts = (): Promise<void> =>
+    run(async () => {
+      const saisie = window.prompt('Nombre de couverts ?', String(order?.guests ?? 1));
+      if (saisie === null) return;
+      const nombre = Number(saisie);
+      if (!Number.isFinite(nombre)) return;
+      await orders.setGuests(orderId, Math.round(nombre));
+    });
+
   const toggle = (itemId: string): void => {
     setSelection((current) => {
       const next = new Set(current);
@@ -208,17 +255,51 @@ export function OrderScreen({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{order?.label ?? '…'}</h2>
-            <p className="text-sm text-slate-500">
-              {order?.guests ?? 1} couvert(s) · ouverte par un serveur
-            </p>
+            <button
+              type="button"
+              onClick={() => void changerCouverts()}
+              className="text-sm text-ardoise-500 underline decoration-dotted underline-offset-2"
+              title="Corriger le nombre de couverts"
+            >
+              {order?.guests ?? 1} couvert(s)
+            </button>
+            {avancement.length > 0 && (
+              <div className="mt-1 flex gap-3 text-xs font-semibold">
+                {avancement.map((entry) => (
+                  <span
+                    key={entry.course}
+                    className={
+                      entry.delivered === entry.total
+                        ? 'text-emerald-600'
+                        : entry.sent > entry.delivered
+                          ? 'text-amber-600'
+                          : 'text-ardoise-400'
+                    }
+                  >
+                    {COURSES.find((c) => c.value === entry.course)?.label} {entry.delivered}/
+                    {entry.total}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
-          >
-            Retour à la salle
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => void liberer()}
+              className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+              title="Le client est parti : la table redevient libre"
+            >
+              Libérer la table
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-ardoise-300 px-4 py-2 text-sm font-semibold text-ardoise-700"
+            >
+              Retour à la salle
+            </button>
+          </div>
         </div>
 
         <div className="flex gap-2">
@@ -349,9 +430,21 @@ export function OrderScreen({
                   <p className="text-sm font-medium text-slate-900">
                     {item.qtyMilli / 1000} × {item.nameSnapshot}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p
+                    className={`text-xs font-semibold ${
+                      item.deliveredAt
+                        ? 'text-emerald-600'
+                        : item.sentAt
+                          ? 'text-amber-600'
+                          : 'text-ardoise-400'
+                    }`}
+                  >
                     {COURSES.find((c) => c.value === item.course)?.label}
-                    {item.sentAt ? ' · envoyé' : ' · à envoyer'}
+                    {item.deliveredAt
+                      ? ' · ● servi'
+                      : item.sentAt
+                        ? ' · ◐ en cuisine'
+                        : ' · ○ à envoyer'}
                   </p>
                 </div>
                 <span className="text-sm text-slate-700">
@@ -390,9 +483,19 @@ export function OrderScreen({
             type="button"
             disabled={aEnvoyer.length === 0}
             onClick={() => void envoyer()}
-            className="w-full rounded-lg bg-amber-500 py-2.5 font-medium text-white disabled:opacity-40"
+            className="w-full rounded-xl bg-amber-500 py-3 font-semibold text-white shadow-souleve transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
           >
             Envoyer en cuisine ({aEnvoyer.length})
+          </button>
+          {/* Servir : le geste qui suit l'envoi, et celui qu'on oublie de
+              consigner si le bouton n'est pas juste à côté. */}
+          <button
+            type="button"
+            disabled={aServir.length === 0}
+            onClick={() => void servir()}
+            className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white shadow-souleve transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+          >
+            Tout servir ({aServir.length})
           </button>
           <div className="grid grid-cols-3 gap-1">
             {COURSES.map((entry) => (

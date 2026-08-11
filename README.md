@@ -147,7 +147,7 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 356 tests TypeScript + 14 tests Rust : devises, monnaie, panier, PIN, rôles, schéma local,
+pnpm test             # 369 tests TypeScript + 21 tests Rust : devises, monnaie, panier, PIN, rôles, schéma local,
                       #             catalogue, stock, ventes, ticket, ESC/POS, rapports, synchro,
                       #             recherche en volume, limitation des tentatives de connexion
 pnpm typecheck        # TypeScript strict sur les trois paquets

@@ -70,6 +70,14 @@ export interface ServiceOrderItem {
   note: string | null;
   /** Horodatage d'envoi en cuisine ; `null` tant que la ligne n'est pas partie. */
   sentAt: string | null;
+  /**
+   * Horodatage de LIVRAISON à table ; `null` tant que l'assiette n'est pas
+   * posée. `sentAt` dit ce que la cuisine a été priée de préparer, celui-ci
+   * dit ce que le client a réellement devant lui — c'est la seule question qui
+   * se pose quand un serveur reprend une table.
+   */
+  deliveredAt: string | null;
+  deliveredBy: EntityId | null;
   voidedAt: string | null;
   voidedBy: EntityId | null;
   voidReason: string | null;
@@ -88,8 +96,60 @@ export interface TableStatus {
   dueCents: Cents;
   /** Articles pris mais pas encore partis en cuisine. */
   pendingCount: number;
+  /** Articles partis en cuisine et pas encore posés sur la table. */
+  awaitingCount: number;
   /** Depuis combien de temps la table est occupée, en minutes. */
   occupiedMinutes: number;
+}
+
+/** État de service d'une ligne, dans l'ordre où il progresse. */
+export type ItemProgress = 'pris' | 'envoye' | 'livre';
+
+export function itemProgress(item: ServiceOrderItem): ItemProgress {
+  if (item.deliveredAt !== null) return 'livre';
+  if (item.sentAt !== null) return 'envoye';
+  return 'pris';
+}
+
+/** Lignes envoyées en cuisine mais pas encore posées sur la table. */
+export function itemsToDeliver(items: readonly ServiceOrderItem[]): ServiceOrderItem[] {
+  return items.filter(
+    (item) => item.sentAt !== null && item.deliveredAt === null && item.voidedAt === null,
+  );
+}
+
+/**
+ * Avancement du service, par service (entrée, plat, dessert).
+ *
+ * C'est ce qu'un serveur regarde en passant devant une table : « les entrées
+ * sont servies, les plats sont en cuisine, les desserts pas commandés ».
+ */
+export interface CourseProgress {
+  course: number;
+  total: number;
+  sent: number;
+  delivered: number;
+}
+
+export function progressByCourse(items: readonly ServiceOrderItem[]): CourseProgress[] {
+  const vivants = items.filter((item) => item.voidedAt === null);
+  const courses = [...new Set(vivants.map((item) => item.course))].sort((a, b) => a - b);
+
+  return courses.map((course) => {
+    const lignes = vivants.filter((item) => item.course === course);
+    return {
+      course,
+      total: lignes.length,
+      sent: lignes.filter((item) => item.sentAt !== null).length,
+      delivered: lignes.filter((item) => item.deliveredAt !== null).length,
+    };
+  });
+}
+
+/** Vrai quand tout ce qui a été commandé est posé sur la table. */
+export function isFullyDelivered(items: readonly ServiceOrderItem[]): boolean {
+  const vivants = items.filter((item) => item.voidedAt === null);
+  return vivants.length > 0 && vivants.every((item) => item.deliveredAt !== null);
 }
 
 /** Lignes vivantes d'une commande : ni annulées, ni déjà facturées. */

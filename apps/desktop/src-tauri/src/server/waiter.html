@@ -416,10 +416,68 @@
         margin-top: 2px;
       }
       .etat.parti {
-        color: var(--vert);
+        color: var(--ambre);
       }
       .etat.attente {
         color: var(--gris);
+      }
+      .etat.servi {
+        color: var(--vert);
+      }
+      /* Bouton « servir » : la seule action qu'un serveur fait les mains
+         pleines, donc large et éloignée du bouton de suppression. */
+      .servir {
+        min-width: 92px;
+        min-height: 46px;
+        border-radius: 12px;
+        background: var(--vert);
+        color: #fff;
+        font-weight: 700;
+        font-size: 14px;
+        flex: none;
+      }
+      .servi-fait {
+        min-width: 92px;
+        min-height: 46px;
+        border-radius: 12px;
+        background: #ecfdf5;
+        color: var(--vert);
+        font-weight: 700;
+        font-size: 14px;
+        flex: none;
+      }
+      .avancement {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 18px 0 8px;
+      }
+      .barre-fond {
+        flex: 1;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--bord);
+        overflow: hidden;
+      }
+      .barre-part {
+        height: 100%;
+        background: var(--vert);
+        transition: width 200ms ease;
+      }
+      .actions-table {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 24px;
+      }
+      .actions-table .btn {
+        min-height: 48px;
+        font-size: 15px;
+      }
+      .danger {
+        color: var(--rouge);
+        border-color: #fecaca;
+        background: #fef2f2;
       }
       .supprimer {
         width: 40px;
@@ -844,14 +902,23 @@
           const bouton = document.createElement('button');
           bouton.type = 'button';
           bouton.className =
-            'table' + (table.orderId ? (table.pending ? ' occupee attente' : ' occupee') : '');
+            'table' +
+            (table.orderId
+              ? table.pending || table.awaiting
+                ? ' occupee attente'
+                : ' occupee'
+              : '');
           bouton.innerHTML = table.orderId
             ? '<div class="nom">' +
               echapper(table.name) +
               '</div><div class="montant">' +
               argent(table.dueCents) +
               '</div><div class="meta">' +
-              (table.pending ? '⏳ ' + table.pending + ' à envoyer' : '✓ tout envoyé') +
+              (table.pending
+                ? '○ ' + table.pending + ' à envoyer'
+                : table.awaiting
+                  ? '◐ ' + table.awaiting + ' à servir'
+                  : '● tout servi') +
               '</div>'
             : '<div class="nom">' +
               echapper(table.name) +
@@ -1160,6 +1227,7 @@
         if (etat.lignes.length === 0) {
           ecran.innerHTML =
             '<p class="vide">Commande vide.<br>Choisissez des plats dans la carte.</p>';
+          dessinerActionsTable();
           return;
         }
 
@@ -1168,10 +1236,35 @@
           const lignes = etat.lignes.filter((l) => l.course === service.valeur);
           if (lignes.length === 0) continue;
 
-          const titre = document.createElement('div');
-          titre.className = 'service';
-          titre.textContent = service.nom + ' · ' + lignes.length;
-          ecran.append(titre);
+          const servis = lignes.filter((l) => l.delivered).length;
+          const envoyes = lignes.filter((l) => l.sent).length;
+
+          // Avancement du service : « les entrées sont servies, les plats sont
+          // en cuisine ». C'est ce qu'on lit en passant devant la table.
+          const entete = document.createElement('div');
+          entete.className = 'avancement';
+          entete.innerHTML =
+            '<span class="service" style="margin:0">' +
+            service.nom +
+            ' ' +
+            servis +
+            '/' +
+            lignes.length +
+            '</span><span class="barre-fond"><span class="barre-part" style="width:' +
+            Math.round((servis / lignes.length) * 100) +
+            '%"></span></span>';
+
+          // Servir tout un service d'un geste : c'est ainsi qu'on repose un
+          // plateau, pas assiette par assiette.
+          if (envoyes > servis) {
+            const tout = document.createElement('button');
+            tout.type = 'button';
+            tout.className = 'servir';
+            tout.textContent = 'Tout servir';
+            tout.onclick = () => void servir({ course: service.valeur });
+            entete.append(tout);
+          }
+          ecran.append(entete);
 
           for (const ligne of lignes) {
             const bloc = document.createElement('div');
@@ -1184,12 +1277,32 @@
               '</div>' +
               (ligne.note ? '<div class="note">▸ ' + echapper(ligne.note) + '</div>' : '') +
               '<div class="etat ' +
-              (ligne.sent ? 'parti' : 'attente') +
+              (ligne.delivered ? 'servi' : ligne.sent ? 'parti' : 'attente') +
               '">' +
-              (ligne.sent ? '✓ envoyé en cuisine' : '⏳ pas encore envoyé') +
-              '</div></div><div style="font-weight:700">' +
-              argent(Math.round((ligne.unitPriceCents * ligne.qtyMilli) / 1000)) +
-              '</div>';
+              (ligne.delivered
+                ? '● servi à table'
+                : ligne.sent
+                  ? '◐ en cuisine'
+                  : '○ pas encore envoyé') +
+              '</div></div>';
+
+            // Le bouton de service est la seule action fréquente : large, à
+            // droite, loin de la suppression.
+            if (ligne.sent) {
+              const bouton = document.createElement('button');
+              bouton.type = 'button';
+              if (ligne.delivered) {
+                bouton.className = 'servi-fait';
+                bouton.textContent = '✓ servi';
+                bouton.title = 'Annuler la livraison';
+                bouton.onclick = () => void annulerService(ligne);
+              } else {
+                bouton.className = 'servir';
+                bouton.textContent = 'Servir';
+                bouton.onclick = () => void servir({ itemIds: [ligne.id] });
+              }
+              bloc.append(bouton);
+            }
 
             const supprimer = document.createElement('button');
             supprimer.type = 'button';
@@ -1215,6 +1328,148 @@
             ecran.append(bloc);
           }
         }
+
+        dessinerActionsTable();
+      }
+
+      /** Libérer et transférer : les deux gestes de fin et de milieu de service. */
+      function dessinerActionsTable() {
+        if (!etat.table) return;
+
+        const actions = document.createElement('div');
+        actions.className = 'actions-table';
+
+        const transferer = document.createElement('button');
+        transferer.type = 'button';
+        transferer.className = 'btn';
+        transferer.textContent = 'Changer de table';
+        transferer.onclick = () => void ficheTransfert();
+
+        const liberer = document.createElement('button');
+        liberer.type = 'button';
+        liberer.className = 'btn danger';
+        liberer.textContent = 'Libérer la table';
+        liberer.onclick = () => void libererTable();
+
+        actions.append(transferer, liberer);
+        ecran.append(actions);
+      }
+
+      async function servir(cible) {
+        try {
+          const resultat = await api('/api/orders/' + etat.orderId + '/deliver', {
+            method: 'POST',
+            body: JSON.stringify(cible),
+          });
+          etat.lignes = await api('/api/orders/' + etat.orderId + '/items');
+          dessinerCommande();
+          if (resultat.delivered > 0) {
+            message(resultat.delivered + ' article(s) servi(s)', true);
+          }
+        } catch (cause) {
+          message(String(cause.message || cause));
+        }
+      }
+
+      /**
+       * Défait une livraison saisie par erreur.
+       *
+       * Renvoyer le serveur vers la caisse pour corriger une faute de dix
+       * secondes le pousserait à ne plus rien consigner du tout.
+       */
+      async function annulerService(ligne) {
+        if (!confirm('Marquer « ' + ligne.name + ' » comme NON servi ?')) return;
+        try {
+          await api('/api/orders/' + etat.orderId + '/deliver', {
+            method: 'POST',
+            body: JSON.stringify({ item_ids: [ligne.id], undo: true }),
+          });
+          etat.lignes = await api('/api/orders/' + etat.orderId + '/items');
+          dessinerCommande();
+        } catch (cause) {
+          message(String(cause.message || cause));
+        }
+      }
+
+      async function libererTable() {
+        const reste = etat.lignes.filter((l) => !l.delivered).length;
+        const avertissement =
+          reste > 0 ? 'Attention : ' + reste + ' article(s) ne sont pas servis.\n\n' : '';
+        const motif = prompt(
+          avertissement +
+            'Libérer la table pour le client suivant ?\nIndiquez pourquoi (ex. : client parti, fin de service).',
+        );
+        if (!motif || !motif.trim()) return;
+
+        try {
+          const resultat = await api('/api/orders/' + etat.orderId + '/release', {
+            method: 'POST',
+            body: JSON.stringify({ reason: motif.trim() }),
+          });
+          message(
+            resultat.cancelled > 0
+              ? 'Table libérée · ' + resultat.cancelled + ' article(s) annulé(s)'
+              : 'Table libérée',
+            true,
+          );
+          salle();
+        } catch (cause) {
+          message(String(cause.message || cause));
+        }
+      }
+
+      async function ficheTransfert() {
+        const tables = await api('/api/tables');
+        const libres = tables.filter((t) => !t.orderId && t.id !== etat.table.id);
+        if (libres.length === 0) {
+          message('Aucune table libre.');
+          return;
+        }
+
+        const voile = document.createElement('div');
+        voile.className = 'voile';
+        voile.onclick = (event) => {
+          if (event.target === voile) voile.remove();
+        };
+
+        const fiche = document.createElement('div');
+        fiche.className = 'fiche';
+        fiche.innerHTML =
+          '<div class="poignee"></div><div style="font-size:20px;font-weight:700">' +
+          'Déplacer vers…</div><div style="color:var(--gris);margin:4px 0 14px">' +
+          'La commande suit les clients qui changent de place.</div>';
+
+        const grille = document.createElement('div');
+        grille.className = 'grille-tables';
+        for (const table of libres) {
+          const bouton = document.createElement('button');
+          bouton.type = 'button';
+          bouton.className = 'table';
+          bouton.innerHTML =
+            '<div class="nom">' +
+            echapper(table.name) +
+            '</div><div class="libre">' +
+            table.seats +
+            ' couverts</div>';
+          bouton.onclick = async () => {
+            voile.remove();
+            try {
+              await api('/api/orders/' + etat.orderId + '/move', {
+                method: 'POST',
+                body: JSON.stringify({ table_id: table.id }),
+              });
+              etat.table = table;
+              dessinerCommande();
+              message('Commande déplacée vers ' + table.name, true);
+            } catch (cause) {
+              message(String(cause.message || cause));
+            }
+          };
+          grille.append(bouton);
+        }
+        fiche.append(grille);
+        voile.append(fiche);
+        document.body.append(voile);
       }
 
       async function envoyerCuisine() {

@@ -140,6 +140,7 @@ export function RoomScreen({ session, db }: { session: LocalSession; db: SqlExec
           {statuses.map((status) => {
             const occupee = status.order !== null;
             const attente = status.pendingCount > 0;
+            const aServir = status.awaitingCount > 0;
             // Une table oubliée est la panne la plus coûteuse d'un service :
             // au-delà d'une heure et demie sans envoi, elle passe en alerte.
             const tardive = occupee && status.occupiedMinutes >= 90;
@@ -158,11 +159,13 @@ export function RoomScreen({ session, db }: { session: LocalSession; db: SqlExec
                   className={`absolute inset-y-0 left-0 w-1.5 ${
                     tardive
                       ? 'bg-rose-500'
-                      : attente
+                      : aServir
                         ? 'bg-amber-500'
-                        : occupee
-                          ? 'bg-caisse-600'
-                          : 'bg-ardoise-200'
+                        : attente
+                          ? 'bg-ardoise-400'
+                          : occupee
+                            ? 'bg-caisse-600'
+                            : 'bg-ardoise-200'
                   }`}
                 />
                 <p className="text-base font-bold text-ardoise-900">{status.table.name}</p>
@@ -179,11 +182,25 @@ export function RoomScreen({ session, db }: { session: LocalSession; db: SqlExec
                     >
                       {status.occupiedMinutes} min
                     </p>
-                    {attente && (
-                      <span className="pastille mt-2 bg-amber-100 text-amber-800">
-                        {status.pendingCount} à envoyer
-                      </span>
-                    )}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {attente && (
+                        <span className="pastille bg-ardoise-200 text-ardoise-700">
+                          ○ {status.pendingCount} à envoyer
+                        </span>
+                      )}
+                      {/* « À servir » est l'information la plus actionnable de
+                          l'écran : un plat prêt qui attend au passe refroidit. */}
+                      {status.awaitingCount > 0 && (
+                        <span className="pastille bg-amber-100 text-amber-800">
+                          ◐ {status.awaitingCount} à servir
+                        </span>
+                      )}
+                      {!attente && status.awaitingCount === 0 && (
+                        <span className="pastille bg-emerald-50 text-emerald-700">
+                          ● tout servi
+                        </span>
+                      )}
+                    </div>
                   </>
                 ) : (
                   <p className="mt-2 text-sm text-ardoise-400">
