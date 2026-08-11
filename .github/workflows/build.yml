@@ -176,9 +176,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `pattern` est indispensable : sans lui, l'action récupère AUSSI
+      # l'artefact de traçabilité produit par la construction de l'image Docker,
+      # qu'elle ne sait pas extraire — et la publication échoue alors que les
+      # deux installeurs sont prêts.
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: caisse-*
 
       # Le manifeste que les caisses interrogent. Il porte les signatures des
       # installeurs : produit par script, jamais à la main.
