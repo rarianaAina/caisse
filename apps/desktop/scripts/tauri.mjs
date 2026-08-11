@@ -80,9 +80,20 @@ function cleanEnvironment(source) {
   return env;
 }
 
-const command = process.platform === 'win32' ? 'tauri.cmd' : 'tauri';
+const isWindows = process.platform === 'win32';
+const command = isWindows ? 'tauri.cmd' : 'tauri';
+
+// `shell: true` est INDISPENSABLE sous Windows : depuis Node 20, lancer un
+// fichier .cmd sans shell lève « spawn EINVAL » (correctif de sécurité
+// CVE-2024-27980). C'est ce qui faisait échouer la compilation Windows en
+// intégration continue, seul endroit où elle est produite.
+//
+// Ailleurs, on s'en passe : passer par un shell obligerait à échapper les
+// arguments, et le nettoyage d'environnement ci-dessus ne concerne de toute
+// façon que Linux.
 const child = spawn(command, process.argv.slice(2), {
   stdio: 'inherit',
+  shell: isWindows,
   env: cleanEnvironment(process.env),
 });
 
