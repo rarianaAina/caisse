@@ -62,8 +62,16 @@ if (manquants.length > 0) {
 }
 
 if (Object.keys(platforms).length === 0) {
-  console.error('✗ Aucun paquet signé : le manifeste ne serait utile à personne.');
-  process.exit(1);
+  // On ne fait PAS échouer la publication : les installeurs sont valables pour
+  // une première installation, et les priver de publication punirait le mauvais
+  // problème. Mais l'avertissement est bruyant et remonte dans l'interface de
+  // GitHub — des caisses qui ne se mettront jamais à jour, cela ne se découvre
+  // pas six mois plus tard.
+  console.log(
+    '::warning::Aucun paquet signé : les caisses déjà installées ne verront PAS cette version. ' +
+      'Déposez TAURI_SIGNING_PRIVATE_KEY dans les secrets du dépôt (cf. docs/mises-a-jour.md).',
+  );
+  process.exit(0);
 }
 
 const manifeste = {

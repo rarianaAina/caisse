@@ -204,6 +204,10 @@ jobs:
             « Réglages → Mise à jour » dès que la publication ne sera plus un
             brouillon : `latest.json` n'est servi que par une version publiée.
 
+            Si aucun fichier `latest.json` n'est joint, la clé de signature
+            manque dans les secrets du dépôt : les caisses déjà installées ne
+            verront pas cette version (cf. `docs/mises-a-jour.md`).
+
             ⚠️ Installeurs non signés par un certificat éditeur : Windows
             affichera un avertissement SmartScreen à la PREMIÈRE installation
             (« Plus d'infos » puis « Exécuter quand même »). Les mises à jour
