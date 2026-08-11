@@ -331,3 +331,49 @@ describe('atomicité', () => {
     expect(await catalog.listCategories()).toHaveLength(0);
   });
 });
+
+describe('catégories : couleur et comptage', () => {
+  it('conserve la couleur, qui sert de repère à l’écran de vente', async () => {
+    const created = await catalog.createCategory({
+      name: 'Boissons',
+      color: '#2563eb',
+      position: 0,
+    });
+    expect(created.color).toBe('#2563eb');
+
+    // Le changement de couleur passe par le même chemin qu'une modification de
+    // nom : il doit donc, lui aussi, partir dans la file de synchronisation.
+    await catalog.updateCategory(created.id, { color: '#16a34a', version: 1 });
+    const [reloaded] = await catalog.listCategories();
+    expect(reloaded?.color).toBe('#16a34a');
+
+    const queue = await mutations();
+    const derniere = queue.at(-1);
+    expect(derniere?.entity).toBe('category');
+    expect(JSON.parse(derniere?.payload ?? '{}')).toMatchObject({ color: '#16a34a' });
+  });
+
+  it('compte les articles de chaque catégorie', async () => {
+    const boissons = await catalog.createCategory({ name: 'Boissons', position: 0 });
+    const plats = await catalog.createCategory({ name: 'Plats', position: 1 });
+
+    await catalog.createProduct(product({ name: 'Coca', categoryId: boissons.id }));
+    await catalog.createProduct(product({ name: 'Eau', categoryId: boissons.id }));
+    await catalog.createProduct(product({ name: 'Riz', categoryId: plats.id }));
+    await catalog.createProduct(product({ name: 'Sans catégorie' }));
+
+    const counts = await catalog.countByCategory();
+    expect(counts.get(boissons.id)).toBe(2);
+    expect(counts.get(plats.id)).toBe(1);
+    // Une catégorie vide n'apparaît pas : c'est à l'appelant d'afficher zéro.
+    expect(counts.size).toBe(2);
+  });
+
+  it('ne compte plus un article supprimé', async () => {
+    const boissons = await catalog.createCategory({ name: 'Boissons', position: 0 });
+    const coca = await catalog.createProduct(product({ name: 'Coca', categoryId: boissons.id }));
+    await catalog.deleteProduct(coca.id);
+
+    expect((await catalog.countByCategory()).get(boissons.id)).toBeUndefined();
+  });
+});

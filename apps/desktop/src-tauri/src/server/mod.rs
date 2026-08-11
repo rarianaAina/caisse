@@ -249,9 +249,54 @@ async fn tables<R: Runtime>(
     Ok(Json(json!(tables)))
 }
 
+/// Catégories de la carte, avec leur couleur.
+///
+/// La couleur vient du catalogue et n'est pas décorative : c'est elle qui
+/// permet à un serveur de retrouver « les boissons » d'un coup d'œil, sans
+/// lire. Sur un téléphone tenu d'une main pendant un service, c'est la
+/// différence entre trouver et chercher.
+async fn categories<R: Runtime>(
+    State(state): State<Arc<ServerState<R>>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let pool = pool(&state)
+        .await
+        .map_err(|error| (StatusCode::SERVICE_UNAVAILABLE, error))?;
+
+    // Le compte d'articles est joint : une catégorie vide n'a aucune raison
+    // d'occuper une place sur un écran de téléphone.
+    let rows = sqlx::query(
+        "SELECT c.id, c.name, c.color, c.position,
+                (SELECT count(*) FROM product p
+                  WHERE p.category_id = c.id AND p.deleted_at IS NULL AND p.is_active = 1)
+                  AS articles
+           FROM category c
+          WHERE c.deleted_at IS NULL
+          ORDER BY c.position, c.name",
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    let categories: Vec<_> = rows
+        .iter()
+        .filter(|row| row.get::<i64, _>("articles") > 0)
+        .map(|row| {
+            json!({
+                "id": row.get::<String, _>("id"),
+                "name": row.get::<String, _>("name"),
+                "color": row.get::<Option<String>, _>("color"),
+                "count": row.get::<i64, _>("articles"),
+            })
+        })
+        .collect();
+
+    Ok(Json(json!(categories)))
+}
+
 #[derive(Deserialize)]
 struct SearchQuery {
     q: Option<String>,
+    category: Option<String>,
 }
 
 async fn products<R: Runtime>(
@@ -263,14 +308,25 @@ async fn products<R: Runtime>(
         .map_err(|error| (StatusCode::SERVICE_UNAVAILABLE, error))?;
 
     let term = query.q.unwrap_or_default().to_lowercase();
+    let category = query.category.unwrap_or_default();
+
+    // La déclinaison, la description et la catégorie descendent aussi : un
+    // serveur qui hésite entre deux plats doit pouvoir trancher sans appeler
+    // la cuisine.
     let rows = sqlx::query(
-        "SELECT id, name, price_cents, tax_rate_bp FROM product
-          WHERE deleted_at IS NULL AND is_active = 1
-            AND (? = '' OR search_key LIKE '%' || ? || '%')
-          ORDER BY name LIMIT 60",
+        "SELECT p.id, p.name, p.variant_label, p.description, p.price_cents, p.tax_rate_bp,
+                p.category_id, c.name AS category_name, c.color AS category_color
+           FROM product p
+           LEFT JOIN category c ON c.id = p.category_id
+          WHERE p.deleted_at IS NULL AND p.is_active = 1
+            AND (? = '' OR p.search_key LIKE '%' || ? || '%')
+            AND (? = '' OR p.category_id = ?)
+          ORDER BY p.name LIMIT 200",
     )
     .bind(&term)
     .bind(&term)
+    .bind(&category)
+    .bind(&category)
     .fetch_all(&pool)
     .await
     .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
@@ -281,8 +337,13 @@ async fn products<R: Runtime>(
             json!({
                 "id": row.get::<String, _>("id"),
                 "name": row.get::<String, _>("name"),
+                "variantLabel": row.get::<Option<String>, _>("variant_label"),
+                "description": row.get::<Option<String>, _>("description"),
                 "priceCents": row.get::<i64, _>("price_cents"),
                 "taxRateBp": row.get::<i64, _>("tax_rate_bp"),
+                "categoryId": row.get::<Option<String>, _>("category_id"),
+                "categoryName": row.get::<Option<String>, _>("category_name"),
+                "categoryColor": row.get::<Option<String>, _>("category_color"),
             })
         })
         .collect();
@@ -627,6 +688,7 @@ pub fn router<R: Runtime>(state: Arc<ServerState<R>>) -> Router {
     let protected = Router::new()
         .route("/api/tables", get(tables))
         .route("/api/products", get(products))
+        .route("/api/categories", get(categories))
         .route("/api/orders", post(open_order))
         .route("/api/orders/{id}/items", get(order_items).post(add_item))
         .route("/api/orders/{id}/items/{item}", delete(remove_item))

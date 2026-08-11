@@ -64,7 +64,13 @@ async fn setup() -> (Arc<ServerState<tauri::test::MockRuntime>>, String, String)
         .bind(HASH_4917).bind(now).bind(now).execute(&pool).await.expect("serveur de salle");
     sqlx::query("INSERT INTO dining_table (id, company_id, store_id, name, seats, position, created_at, updated_at) VALUES ('t1', 'c1', 's1', 'Table 1', 4, 1, ?, ?)")
         .bind(now).bind(now).execute(&pool).await.expect("table");
-    sqlx::query("INSERT INTO product (id, company_id, name, unit, price_cents, cost_cents, tax_rate_bp, track_stock, is_active, search_key, created_at, updated_at) VALUES ('p1', 'c1', 'Romazava', 'unit', 12000, 0, 0, 0, 1, 'romazava', ?, ?)")
+    sqlx::query("INSERT INTO category (id, company_id, name, color, position, created_at, updated_at) VALUES ('cat1', 'c1', 'Plats', '#16a34a', 1, ?, ?)")
+        .bind(now).bind(now).execute(&pool).await.expect("catégorie");
+    // Catégorie sans aucun article : elle ne doit JAMAIS apparaître sur un
+    // téléphone, où chaque pastille prend de la place.
+    sqlx::query("INSERT INTO category (id, company_id, name, color, position, created_at, updated_at) VALUES ('cat2', 'c1', 'Desserts', '#db2777', 2, ?, ?)")
+        .bind(now).bind(now).execute(&pool).await.expect("catégorie vide");
+    sqlx::query("INSERT INTO product (id, company_id, category_id, name, variant_label, description, unit, price_cents, cost_cents, tax_rate_bp, track_stock, is_active, search_key, created_at, updated_at) VALUES ('p1', 'c1', 'cat1', 'Romazava', 'grande part', 'Feuilles de brèdes et zébu', 'unit', 12000, 0, 0, 0, 1, 'romazava', ?, ?)")
         .bind(now).bind(now).execute(&pool).await.expect("plat");
 
     let app = tauri::test::mock_builder()
@@ -356,4 +362,66 @@ async fn la_recherche_de_plats_filtre_vraiment() {
 
     let (_, rien) = call(&state, "GET", "/api/products?q=pizza", Some(&token), json!({})).await;
     assert_eq!(rien.as_array().map(Vec::len), Some(0));
+}
+
+#[tokio::test]
+async fn les_categories_exigent_une_session() {
+    let (state, _, _) = setup().await;
+    let (status, _) = call(&state, "GET", "/api/categories", None, json!({})).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn les_categories_portent_leur_couleur_et_ignorent_les_vides() {
+    let (state, _, _) = setup().await;
+    let token = logged_in(&state).await;
+
+    let (status, body) = call(&state, "GET", "/api/categories", Some(&token), json!({})).await;
+    assert_eq!(status, StatusCode::OK);
+
+    // « Desserts » n'a aucun article : l'afficher ferait perdre une place sur
+    // un écran de téléphone, et cliquer dessus ne donnerait rien.
+    assert_eq!(body.as_array().map(Vec::len), Some(1));
+    assert_eq!(body[0]["name"], "Plats");
+    assert_eq!(body[0]["count"], 1);
+    // La couleur est le repère visuel du serveur : sans elle, il doit lire.
+    assert_eq!(body[0]["color"], "#16a34a");
+}
+
+#[tokio::test]
+async fn un_article_porte_de_quoi_trancher_sans_appeler_la_cuisine() {
+    let (state, _, _) = setup().await;
+    let token = logged_in(&state).await;
+
+    let (_, body) = call(&state, "GET", "/api/products", Some(&token), json!({})).await;
+    assert_eq!(body[0]["variantLabel"], "grande part");
+    assert_eq!(body[0]["description"], "Feuilles de brèdes et zébu");
+    assert_eq!(body[0]["categoryName"], "Plats");
+    assert_eq!(body[0]["categoryColor"], "#16a34a");
+}
+
+#[tokio::test]
+async fn la_carte_se_filtre_par_categorie() {
+    let (state, _, _) = setup().await;
+    let token = logged_in(&state).await;
+
+    let (_, plats) = call(
+        &state,
+        "GET",
+        "/api/products?category=cat1",
+        Some(&token),
+        json!({}),
+    )
+    .await;
+    assert_eq!(plats.as_array().map(Vec::len), Some(1));
+
+    let (_, desserts) = call(
+        &state,
+        "GET",
+        "/api/products?category=cat2",
+        Some(&token),
+        json!({}),
+    )
+    .await;
+    assert_eq!(desserts.as_array().map(Vec::len), Some(0));
 }

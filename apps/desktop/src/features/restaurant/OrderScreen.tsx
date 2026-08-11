@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   COURSES,
+  type Category,
   type Product,
   type SaleDetails,
   type ServiceOrder,
@@ -43,6 +44,8 @@ export function OrderScreen({
   const [order, setOrder] = useState<ServiceOrder | null>(null);
   const [items, setItems] = useState<ServiceOrderItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [search, setSearch] = useState('');
   const [course, setCourse] = useState<number>(2);
   const [selection, setSelection] = useState<Set<string>>(new Set());
@@ -92,13 +95,26 @@ export function OrderScreen({
   }, [reload]);
 
   useEffect(() => {
+    void catalog.listCategories().then(setCategories);
+  }, [catalog]);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       void catalog
-        .searchProducts({ term: search, activeOnly: true, limit: PAGE_SIZE })
+        .searchProducts({
+          term: search,
+          activeOnly: true,
+          limit: PAGE_SIZE,
+          ...(categoryFilter ? { categoryId: categoryFilter } : {}),
+        })
         .then((found) => setProducts(found.items));
     }, 120);
     return () => clearTimeout(timer);
-  }, [catalog, search]);
+  }, [catalog, search, categoryFilter]);
+
+  /** Couleur de la catégorie d'un plat : repère visuel de la carte. */
+  const colorOf = (categoryId: string | null): string | undefined =>
+    categories.find((category) => category.id === categoryId)?.color ?? undefined;
 
   const run = async (action: () => Promise<void>): Promise<void> => {
     setError(null);
@@ -210,21 +226,61 @@ export function OrderScreen({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Chercher un plat…"
-            className="flex-1 rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-caisse-600"
+            className="flex-1 rounded-xl border border-ardoise-200 bg-white px-4 py-3 shadow-carte outline-none transition focus:border-caisse-500"
           />
-          <select
-            value={course}
-            onChange={(event) => setCourse(Number(event.target.value))}
-            className="rounded-lg border border-slate-300 px-3 py-2.5"
-            title="Service auquel les articles ajoutés seront rattachés"
-          >
+          {/* Le service s'affiche en boutons et non en menu : c'est le réglage
+              qu'on change le plus souvent en prenant une commande. */}
+          <div className="flex gap-1 rounded-xl bg-white p-1 shadow-carte">
             {COURSES.map((entry) => (
-              <option key={entry.value} value={entry.value}>
+              <button
+                key={entry.value}
+                type="button"
+                onClick={() => setCourse(entry.value)}
+                className={`rounded-lg px-3 text-sm font-semibold transition ${
+                  course === entry.value
+                    ? 'bg-ardoise-900 text-white'
+                    : 'text-ardoise-600 hover:bg-ardoise-100'
+                }`}
+              >
                 {entry.label}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
+
+        {categories.length > 0 && (
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            <button
+              type="button"
+              onClick={() => setCategoryFilter('')}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                categoryFilter === ''
+                  ? 'bg-ardoise-900 text-white'
+                  : 'border border-ardoise-200 bg-white text-ardoise-700'
+              }`}
+            >
+              Toute la carte
+            </button>
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => setCategoryFilter(category.id)}
+                className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  categoryFilter === category.id
+                    ? 'bg-ardoise-900 text-white'
+                    : 'border border-ardoise-200 bg-white text-ardoise-700'
+                }`}
+              >
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ background: category.color ?? '#94a3b8' }}
+                />
+                {category.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {products.map((product) => (
@@ -250,10 +306,21 @@ export function OrderScreen({
                     .then(() => undefined),
                 )
               }
-              className="rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-caisse-500"
+              className="tuile flex flex-col p-3.5"
+              style={{
+                borderLeftWidth: '4px',
+                borderLeftColor: colorOf(product.categoryId) ?? 'var(--color-ardoise-200)',
+              }}
             >
-              <p className="text-sm font-medium text-slate-900">{product.name}</p>
-              <p className="text-sm text-slate-500">
+              <p className="line-clamp-2 font-semibold leading-snug text-ardoise-900">
+                {product.name}
+              </p>
+              {product.variantLabel && (
+                <span className="mt-1 inline-block w-fit rounded bg-caisse-50 px-1.5 py-0.5 text-xs font-bold text-caisse-700">
+                  {product.variantLabel}
+                </span>
+              )}
+              <p className="mt-auto pt-2 text-lg font-bold tabular-nums text-ardoise-900">
                 {formatMoney(product.priceCents, session.company.currency)}
               </p>
             </button>

@@ -3,6 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1220" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Salle</title>
     <!--
       Page servie par la caisse aux téléphones des serveurs.
@@ -12,163 +14,691 @@
       distante. C'est aussi ce qui permet à n'importe quel téléphone de
       l'ouvrir sans rien installer.
 
-      Les cibles tactiles sont grandes (44 px au moins) : elle est utilisée
-      debout, d'une main, parfois avec des doigts mouillés.
+      Trois contraintes de service commandent toute la mise en page :
+        1. elle est utilisée DEBOUT, d'une main, parfois les doigts mouillés →
+           cibles d'au moins 48 px, rien d'important dans les coins hauts ;
+        2. elle est lue en marchant → contraste fort, gros chiffres ;
+        3. chaque appui doit répondre TOUT DE SUITE → l'article s'ajoute à
+           l'écran avant la réponse du serveur, et se retire si elle échoue.
     -->
     <style>
-      * {
+      *,
+      *::before,
+      *::after {
         box-sizing: border-box;
         -webkit-tap-highlight-color: transparent;
       }
+
+      :root {
+        --nuit: #0b1220;
+        --nuit-clair: #16203a;
+        --encre: #0f172a;
+        --gris: #64748b;
+        --gris-clair: #94a3b8;
+        --bord: #e2e8f0;
+        --fond: #f1f5f9;
+        --bleu: #2563eb;
+        --bleu-sombre: #1d4ed8;
+        --vert: #059669;
+        --ambre: #d97706;
+        --rouge: #dc2626;
+        --rayon: 14px;
+        --ombre: 0 1px 2px rgb(15 23 42 / 0.06), 0 1px 3px rgb(15 23 42 / 0.05);
+        --ombre-haute: 0 12px 32px rgb(15 23 42 / 0.18);
+      }
+
+      html,
       body {
         margin: 0;
+        height: 100%;
+      }
+
+      body {
         font-family:
           system-ui,
           -apple-system,
+          'Segoe UI',
           sans-serif;
-        background: #f1f5f9;
-        color: #0f172a;
-        padding-bottom: env(safe-area-inset-bottom);
+        background: var(--fond);
+        color: var(--encre);
+        -webkit-user-select: none;
+        user-select: none;
+        overscroll-behavior-y: contain;
+        font-variant-numeric: tabular-nums;
       }
-      header {
-        position: sticky;
-        top: 0;
-        background: #0f172a;
-        color: #fff;
-        padding: 12px 16px;
+
+      /* ─── Ossature ─────────────────────────────────────────────────────── */
+
+      #app {
         display: flex;
-        justify-content: space-between;
+        flex-direction: column;
+        height: 100%;
+      }
+
+      header {
+        background: var(--nuit);
+        color: #fff;
+        padding: calc(env(safe-area-inset-top) + 12px) 16px 12px;
+        display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 12px;
+        flex: none;
       }
-      header b {
-        font-size: 17px;
+      header .titre {
+        flex: 1;
+        min-width: 0;
       }
+      header h1 {
+        margin: 0;
+        font-size: 19px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      header .sous {
+        font-size: 13px;
+        color: #94a3b8;
+        margin-top: 2px;
+      }
+
       main {
-        padding: 12px;
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 14px 14px 20px;
       }
+
+      /* ─── Boutons ──────────────────────────────────────────────────────── */
+
       button {
         font: inherit;
+        color: inherit;
         border: none;
-        border-radius: 12px;
-        padding: 14px;
-        min-height: 48px;
+        background: none;
+        cursor: pointer;
+      }
+
+      .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 52px;
+        padding: 0 18px;
+        border-radius: var(--rayon);
+        font-weight: 650;
+        font-size: 16px;
         background: #fff;
-        color: #0f172a;
-        text-align: left;
-        width: 100%;
+        border: 1px solid var(--bord);
+        transition: transform 90ms ease;
       }
-      button:active {
-        opacity: 0.7;
+      .btn:active {
+        transform: scale(0.97);
       }
-      .primary {
-        background: #2563eb;
+      .btn-principal {
+        background: var(--bleu);
         color: #fff;
-        font-weight: 600;
-        text-align: center;
+        border-color: var(--bleu);
+        box-shadow: 0 4px 14px rgb(37 99 235 / 0.3);
       }
-      .ghost {
-        background: transparent;
+      .btn-cuisine {
+        background: var(--ambre);
         color: #fff;
-        width: auto;
-        padding: 8px 12px;
-        min-height: 0;
-        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-color: var(--ambre);
+        box-shadow: 0 4px 14px rgb(217 119 6 / 0.3);
       }
-      .grid {
+      .btn:disabled {
+        opacity: 0.4;
+        box-shadow: none;
+      }
+      .btn-fantome {
+        min-height: 40px;
+        padding: 0 14px;
+        font-size: 14px;
+        background: rgb(255 255 255 / 0.1);
+        border: 1px solid rgb(255 255 255 / 0.25);
+        color: #fff;
+      }
+
+      /* ─── Salle ────────────────────────────────────────────────────────── */
+
+      .grille-tables {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 10px;
+        gap: 12px;
       }
-      .card {
-        border: 1px solid #e2e8f0;
-      }
-      .busy {
-        border-color: #93c5fd;
-        background: #eff6ff;
-      }
-      .muted {
-        color: #64748b;
-        font-size: 13px;
-      }
-      .row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 10px;
+      .table {
         background: #fff;
-        border-radius: 12px;
-        padding: 12px;
-        margin-bottom: 8px;
+        border: 1px solid var(--bord);
+        border-radius: var(--rayon);
+        padding: 16px;
+        box-shadow: var(--ombre);
+        text-align: left;
+        position: relative;
+        overflow: hidden;
+        transition: transform 90ms ease;
       }
-      input,
-      select {
+      .table:active {
+        transform: scale(0.97);
+      }
+      /* Un liseré coloré porte l'état : lisible de loin, sans lire le texte. */
+      .table::before {
+        content: '';
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 5px;
+        background: var(--bord);
+      }
+      .table.occupee::before {
+        background: var(--bleu);
+      }
+      .table.attente::before {
+        background: var(--ambre);
+      }
+      .table .nom {
+        font-size: 17px;
+        font-weight: 700;
+      }
+      .table .montant {
+        font-size: 22px;
+        font-weight: 700;
+        margin-top: 6px;
+        letter-spacing: -0.02em;
+      }
+      .table .libre {
+        color: var(--gris-clair);
+        font-size: 14px;
+        margin-top: 6px;
+      }
+      .table .meta {
+        color: var(--gris);
+        font-size: 13px;
+        margin-top: 2px;
+      }
+
+      /* ─── Catégories ───────────────────────────────────────────────────── */
+
+      .categories {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 2px 14px 12px;
+        margin: 0 -14px;
+        scrollbar-width: none;
+      }
+      .categories::-webkit-scrollbar {
+        display: none;
+      }
+      .cat {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 0 16px;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid var(--bord);
+        font-size: 15px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .cat .point {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--gris-clair);
+        flex: none;
+      }
+      .cat .compte {
+        font-size: 12px;
+        color: var(--gris);
+        font-weight: 600;
+      }
+      .cat[aria-pressed='true'] {
+        background: var(--encre);
+        color: #fff;
+        border-color: var(--encre);
+      }
+      .cat[aria-pressed='true'] .compte {
+        color: #cbd5e1;
+      }
+
+      /* ─── Articles ─────────────────────────────────────────────────────── */
+
+      .recherche {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      input[type='search'],
+      input[type='text'],
+      textarea {
         font: inherit;
         width: 100%;
-        padding: 14px;
-        border: 1px solid #cbd5e1;
-        border-radius: 12px;
+        min-height: 48px;
+        padding: 12px 14px;
+        border: 1px solid var(--bord);
+        border-radius: var(--rayon);
         background: #fff;
+        -webkit-user-select: text;
+        user-select: text;
       }
-      .pin {
-        font-size: 28px;
+      input:focus,
+      textarea:focus {
+        outline: 2px solid var(--bleu);
+        outline-offset: -1px;
+      }
+
+      .grille-articles {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 10px;
+      }
+      .article {
+        background: #fff;
+        border: 1px solid var(--bord);
+        border-left: 4px solid var(--bord);
+        border-radius: var(--rayon);
+        padding: 12px 12px 10px;
+        text-align: left;
+        box-shadow: var(--ombre);
+        display: flex;
+        flex-direction: column;
+        min-height: 96px;
+        transition: transform 90ms ease;
+      }
+      .article:active {
+        transform: scale(0.96);
+      }
+      .article .nom {
+        font-weight: 650;
+        font-size: 15px;
+        line-height: 1.3;
+      }
+      .article .decl {
+        display: inline-block;
+        margin-top: 4px;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--bleu-sombre);
+        background: #eff6ff;
+        border-radius: 6px;
+        padding: 1px 6px;
+      }
+      .article .desc {
+        font-size: 12px;
+        color: var(--gris);
+        margin-top: 4px;
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .article .prix {
+        margin-top: auto;
+        padding-top: 8px;
+        font-size: 17px;
+        font-weight: 700;
+      }
+      .article .compteur {
+        position: absolute;
+      }
+      .enveloppe-article {
+        position: relative;
+      }
+      /* Nombre déjà commandé : évite de recompter la commande dans sa tête. */
+      .badge-qte {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        min-width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        background: var(--bleu);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 6px rgb(37 99 235 / 0.4);
+      }
+
+      /* ─── Commande ─────────────────────────────────────────────────────── */
+
+      .service {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--gris);
+        margin: 18px 0 8px;
+      }
+      .ligne {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #fff;
+        border: 1px solid var(--bord);
+        border-radius: var(--rayon);
+        padding: 12px;
+        margin-bottom: 8px;
+        box-shadow: var(--ombre);
+      }
+      .ligne .qte {
+        min-width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        background: var(--fond);
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+      }
+      .ligne .corps {
+        flex: 1;
+        min-width: 0;
+      }
+      .ligne .note {
+        font-size: 13px;
+        color: var(--ambre);
+        font-weight: 600;
+        margin-top: 2px;
+      }
+      .etat {
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: 2px;
+      }
+      .etat.parti {
+        color: var(--vert);
+      }
+      .etat.attente {
+        color: var(--gris);
+      }
+      .supprimer {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        color: var(--gris-clair);
+        font-size: 20px;
+        flex: none;
+      }
+
+      /* ─── Barre du bas ─────────────────────────────────────────────────── */
+
+      .barre {
+        flex: none;
+        background: #fff;
+        border-top: 1px solid var(--bord);
+        padding: 12px 14px calc(env(safe-area-inset-bottom) + 12px);
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        box-shadow: 0 -4px 16px rgb(15 23 42 / 0.06);
+      }
+      .barre .total {
+        flex: 1;
+      }
+      .barre .total .libelle {
+        font-size: 12px;
+        color: var(--gris);
+        font-weight: 600;
+      }
+      .barre .total .valeur {
+        font-size: 24px;
+        font-weight: 750;
+        letter-spacing: -0.02em;
+      }
+
+      .onglets {
+        display: flex;
+        gap: 4px;
+        background: rgb(255 255 255 / 0.12);
+        padding: 4px;
+        border-radius: 999px;
+      }
+      .onglets button {
+        min-height: 36px;
+        padding: 0 16px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 650;
+        color: #cbd5e1;
+      }
+      .onglets button[aria-pressed='true'] {
+        background: #fff;
+        color: var(--encre);
+      }
+
+      /* ─── Fiche d'ajout ────────────────────────────────────────────────── */
+
+      .voile {
+        position: fixed;
+        inset: 0;
+        background: rgb(15 23 42 / 0.5);
+        display: flex;
+        align-items: flex-end;
+        z-index: 20;
+      }
+      .fiche {
+        background: #fff;
+        width: 100%;
+        border-radius: 20px 20px 0 0;
+        padding: 20px 16px calc(env(safe-area-inset-bottom) + 16px);
+        box-shadow: var(--ombre-haute);
+        max-height: 88vh;
+        overflow-y: auto;
+      }
+      .poignee {
+        width: 40px;
+        height: 4px;
+        border-radius: 999px;
+        background: var(--bord);
+        margin: -8px auto 14px;
+      }
+      .pas {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        justify-content: center;
+        margin: 14px 0;
+      }
+      .pas button {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        background: var(--fond);
+        font-size: 26px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .pas .valeur {
+        font-size: 32px;
+        font-weight: 750;
+        min-width: 64px;
         text-align: center;
-        letter-spacing: 8px;
       }
-      .keypad {
+      .choix {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-        margin-top: 12px;
-      }
-      .keypad button {
-        text-align: center;
-        font-size: 22px;
-        font-weight: 600;
-        min-height: 60px;
-      }
-      .bar {
-        position: sticky;
-        bottom: 0;
-        background: #f1f5f9;
-        padding: 10px 0;
-        display: grid;
         gap: 8px;
+        margin-bottom: 14px;
       }
-      .error {
-        background: #fee2e2;
-        color: #991b1b;
-        padding: 12px;
+      .choix button {
+        min-height: 46px;
         border-radius: 12px;
-        margin-bottom: 10px;
+        border: 1px solid var(--bord);
+        font-weight: 650;
+        background: #fff;
       }
-      .tag {
-        background: #fef3c7;
-        color: #92400e;
+      .choix button[aria-pressed='true'] {
+        background: var(--encre);
+        color: #fff;
+        border-color: var(--encre);
+      }
+
+      /* ─── Connexion ────────────────────────────────────────────────────── */
+
+      .clavier {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        max-width: 320px;
+        margin: 0 auto;
+      }
+      .clavier button {
+        min-height: 68px;
+        border-radius: 16px;
+        background: #fff;
+        border: 1px solid var(--bord);
+        font-size: 26px;
+        font-weight: 650;
+        box-shadow: var(--ombre);
+      }
+      .clavier button:active {
+        background: var(--fond);
+      }
+      .points {
+        display: flex;
+        justify-content: center;
+        gap: 14px;
+        margin: 26px 0;
+      }
+      .points i {
+        width: 15px;
+        height: 15px;
         border-radius: 999px;
-        padding: 2px 8px;
-        font-size: 12px;
+        background: var(--bord);
+        transition: background 120ms ease;
       }
-      .sent {
-        color: #059669;
-        font-size: 12px;
+      .points i.plein {
+        background: var(--bleu);
+      }
+      .personne {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        width: 100%;
+        background: #fff;
+        border: 1px solid var(--bord);
+        border-radius: var(--rayon);
+        padding: 14px 16px;
+        margin-bottom: 10px;
+        box-shadow: var(--ombre);
+        font-size: 17px;
+        font-weight: 600;
+        text-align: left;
+      }
+      .initiale {
+        width: 44px;
+        height: 44px;
+        border-radius: 999px;
+        background: var(--nuit);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        flex: none;
+      }
+
+      /* ─── Divers ───────────────────────────────────────────────────────── */
+
+      .vide {
+        text-align: center;
+        color: var(--gris);
+        padding: 48px 20px;
+        font-size: 15px;
+      }
+      .alerte {
+        position: fixed;
+        left: 14px;
+        right: 14px;
+        bottom: calc(env(safe-area-inset-bottom) + 90px);
+        background: var(--rouge);
+        color: #fff;
+        padding: 14px 16px;
+        border-radius: var(--rayon);
+        font-weight: 600;
+        box-shadow: var(--ombre-haute);
+        z-index: 30;
+      }
+      .alerte.succes {
+        background: var(--vert);
+      }
+      .cache {
+        display: none !important;
       }
     </style>
   </head>
   <body>
-    <header>
-      <b id="titre">Salle</b>
-      <button id="retour" class="ghost" hidden>Retour</button>
-    </header>
-    <main id="ecran"></main>
+    <div id="app">
+      <header>
+        <button id="retour" class="btn-fantome cache" type="button">‹ Retour</button>
+        <div class="titre">
+          <h1 id="titre">Salle</h1>
+          <div class="sous" id="sous"></div>
+        </div>
+        <div class="onglets cache" id="onglets">
+          <button type="button" data-vue="carte" aria-pressed="true">Carte</button>
+          <button type="button" data-vue="commande" aria-pressed="false">Commande</button>
+        </div>
+      </header>
+
+      <main id="ecran"></main>
+      <div class="barre cache" id="barre"></div>
+    </div>
 
     <script>
-      const etat = { token: null, nom: null, tableId: null, orderId: null, course: 2, pin: '' };
-      const ecran = document.getElementById('ecran');
-      const titre = document.getElementById('titre');
-      const retour = document.getElementById('retour');
+      'use strict';
 
+      const etat = {
+        token: null,
+        nom: null,
+        table: null,
+        orderId: null,
+        vue: 'carte',
+        categorie: '',
+        recherche: '',
+        categories: [],
+        articles: [],
+        lignes: [],
+        pin: '',
+      };
+
+      const $ = (id) => document.getElementById(id);
+      const ecran = $('ecran');
+      const barre = $('barre');
+      const SERVICES = [
+        { valeur: 1, nom: 'Entrée' },
+        { valeur: 2, nom: 'Plat' },
+        { valeur: 3, nom: 'Dessert' },
+      ];
+
+      /** Les montants sont des entiers d'ariary : aucune décimale à afficher. */
       const argent = (cents) => new Intl.NumberFormat('fr-FR').format(cents);
+      const echapper = (texte) =>
+        String(texte ?? '').replace(
+          /[&<>"']/g,
+          (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+        );
+
+      function message(texte, succes = false) {
+        document.querySelectorAll('.alerte').forEach((n) => n.remove());
+        const bloc = document.createElement('div');
+        bloc.className = 'alerte' + (succes ? ' succes' : '');
+        bloc.textContent = texte;
+        document.body.append(bloc);
+        setTimeout(() => bloc.remove(), 3500);
+      }
 
       async function api(chemin, options = {}) {
         const reponse = await fetch(chemin, {
@@ -185,64 +715,91 @@
           connexion();
           throw new Error('Session expirée');
         }
-        if (!reponse.ok) throw new Error(await reponse.text());
+        if (!reponse.ok) throw new Error((await reponse.text()) || 'Erreur');
         return reponse.json();
       }
 
-      function erreur(message) {
-        const bloc = document.createElement('div');
-        bloc.className = 'error';
-        bloc.textContent = message;
-        ecran.prepend(bloc);
-        setTimeout(() => bloc.remove(), 4000);
-      }
-
-      /* ─── Connexion ─────────────────────────────────────────────────── */
+      /* ─── Connexion ──────────────────────────────────────────────────── */
 
       async function connexion() {
-        retour.hidden = true;
-        titre.textContent = 'Connexion';
-        const staff = await (await fetch('/api/staff')).json();
+        etat.token = null;
+        $('retour').classList.add('cache');
+        $('onglets').classList.add('cache');
+        barre.classList.add('cache');
+        $('titre').textContent = 'Service';
+        $('sous').textContent = 'Qui prend la salle ?';
 
-        ecran.innerHTML = '<p class="muted">Qui prend le service ?</p><div id="liste"></div>';
-        const liste = document.getElementById('liste');
-        for (const membre of staff) {
-          const bouton = document.createElement('button');
-          bouton.className = 'card';
-          bouton.style.marginBottom = '8px';
-          bouton.textContent = membre.name;
-          bouton.onclick = () => saisiePin(membre);
-          liste.append(bouton);
+        let personnes = [];
+        try {
+          personnes = await (await fetch('/api/staff')).json();
+        } catch {
+          ecran.innerHTML = '<p class="vide">Caisse injoignable. Vérifiez le Wi-Fi.</p>';
+          return;
         }
-        if (staff.length === 0) {
-          ecran.innerHTML = '<p class="muted">Aucun compte avec code PIN sur cette caisse.</p>';
+
+        if (personnes.length === 0) {
+          ecran.innerHTML =
+            '<p class="vide">Aucun compte avec code PIN sur cette caisse.<br>Créez les comptes des serveurs depuis la caisse.</p>';
+          return;
+        }
+
+        ecran.innerHTML = '';
+        for (const personne of personnes) {
+          const bouton = document.createElement('button');
+          bouton.className = 'personne';
+          bouton.type = 'button';
+          bouton.innerHTML =
+            '<span class="initiale">' +
+            echapper((personne.name || '?').trim().charAt(0).toUpperCase()) +
+            '</span><span>' +
+            echapper(personne.name) +
+            '</span>';
+          bouton.onclick = () => saisiePin(personne);
+          ecran.append(bouton);
         }
       }
 
-      function saisiePin(membre) {
+      function saisiePin(personne) {
         etat.pin = '';
-        titre.textContent = membre.name;
-        ecran.innerHTML = `
-          <input class="pin" id="pin" type="password" inputmode="none" readonly value="" />
-          <div class="keypad" id="clavier"></div>`;
-        const clavier = document.getElementById('clavier');
-        const champ = document.getElementById('pin');
+        $('titre').textContent = personne.name;
+        $('sous').textContent = 'Votre code PIN';
+        $('retour').classList.remove('cache');
+        $('retour').onclick = connexion;
 
+        ecran.innerHTML =
+          '<div class="points" id="points"></div><div class="clavier" id="clavier"></div>';
+
+        const points = $('points');
         const dessine = () => {
-          champ.value = '•'.repeat(etat.pin.length);
+          points.innerHTML = '';
+          // Quatre points minimum, puis un par chiffre : le serveur voit ce
+          // qu'il a tapé sans que le code s'affiche.
+          const total = Math.max(4, etat.pin.length);
+          for (let i = 0; i < total; i += 1) {
+            const point = document.createElement('i');
+            if (i < etat.pin.length) point.className = 'plein';
+            points.append(point);
+          }
         };
+        dessine();
 
-        for (const touche of ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'OK']) {
+        const clavier = $('clavier');
+        for (const touche of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', '✓']) {
           const bouton = document.createElement('button');
+          bouton.type = 'button';
           bouton.textContent = touche;
-          if (touche === 'OK') bouton.className = 'primary';
+          if (touche === '✓') {
+            bouton.style.background = 'var(--bleu)';
+            bouton.style.color = '#fff';
+            bouton.style.borderColor = 'var(--bleu)';
+          }
           bouton.onclick = async () => {
-            if (touche === 'C') etat.pin = etat.pin.slice(0, -1);
-            else if (touche === 'OK') {
+            if (touche === '⌫') etat.pin = etat.pin.slice(0, -1);
+            else if (touche === '✓') {
               try {
                 const session = await api('/api/session', {
                   method: 'POST',
-                  body: JSON.stringify({ user_id: membre.id, pin: etat.pin }),
+                  body: JSON.stringify({ user_id: personne.id, pin: etat.pin }),
                 });
                 etat.token = session.token;
                 etat.nom = session.name;
@@ -250,7 +807,7 @@
               } catch (cause) {
                 etat.pin = '';
                 dessine();
-                erreur(String(cause.message || cause));
+                message(String(cause.message || cause));
               }
               return;
             } else if (etat.pin.length < 8) etat.pin += touche;
@@ -260,164 +817,418 @@
         }
       }
 
-      /* ─── Salle ─────────────────────────────────────────────────────── */
+      /* ─── Salle ──────────────────────────────────────────────────────── */
 
       async function salle() {
-        retour.hidden = true;
-        titre.textContent = 'Salle · ' + etat.nom;
-        const tables = await api('/api/tables');
+        etat.orderId = null;
+        etat.table = null;
+        $('retour').classList.add('cache');
+        $('onglets').classList.add('cache');
+        barre.classList.add('cache');
+        $('titre').textContent = 'Salle';
+        $('sous').textContent = etat.nom;
 
-        ecran.innerHTML = '<div class="grid" id="tables"></div>';
-        const grille = document.getElementById('tables');
+        const tables = await api('/api/tables');
+        const occupees = tables.filter((t) => t.orderId).length;
+        $('sous').textContent = etat.nom + ' · ' + occupees + '/' + tables.length + ' occupées';
+
+        if (tables.length === 0) {
+          ecran.innerHTML = '<p class="vide">Aucune table configurée sur la caisse.</p>';
+          return;
+        }
+
+        const grille = document.createElement('div');
+        grille.className = 'grille-tables';
 
         for (const table of tables) {
           const bouton = document.createElement('button');
-          bouton.className = 'card' + (table.orderId ? ' busy' : '');
-          bouton.innerHTML =
-            '<b>' +
-            table.name +
-            '</b><br>' +
-            (table.orderId
-              ? '<span class="muted">' +
-                argent(table.dueCents) +
-                '</span>' +
-                (table.pending ? ' <span class="tag">' + table.pending + ' à envoyer</span>' : '')
-              : '<span class="muted">Libre · ' + table.seats + ' couverts</span>');
+          bouton.type = 'button';
+          bouton.className =
+            'table' + (table.orderId ? (table.pending ? ' occupee attente' : ' occupee') : '');
+          bouton.innerHTML = table.orderId
+            ? '<div class="nom">' +
+              echapper(table.name) +
+              '</div><div class="montant">' +
+              argent(table.dueCents) +
+              '</div><div class="meta">' +
+              (table.pending ? '⏳ ' + table.pending + ' à envoyer' : '✓ tout envoyé') +
+              '</div>'
+            : '<div class="nom">' +
+              echapper(table.name) +
+              '</div><div class="libre">Libre · ' +
+              table.seats +
+              ' couverts</div>';
           bouton.onclick = () => ouvrir(table);
           grille.append(bouton);
         }
+
+        ecran.innerHTML = '';
+        ecran.append(grille);
       }
 
       async function ouvrir(table) {
-        const reponse = table.orderId
-          ? { orderId: table.orderId }
-          : await api('/api/orders', {
-              method: 'POST',
-              body: JSON.stringify({ table_id: table.id }),
-            });
-        etat.orderId = reponse.orderId;
-        etat.tableId = table.id;
-        commande(table.name);
+        try {
+          const reponse = table.orderId
+            ? { orderId: table.orderId }
+            : await api('/api/orders', {
+                method: 'POST',
+                body: JSON.stringify({ table_id: table.id }),
+              });
+          etat.orderId = reponse.orderId;
+          etat.table = table;
+          etat.vue = 'carte';
+          etat.categorie = '';
+          etat.recherche = '';
+          await chargerCommande();
+          dessinerCommande();
+        } catch (cause) {
+          message(String(cause.message || cause));
+        }
       }
 
-      /* ─── Commande ──────────────────────────────────────────────────── */
+      /* ─── Commande ───────────────────────────────────────────────────── */
 
-      async function commande(nomTable) {
-        titre.textContent = nomTable;
-        retour.hidden = false;
-        retour.onclick = salle;
-
-        const [articles, produits] = await Promise.all([
+      async function chargerCommande() {
+        const [lignes, categories, articles] = await Promise.all([
           api('/api/orders/' + etat.orderId + '/items'),
+          api('/api/categories'),
           api('/api/products'),
         ]);
+        etat.lignes = lignes;
+        etat.categories = categories;
+        etat.articles = articles;
+      }
 
-        const enAttente = articles.filter((a) => !a.sent).length;
+      async function rechargerArticles() {
+        const params = new URLSearchParams();
+        if (etat.recherche) params.set('q', etat.recherche);
+        if (etat.categorie) params.set('category', etat.categorie);
+        etat.articles = await api('/api/products?' + params.toString());
+        dessinerCommande();
+      }
 
-        ecran.innerHTML = `
-          <input id="recherche" placeholder="Chercher un plat…" />
-          <select id="course" style="margin-top:8px">
-            <option value="1">Entrée</option>
-            <option value="2" selected>Plat</option>
-            <option value="3">Dessert</option>
-          </select>
-          <div class="grid" id="produits" style="margin-top:10px"></div>
-          <h3>Commande</h3>
-          <div id="articles"></div>
-          <div class="bar">
-            <button class="primary" id="envoyer" ${enAttente ? '' : 'disabled'}>
-              Envoyer en cuisine (${enAttente})
-            </button>
-          </div>`;
+      function totalCommande() {
+        return etat.lignes.reduce(
+          (somme, l) => somme + Math.round((l.unitPriceCents * l.qtyMilli) / 1000),
+          0,
+        );
+      }
 
-        document.getElementById('course').value = String(etat.course);
-        document.getElementById('course').onchange = (event) => {
-          etat.course = Number(event.target.value);
-        };
+      function dessinerCommande() {
+        $('titre').textContent = etat.table ? etat.table.name : 'Commande';
+        const enAttente = etat.lignes.filter((l) => !l.sent).length;
+        $('sous').textContent =
+          etat.lignes.length + ' article' + (etat.lignes.length > 1 ? 's' : '');
+        $('retour').classList.remove('cache');
+        $('retour').onclick = salle;
 
-        const dessineProduits = (liste) => {
-          const zone = document.getElementById('produits');
-          zone.innerHTML = '';
-          for (const produit of liste) {
-            const bouton = document.createElement('button');
-            bouton.className = 'card';
-            bouton.innerHTML =
-              produit.name + '<br><span class="muted">' + argent(produit.priceCents) + '</span>';
-            bouton.onclick = async () => {
-              try {
-                await api('/api/orders/' + etat.orderId + '/items', {
-                  method: 'POST',
-                  body: JSON.stringify({ product_id: produit.id, course: etat.course }),
-                });
-                commande(nomTable);
-              } catch (cause) {
-                erreur(String(cause.message || cause));
-              }
-            };
-            zone.append(bouton);
-          }
-        };
-        dessineProduits(produits);
+        const onglets = $('onglets');
+        onglets.classList.remove('cache');
+        for (const bouton of onglets.querySelectorAll('button')) {
+          bouton.setAttribute('aria-pressed', String(bouton.dataset.vue === etat.vue));
+          bouton.onclick = () => {
+            etat.vue = bouton.dataset.vue;
+            dessinerCommande();
+          };
+        }
+
+        etat.vue === 'carte' ? dessinerCarte() : dessinerLignes();
+
+        // Barre du bas : le total à gauche, l'action du moment à droite.
+        barre.classList.remove('cache');
+        barre.innerHTML =
+          '<div class="total"><div class="libelle">Total table</div><div class="valeur">' +
+          argent(totalCommande()) +
+          '</div></div>';
+
+        const envoyer = document.createElement('button');
+        envoyer.type = 'button';
+        envoyer.className = 'btn btn-cuisine';
+        envoyer.disabled = enAttente === 0;
+        envoyer.textContent = enAttente === 0 ? 'Tout est envoyé' : 'Envoyer (' + enAttente + ')';
+        envoyer.onclick = envoyerCuisine;
+        barre.append(envoyer);
+      }
+
+      function dessinerCarte() {
+        ecran.innerHTML = '';
+
+        const recherche = document.createElement('div');
+        recherche.className = 'recherche';
+        recherche.innerHTML =
+          '<input type="search" id="q" placeholder="Chercher un plat…" value="' +
+          echapper(etat.recherche) +
+          '" />';
+        ecran.append(recherche);
 
         let minuteur;
-        document.getElementById('recherche').oninput = (event) => {
+        $('q').oninput = (event) => {
           clearTimeout(minuteur);
-          const terme = event.target.value;
-          minuteur = setTimeout(async () => {
-            dessineProduits(await api('/api/products?q=' + encodeURIComponent(terme)));
-          }, 200);
+          etat.recherche = event.target.value;
+          minuteur = setTimeout(() => void rechargerArticles(), 220);
         };
 
-        const zone = document.getElementById('articles');
-        for (const article of articles) {
-          const ligne = document.createElement('div');
-          ligne.className = 'row';
-          ligne.innerHTML =
-            '<div><b>' +
-            article.qtyMilli / 1000 +
-            ' × ' +
-            article.name +
-            '</b>' +
-            (article.sent
-              ? '<div class="sent">envoyé</div>'
-              : '<div class="muted">à envoyer</div>') +
+        // Catégories : c'est la couleur, pas le texte, qui sert de repère quand
+        // on cherche « les boissons » en marchant.
+        if (etat.categories.length > 0) {
+          const bande = document.createElement('div');
+          bande.className = 'categories';
+
+          const tout = document.createElement('button');
+          tout.type = 'button';
+          tout.className = 'cat';
+          tout.setAttribute('aria-pressed', String(etat.categorie === ''));
+          tout.innerHTML = 'Tout <span class="compte">' + etat.articles.length + '</span>';
+          tout.onclick = () => {
+            etat.categorie = '';
+            void rechargerArticles();
+          };
+          bande.append(tout);
+
+          for (const categorie of etat.categories) {
+            const bouton = document.createElement('button');
+            bouton.type = 'button';
+            bouton.className = 'cat';
+            bouton.setAttribute('aria-pressed', String(etat.categorie === categorie.id));
+            bouton.innerHTML =
+              '<span class="point" style="background:' +
+              echapper(categorie.color || '#94a3b8') +
+              '"></span>' +
+              echapper(categorie.name) +
+              ' <span class="compte">' +
+              categorie.count +
+              '</span>';
+            bouton.onclick = () => {
+              etat.categorie = categorie.id;
+              void rechargerArticles();
+            };
+            bande.append(bouton);
+          }
+          ecran.append(bande);
+        }
+
+        if (etat.articles.length === 0) {
+          const vide = document.createElement('p');
+          vide.className = 'vide';
+          vide.textContent = 'Aucun article ne correspond.';
+          ecran.append(vide);
+          return;
+        }
+
+        const grille = document.createElement('div');
+        grille.className = 'grille-articles';
+
+        for (const article of etat.articles) {
+          // Quantité déjà commandée : évite de recompter la commande de tête.
+          const deja = etat.lignes
+            .filter((l) => l.name === article.name)
+            .reduce((somme, l) => somme + l.qtyMilli / 1000, 0);
+
+          const enveloppe = document.createElement('div');
+          enveloppe.className = 'enveloppe-article';
+
+          const bouton = document.createElement('button');
+          bouton.type = 'button';
+          bouton.className = 'article';
+          bouton.style.borderLeftColor = article.categoryColor || 'var(--bord)';
+          bouton.innerHTML =
+            '<div class="nom">' +
+            echapper(article.name) +
+            '</div>' +
+            (article.variantLabel
+              ? '<div><span class="decl">' + echapper(article.variantLabel) + '</span></div>'
+              : '') +
+            (article.description
+              ? '<div class="desc">' + echapper(article.description) + '</div>'
+              : '') +
+            '<div class="prix">' +
+            argent(article.priceCents) +
             '</div>';
-          const supprimer = document.createElement('button');
-          supprimer.textContent = '✕';
-          supprimer.style.width = 'auto';
-          supprimer.onclick = async () => {
-            // Un plat déjà parti en cuisine a été cuisiné : son retrait doit
-            // s'expliquer, exactement comme sur la caisse.
-            const motif = article.sent ? prompt('Motif de l’annulation ?') : '';
-            if (article.sent && !motif) return;
-            try {
-              await api('/api/orders/' + etat.orderId + '/items/' + article.id, {
-                method: 'DELETE',
-                body: JSON.stringify({ reason: motif }),
-              });
-              commande(nomTable);
-            } catch (cause) {
-              erreur(String(cause.message || cause));
+          bouton.onclick = () => ficheAjout(article);
+          enveloppe.append(bouton);
+
+          if (deja > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'badge-qte';
+            badge.textContent = deja % 1 === 0 ? String(deja) : deja.toFixed(1);
+            enveloppe.append(badge);
+          }
+          grille.append(enveloppe);
+        }
+        ecran.append(grille);
+      }
+
+      /**
+       * Fiche d'ajout : quantité, service, note.
+       *
+       * Un appui direct ajouterait plus vite, mais « 3 cafés » et « sans
+       * piment » sont trop fréquents pour obliger à revenir corriger ensuite.
+       */
+      function ficheAjout(article) {
+        let quantite = 1;
+        let service = 2;
+        let note = '';
+
+        const voile = document.createElement('div');
+        voile.className = 'voile';
+        voile.onclick = (event) => {
+          if (event.target === voile) voile.remove();
+        };
+
+        const fiche = document.createElement('div');
+        fiche.className = 'fiche';
+        fiche.innerHTML =
+          '<div class="poignee"></div>' +
+          '<div style="font-size:20px;font-weight:700">' +
+          echapper(article.name) +
+          (article.variantLabel
+            ? ' <span class="decl">' + echapper(article.variantLabel) + '</span>'
+            : '') +
+          '</div>' +
+          '<div style="color:var(--gris);margin-top:4px">' +
+          (article.categoryName ? echapper(article.categoryName) + ' · ' : '') +
+          argent(article.priceCents) +
+          '</div>' +
+          (article.description
+            ? '<div class="desc" style="margin-top:8px">' + echapper(article.description) + '</div>'
+            : '') +
+          '<div class="pas"><button type="button" id="moins">−</button>' +
+          '<span class="valeur" id="qte">1</span>' +
+          '<button type="button" id="plus">+</button></div>' +
+          '<div class="choix" id="services"></div>' +
+          '<input type="text" id="note" placeholder="Note : sans piment, à point…" />' +
+          '<button type="button" class="btn btn-principal" id="ajouter" style="margin-top:14px">' +
+          'Ajouter · <span id="montant">' +
+          argent(article.priceCents) +
+          '</span></button>';
+
+        voile.append(fiche);
+        document.body.append(voile);
+
+        const majMontant = () => {
+          fiche.querySelector('#qte').textContent = String(quantite);
+          fiche.querySelector('#montant').textContent = argent(article.priceCents * quantite);
+        };
+        fiche.querySelector('#moins').onclick = () => {
+          quantite = Math.max(1, quantite - 1);
+          majMontant();
+        };
+        fiche.querySelector('#plus').onclick = () => {
+          quantite += 1;
+          majMontant();
+        };
+
+        const choix = fiche.querySelector('#services');
+        for (const entree of SERVICES) {
+          const bouton = document.createElement('button');
+          bouton.type = 'button';
+          bouton.textContent = entree.nom;
+          bouton.setAttribute('aria-pressed', String(entree.valeur === service));
+          bouton.onclick = () => {
+            service = entree.valeur;
+            for (const autre of choix.querySelectorAll('button')) {
+              autre.setAttribute('aria-pressed', String(autre === bouton));
             }
           };
-          ligne.append(supprimer);
-          zone.append(ligne);
-        }
-        if (articles.length === 0) {
-          zone.innerHTML = '<p class="muted">Rien pour l’instant.</p>';
+          choix.append(bouton);
         }
 
-        document.getElementById('envoyer').onclick = async () => {
+        fiche.querySelector('#ajouter').onclick = async () => {
+          note = fiche.querySelector('#note').value.trim();
+          voile.remove();
           try {
-            await api('/api/orders/' + etat.orderId + '/send', {
+            await api('/api/orders/' + etat.orderId + '/items', {
               method: 'POST',
-              body: JSON.stringify({}),
+              body: JSON.stringify({
+                product_id: article.id,
+                qty_milli: quantite * 1000,
+                course: service,
+                note: note || null,
+              }),
             });
-            commande(nomTable);
+            etat.lignes = await api('/api/orders/' + etat.orderId + '/items');
+            dessinerCommande();
+            message(quantite + ' × ' + article.name + ' ajouté', true);
           } catch (cause) {
-            erreur(String(cause.message || cause));
+            message(String(cause.message || cause));
           }
         };
+      }
+
+      function dessinerLignes() {
+        ecran.innerHTML = '';
+        if (etat.lignes.length === 0) {
+          ecran.innerHTML =
+            '<p class="vide">Commande vide.<br>Choisissez des plats dans la carte.</p>';
+          return;
+        }
+
+        // Regroupé par service, dans l'ordre où la cuisine travaille.
+        for (const service of SERVICES) {
+          const lignes = etat.lignes.filter((l) => l.course === service.valeur);
+          if (lignes.length === 0) continue;
+
+          const titre = document.createElement('div');
+          titre.className = 'service';
+          titre.textContent = service.nom + ' · ' + lignes.length;
+          ecran.append(titre);
+
+          for (const ligne of lignes) {
+            const bloc = document.createElement('div');
+            bloc.className = 'ligne';
+            bloc.innerHTML =
+              '<div class="qte">' +
+              ligne.qtyMilli / 1000 +
+              '</div><div class="corps"><div style="font-weight:650">' +
+              echapper(ligne.name) +
+              '</div>' +
+              (ligne.note ? '<div class="note">▸ ' + echapper(ligne.note) + '</div>' : '') +
+              '<div class="etat ' +
+              (ligne.sent ? 'parti' : 'attente') +
+              '">' +
+              (ligne.sent ? '✓ envoyé en cuisine' : '⏳ pas encore envoyé') +
+              '</div></div><div style="font-weight:700">' +
+              argent(Math.round((ligne.unitPriceCents * ligne.qtyMilli) / 1000)) +
+              '</div>';
+
+            const supprimer = document.createElement('button');
+            supprimer.type = 'button';
+            supprimer.className = 'supprimer';
+            supprimer.textContent = '✕';
+            supprimer.onclick = async () => {
+              // Un plat déjà parti en cuisine a été cuisiné : son retrait doit
+              // s'expliquer, exactement comme sur la caisse.
+              const motif = ligne.sent ? prompt('Motif de l’annulation ?') : '';
+              if (ligne.sent && !motif) return;
+              try {
+                await api('/api/orders/' + etat.orderId + '/items/' + ligne.id, {
+                  method: 'DELETE',
+                  body: JSON.stringify({ reason: motif }),
+                });
+                etat.lignes = await api('/api/orders/' + etat.orderId + '/items');
+                dessinerCommande();
+              } catch (cause) {
+                message(String(cause.message || cause));
+              }
+            };
+            bloc.append(supprimer);
+            ecran.append(bloc);
+          }
+        }
+      }
+
+      async function envoyerCuisine() {
+        try {
+          const resultat = await api('/api/orders/' + etat.orderId + '/send', {
+            method: 'POST',
+            body: JSON.stringify({}),
+          });
+          etat.lignes = await api('/api/orders/' + etat.orderId + '/items');
+          dessinerCommande();
+          message(resultat.sent + ' article(s) envoyé(s) en cuisine', true);
+        } catch (cause) {
+          message(String(cause.message || cause));
+        }
       }
 
       connexion();

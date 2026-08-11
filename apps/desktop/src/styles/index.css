@@ -1,12 +1,50 @@
 @import 'tailwindcss';
 
-/* Contexte d'usage : écran tactile de comptoir, souvent en plein soleil ou en
-   lumière artificielle. Cibles tactiles généreuses, contrastes marqués. */
+/* ============================================================================
+   Système visuel de la caisse.
+
+   Contexte d'usage : écran tactile de comptoir, souvent en plein soleil ou
+   sous un néon. Trois règles en découlent, et elles priment sur l'esthétique :
+
+     1. contraste élevé — un prix illisible fait perdre une vente ;
+     2. cibles tactiles d'au moins 44 px — on tape avec le pouce, vite ;
+     3. aucune animation qui retarde une action — les transitions ne portent
+        que sur la couleur et l'ombre, jamais sur la position d'un bouton.
+
+   Les couleurs sont en OKLCH : à luminosité égale, les teintes le sont
+   vraiment, ce qu'aucune palette en hexadécimal ne garantit.
+   ============================================================================ */
+
 @theme {
+  /* Bleu de marque : celui des actions principales. */
   --color-caisse-50: oklch(0.97 0.02 250);
+  --color-caisse-100: oklch(0.94 0.04 250);
+  --color-caisse-200: oklch(0.88 0.07 250);
+  --color-caisse-300: oklch(0.79 0.11 250);
+  --color-caisse-400: oklch(0.69 0.15 250);
   --color-caisse-500: oklch(0.6 0.16 250);
   --color-caisse-600: oklch(0.53 0.16 250);
   --color-caisse-700: oklch(0.45 0.15 250);
+  --color-caisse-800: oklch(0.37 0.12 250);
+  --color-caisse-900: oklch(0.29 0.09 250);
+
+  /* Encre et surfaces : un gris légèrement bleuté, plus doux qu'un gris pur
+     sous un éclairage de magasin. */
+  --color-ardoise-50: oklch(0.985 0.002 250);
+  --color-ardoise-100: oklch(0.965 0.004 250);
+  --color-ardoise-200: oklch(0.925 0.006 250);
+  --color-ardoise-300: oklch(0.87 0.008 250);
+  --color-ardoise-400: oklch(0.7 0.012 250);
+  --color-ardoise-500: oklch(0.56 0.014 250);
+  --color-ardoise-600: oklch(0.45 0.014 250);
+  --color-ardoise-700: oklch(0.37 0.014 250);
+  --color-ardoise-800: oklch(0.27 0.012 250);
+  --color-ardoise-900: oklch(0.19 0.01 250);
+
+  /* Ombres douces : elles séparent les plans sans dessiner de traits. */
+  --shadow-carte: 0 1px 2px oklch(0.2 0.02 250 / 0.06), 0 1px 3px oklch(0.2 0.02 250 / 0.04);
+  --shadow-souleve: 0 4px 12px oklch(0.2 0.02 250 / 0.08), 0 1px 3px oklch(0.2 0.02 250 / 0.06);
+  --shadow-flottant: 0 12px 32px oklch(0.2 0.02 250 / 0.14), 0 2px 8px oklch(0.2 0.02 250 / 0.08);
 }
 
 html,
@@ -20,10 +58,77 @@ body {
   -webkit-user-select: none;
   user-select: none;
   overscroll-behavior: none;
+  background: var(--color-ardoise-100);
+  color: var(--color-ardoise-900);
+  -webkit-font-smoothing: antialiased;
 }
 
 input,
 textarea {
   -webkit-user-select: text;
   user-select: text;
+}
+
+/* Les chiffres d'un montant doivent s'aligner en colonne d'une ligne à
+   l'autre : sans chasse fixe, une colonne de prix ondule et se lit mal. */
+.tabulaire,
+table td,
+table th {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Anneau de focus visible au clavier UNIQUEMENT : au doigt, il apparaîtrait à
+   chaque appui et donnerait l'impression d'un bug. */
+:focus-visible {
+  outline: 2px solid var(--color-caisse-500);
+  outline-offset: 2px;
+}
+
+/* ─── Éléments récurrents ──────────────────────────────────────────────────
+   Déclarés une fois pour que tous les écrans se ressemblent : sans cela,
+   chaque écran réinvente ses arrondis et ses ombres, et l'ensemble paraît
+   assemblé à la hâte. */
+
+@layer components {
+  .carte {
+    background: white;
+    border-radius: 0.875rem;
+    border: 1px solid var(--color-ardoise-200);
+    box-shadow: var(--shadow-carte);
+  }
+
+  /* Tuile d'article : la cible tactile la plus fréquente de la journée. */
+  .tuile {
+    background: white;
+    border-radius: 0.875rem;
+    border: 1px solid var(--color-ardoise-200);
+    box-shadow: var(--shadow-carte);
+    min-height: 5.5rem;
+    text-align: left;
+    transition:
+      border-color 120ms ease,
+      box-shadow 120ms ease,
+      background-color 120ms ease;
+  }
+  .tuile:hover {
+    border-color: var(--color-caisse-400);
+    box-shadow: var(--shadow-souleve);
+  }
+  /* L'appui enfonce la tuile : c'est le seul retour dont dispose un écran
+     tactile sans son ni vibration. */
+  .tuile:active {
+    background: var(--color-caisse-50);
+    box-shadow: none;
+  }
+
+  .pastille {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+  }
 }

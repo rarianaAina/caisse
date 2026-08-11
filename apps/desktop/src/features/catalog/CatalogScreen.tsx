@@ -4,6 +4,7 @@ import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { CatalogRepository } from '../../core/db/repositories/catalog.repository';
 import { StockRepository } from '../../core/db/repositories/stock.repository';
+import { CategoryManager } from './CategoryManager';
 import { ProductForm, type ProductFormValues } from './ProductForm';
 
 interface CatalogScreenProps {
@@ -30,7 +31,6 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [editing, setEditing] = useState<Product | null | 'new'>(null);
   const [error, setError] = useState<string | null>(null);
-  const [newCategory, setNewCategory] = useState('');
 
   const catalog = useMemo(
     () =>
@@ -53,7 +53,7 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
   const editable = can(session.user.role, 'manageCatalog');
 
   const reload = useCallback(async (): Promise<void> => {
-    const [found, loadedCategories] = await Promise.all([
+    const [found, loadedCategories, counts] = await Promise.all([
       catalog.searchProducts({
         term: search,
         ...(categoryFilter ? { categoryId: categoryFilter } : {}),
@@ -61,10 +61,12 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
         offset: page * PAGE_SIZE,
       }),
       catalog.listCategories(),
+      catalog.countByCategory(),
     ]);
     setProducts(found.items);
     setTotal(found.total);
     setCategories(loadedCategories);
+    setCategoryCounts(counts);
   }, [catalog, search, categoryFilter, page]);
 
   useEffect(() => {
@@ -105,13 +107,46 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
     }
   };
 
-  const addCategory = async (): Promise<void> => {
-    const name = newCategory.trim();
-    if (name === '') return;
-    await catalog.createCategory({ name, position: categories.length });
-    setNewCategory('');
-    await reload();
+  /* ─── Catégories ───────────────────────────────────────────────────────*/
+
+  // Compté sur la PAGE affichée seulement serait faux : la valeur sert à
+  // avertir avant une suppression, elle doit porter sur tout le catalogue.
+  const [categoryCounts, setCategoryCounts] = useState<Map<string, number>>(new Map());
+
+  const guard = async (action: () => Promise<void>): Promise<void> => {
+    setError(null);
+    try {
+      await action();
+      await reload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Opération impossible');
+    }
   };
+
+  /**
+   * Déplace une catégorie d'un rang, en échangeant sa position avec sa voisine.
+   *
+   * L'ordre est celui de l'écran de vente : mettre « Boissons » en tête quand
+   * c'est ce qui se vend le plus fait gagner un geste à chaque commande.
+   */
+  const moveCategory = (category: Category, direction: -1 | 1): Promise<void> =>
+    guard(async () => {
+      const index = categories.findIndex((entry) => entry.id === category.id);
+      const voisine = categories[index + direction];
+      if (!voisine) return;
+
+      // Les positions sont réécrites depuis l'index affiché : les valeurs
+      // héritées peuvent être toutes à zéro, auquel cas un simple échange ne
+      // changerait rien.
+      await catalog.updateCategory(category.id, {
+        position: index + direction,
+        version: category.version,
+      });
+      await catalog.updateCategory(voisine.id, {
+        position: index,
+        version: voisine.version,
+      });
+    });
 
   return (
     <div className="space-y-5">
@@ -249,28 +284,26 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
       )}
 
       {editable && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="font-medium text-slate-900">Catégories</h3>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {categories.map((category) => (
-              <span
-                key={category.id}
-                className="rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700"
-              >
-                {category.name}
-              </span>
-            ))}
-            <input
-              value={newCategory}
-              onChange={(event) => setNewCategory(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') void addCategory();
-              }}
-              placeholder="Ajouter une catégorie…"
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-caisse-600"
-            />
-          </div>
-        </div>
+        <CategoryManager
+          categories={categories}
+          counts={categoryCounts}
+          onCreate={(name, color) =>
+            guard(async () => {
+              await catalog.createCategory({ name, color, position: categories.length });
+            })
+          }
+          onUpdate={(category, patch) =>
+            guard(async () => {
+              await catalog.updateCategory(category.id, { ...patch, version: category.version });
+            })
+          }
+          onMove={moveCategory}
+          onDelete={(category) =>
+            guard(async () => {
+              await catalog.deleteCategory(category.id);
+            })
+          }
+        />
       )}
 
       {editing !== null && (

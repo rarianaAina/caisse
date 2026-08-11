@@ -326,6 +326,21 @@ export class CatalogRepository {
     return rebuildSearchIndex(this.db);
   }
 
+  /**
+   * Nombre d'articles actifs par catégorie.
+   *
+   * Compté par la base et non sur la page affichée : la valeur sert à avertir
+   * avant une suppression, elle doit donc porter sur tout le catalogue.
+   */
+  async countByCategory(): Promise<Map<string, number>> {
+    const rows = await this.db.select<{ category_id: string | null; total: number }>(
+      `SELECT category_id, count(*) AS total FROM product
+        WHERE deleted_at IS NULL AND category_id IS NOT NULL
+        GROUP BY category_id`,
+    );
+    return new Map(rows.map((row) => [String(row.category_id), Number(row.total)]));
+  }
+
   /** @deprecated Charge tout le catalogue : utiliser `searchProducts`. */
   async listProducts(
     options: { categoryId?: string; activeOnly?: boolean } = {},

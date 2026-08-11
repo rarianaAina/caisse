@@ -89,7 +89,17 @@ export function RoomScreen({ session, db }: { session: LocalSession; db: SqlExec
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">Salle</h2>
+        <div>
+          <h2 className="text-lg font-semibold text-ardoise-900">Salle</h2>
+          <p className="text-sm text-ardoise-500">
+            {statuses.filter((entry) => entry.order).length} sur {statuses.length} occupées ·{' '}
+            {formatMoney(
+              statuses.reduce((somme, entry) => somme + entry.dueCents, 0),
+              session.company.currency,
+            )}{' '}
+            en salle
+          </p>
+        </div>
         <div className="flex gap-2">
           <button
             type="button"
@@ -129,36 +139,54 @@ export function RoomScreen({ session, db }: { session: LocalSession; db: SqlExec
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {statuses.map((status) => {
             const occupee = status.order !== null;
+            const attente = status.pendingCount > 0;
+            // Une table oubliée est la panne la plus coûteuse d'un service :
+            // au-delà d'une heure et demie sans envoi, elle passe en alerte.
+            const tardive = occupee && status.occupiedMinutes >= 90;
+
             return (
               <button
                 key={status.table.id}
                 type="button"
                 onClick={() => void openTable(status)}
-                className={`rounded-xl border p-4 text-left transition ${
-                  occupee
-                    ? 'border-caisse-300 bg-caisse-50 hover:border-caisse-500'
-                    : 'border-slate-200 bg-white hover:border-slate-400'
+                className={`tuile relative overflow-hidden p-4 ${
+                  occupee ? 'ring-1 ring-caisse-200' : ''
                 }`}
               >
-                <p className="font-semibold text-slate-900">{status.table.name}</p>
+                {/* Le liseré porte l'état : lisible de loin, sans lire. */}
+                <span
+                  className={`absolute inset-y-0 left-0 w-1.5 ${
+                    tardive
+                      ? 'bg-rose-500'
+                      : attente
+                        ? 'bg-amber-500'
+                        : occupee
+                          ? 'bg-caisse-600'
+                          : 'bg-ardoise-200'
+                  }`}
+                />
+                <p className="text-base font-bold text-ardoise-900">{status.table.name}</p>
+
                 {occupee ? (
                   <>
-                    <p className="mt-1 text-sm text-slate-700">
+                    <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums text-ardoise-900">
                       {formatMoney(status.dueCents, session.company.currency)}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p
+                      className={`mt-1 text-sm font-semibold tabular-nums ${
+                        tardive ? 'text-rose-600' : 'text-ardoise-500'
+                      }`}
+                    >
                       {status.occupiedMinutes} min
-                      {/* Ce compteur est le vrai signal d'une salle : une table
-                          à 90 minutes sans rien envoyer, c'est un oubli. */}
                     </p>
-                    {status.pendingCount > 0 && (
-                      <p className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                    {attente && (
+                      <span className="pastille mt-2 bg-amber-100 text-amber-800">
                         {status.pendingCount} à envoyer
-                      </p>
+                      </span>
                     )}
                   </>
                 ) : (
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="mt-2 text-sm text-ardoise-400">
                     Libre · {status.table.seats} couverts
                   </p>
                 )}

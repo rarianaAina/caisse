@@ -103,6 +103,10 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
 
   const visible = products;
 
+  /** Couleur de la catégorie d'un article, pour le liseré des tuiles. */
+  const colorOf = (categoryId: string | null): string | undefined =>
+    categories.find((category) => category.id === categoryId)?.color ?? undefined;
+
   const add = useCallback((product: Product, qtyMilli?: number): void => {
     setCart((current) => addProduct(current, product, newId(), qtyMilli));
     setSearch('');
@@ -178,31 +182,61 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
       <section className="space-y-4">
-        <form onSubmit={onSearchSubmit} className="flex gap-3">
-          <input
-            ref={searchRef}
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setError(null);
-            }}
-            placeholder="Scanner un code-barres ou rechercher un article…"
-            className="flex-1 rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-caisse-600"
-            autoFocus
-          />
-          <select
-            value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
-            className="rounded-lg border border-slate-300 px-4 outline-none focus:border-caisse-600"
-          >
-            <option value="">Tout</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
+        <form onSubmit={onSearchSubmit}>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg text-ardoise-400">
+              ⌕
+            </span>
+            <input
+              ref={searchRef}
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setError(null);
+              }}
+              placeholder="Scanner un code-barres ou rechercher un article…"
+              className="w-full rounded-xl border border-ardoise-200 bg-white py-3.5 pl-11 pr-4 shadow-carte outline-none transition focus:border-caisse-500 focus:shadow-souleve"
+              autoFocus
+            />
+          </div>
         </form>
+
+        {/* Catégories en pastilles plutôt qu'en liste déroulante : la couleur
+            du catalogue devient un repère, et le filtre se change d'un doigt
+            sans ouvrir de menu. */}
+        {categories.length > 0 && (
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            <button
+              type="button"
+              onClick={() => setCategoryFilter('')}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                categoryFilter === ''
+                  ? 'bg-ardoise-900 text-white'
+                  : 'border border-ardoise-200 bg-white text-ardoise-700 hover:border-ardoise-400'
+              }`}
+            >
+              Tout
+            </button>
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => setCategoryFilter(category.id)}
+                className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  categoryFilter === category.id
+                    ? 'bg-ardoise-900 text-white'
+                    : 'border border-ardoise-200 bg-white text-ardoise-700 hover:border-ardoise-400'
+                }`}
+              >
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ background: category.color ?? '#94a3b8' }}
+                />
+                {category.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {error && (
           <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
@@ -216,19 +250,30 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
               key={product.id}
               type="button"
               onClick={() => add(product)}
-              className="flex h-24 flex-col justify-between rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-caisse-600 active:scale-95"
+              className="tuile flex flex-col p-3.5"
+              style={{
+                // Liseré de la couleur de la catégorie : sur un mur de tuiles,
+                // c'est ce qui permet de viser sans lire.
+                borderLeftWidth: '4px',
+                borderLeftColor: colorOf(product.categoryId) ?? 'var(--color-ardoise-200)',
+              }}
             >
-              <span className="line-clamp-2 text-sm font-medium text-slate-900">
+              <span className="line-clamp-2 font-semibold leading-snug text-ardoise-900">
                 {product.name}
               </span>
-              <span className="text-sm tabular-nums text-slate-600">
+              {product.variantLabel && (
+                <span className="mt-1 inline-block w-fit rounded bg-caisse-50 px-1.5 py-0.5 text-xs font-bold text-caisse-700">
+                  {product.variantLabel}
+                </span>
+              )}
+              <span className="mt-auto pt-2 text-lg font-bold tabular-nums text-ardoise-900">
                 {formatMoney(product.priceCents, session.company.currency)}
-                {unitLabel(product)}
+                <span className="text-sm font-medium text-ardoise-500">{unitLabel(product)}</span>
               </span>
             </button>
           ))}
           {visible.length === 0 && (
-            <p className="col-span-full rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
+            <p className="col-span-full rounded-xl border border-dashed border-ardoise-300 p-8 text-center text-ardoise-500">
               {search === ''
                 ? 'Aucun article actif. Ajoutez-en depuis l’onglet Catalogue.'
                 : 'Aucun article ne correspond.'}
@@ -242,9 +287,16 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
         </div>
       </section>
 
-      <aside className="flex h-fit flex-col rounded-xl border border-slate-200 bg-white">
-        <div className="flex items-baseline justify-between border-b border-slate-200 px-4 py-3">
-          <h2 className="font-semibold text-slate-900">Panier</h2>
+      <aside className="carte flex h-fit flex-col overflow-hidden">
+        <div className="flex items-baseline justify-between border-b border-ardoise-200 px-4 py-3">
+          <h2 className="font-semibold text-ardoise-900">
+            Panier
+            {cart.lines.length > 0 && (
+              <span className="ml-2 rounded-full bg-caisse-600 px-2 py-0.5 text-xs font-bold text-white">
+                {cart.lines.length}
+              </span>
+            )}
+          </h2>
           {cart.lines.length > 0 && (
             <button
               type="button"
@@ -311,20 +363,23 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
                 <span className="tabular-nums">{formatMoney(tax.taxCents, cart.currency)}</span>
               </div>
             ))}
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="font-semibold text-slate-900">Total</span>
-            <span className="text-2xl font-semibold tabular-nums text-slate-900">
+          {/* Le total est le seul chiffre qu'un client cherche du regard, et
+              souvent depuis l'autre côté du comptoir : il est traité en
+              conséquence. */}
+          <div className="-mx-4 -mb-3 mt-3 flex items-baseline justify-between bg-ardoise-900 px-4 py-3 text-white">
+            <span className="font-semibold">Total</span>
+            <span className="text-3xl font-bold tracking-tight tabular-nums">
               {formatMoney(totals.totalCents, cart.currency)}
             </span>
           </div>
         </div>
 
-        <div className="flex gap-2 border-t border-slate-200 p-3">
+        <div className="flex gap-2 border-t border-ardoise-200 p-3">
           <button
             type="button"
             onClick={askDiscount}
             disabled={cart.lines.length === 0}
-            className="rounded-lg border border-slate-300 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+            className="rounded-xl border border-ardoise-300 px-4 py-3.5 text-sm font-semibold text-ardoise-700 transition hover:bg-ardoise-50 disabled:opacity-40"
           >
             Remise
           </button>
@@ -332,7 +387,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
             type="button"
             onClick={() => setPaying(true)}
             disabled={cart.lines.length === 0}
-            className="flex-1 rounded-lg bg-emerald-600 py-3 font-medium text-white transition hover:bg-emerald-700 disabled:opacity-40"
+            className="flex-1 rounded-xl bg-emerald-600 py-3.5 text-base font-bold text-white shadow-souleve transition hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
           >
             Encaisser
           </button>

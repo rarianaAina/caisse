@@ -86,52 +86,62 @@ export function Workspace({ session }: { session: LocalSession }) {
   const { user, company, store, register } = session;
 
   return (
-    <div className="flex min-h-full flex-col bg-slate-100">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="flex min-h-full flex-col bg-ardoise-100">
+      {/* Bandeau sombre : il sépare nettement l'identité du poste du contenu
+          de travail, et fait ressortir les prix, qui sont sur fond clair. */}
+      <header className="bg-ardoise-900 text-white">
         <div className="flex items-center justify-between px-6 py-3">
-          <div>
-            <p className="font-semibold text-slate-900">{company.name}</p>
-            <p className="text-sm text-slate-500">
-              {store.name} · {register.name} ({register.receiptPrefix})
-            </p>
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-caisse-600 text-lg font-bold">
+              {company.name.trim().charAt(0).toUpperCase()}
+            </span>
+            <div>
+              <p className="font-semibold leading-tight">{company.name}</p>
+              <p className="text-sm text-ardoise-400">
+                {store.name} · {register.name} ({register.receiptPrefix})
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             {!standalone && sync ? (
               <SyncBadge engine={sync} onOpenConflicts={() => setTab('sync')} />
             ) : standalone ? (
               <span
-                className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500"
+                className="pastille bg-white/10 text-ardoise-300"
                 title="Aucun serveur : les données restent sur ce poste."
               >
+                <span className="h-2 w-2 rounded-full bg-ardoise-400" />
                 Caisse autonome
               </span>
             ) : null}
             <div className="text-right">
-              <p className="font-medium text-slate-900">{user.fullName}</p>
-              <p className="text-sm text-slate-500">{ROLE_LABELS[user.role] ?? user.role}</p>
+              <p className="font-medium leading-tight">{user.fullName}</p>
+              <p className="text-sm text-ardoise-400">{ROLE_LABELS[user.role] ?? user.role}</p>
             </div>
             <button
               type="button"
               onClick={() => void signOut()}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              className="rounded-lg border border-white/25 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
             >
               Verrouiller
             </button>
           </div>
         </div>
 
-        <nav className="flex gap-1 px-6">
+        {/* Onglets en pastilles pleines plutôt qu'en soulignement : sur un
+            écran tactile, la cible doit être un bloc, pas une ligne de texte. */}
+        <nav className="flex gap-1 overflow-x-auto px-4 pb-3">
           {visibleTabs(standalone, restaurant).map((entry) => (
             <button
               key={entry.id}
               type="button"
               disabled={!entry.available}
               onClick={() => setTab(entry.id)}
-              className={`border-b-2 px-4 py-2.5 text-sm font-medium transition ${
+              className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition ${
                 tab === entry.id
-                  ? 'border-caisse-600 text-caisse-700'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              } disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:text-slate-300`}
+                  ? 'bg-white text-ardoise-900 shadow-souleve'
+                  : 'text-ardoise-300 hover:bg-white/10 hover:text-white'
+              } disabled:cursor-not-allowed disabled:opacity-40`}
               title={entry.available ? undefined : 'À venir'}
             >
               {entry.label}
