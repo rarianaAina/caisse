@@ -51,6 +51,13 @@ La paire de clés a été engendrée et se trouve **hors du dépôt** :
 > n'accepteront plus aucune mise à jour : il faudrait repasser sur chaque poste
 > avec un installeur. La clé publique est figée dans les binaires distribués.
 
+> **Un réglage à ne jamais retirer** : `bundle.createUpdaterArtifacts: true`
+> dans `tauri.conf.json`. Sans lui, Tauri 2 ne produit **aucun** fichier `.sig`,
+> même avec la clé fournie — contrairement à Tauri 1, les artefacts de mise à
+> jour ne sont pas créés par défaut. La compilation réussit, la publication
+> aussi, et le manque ne se voit que le jour où une caisse installée ne trouve
+> jamais de mise à jour.
+
 ### 2. Rien d'autre
 
 Le manifeste `latest.json` est fabriqué par l'intégration continue et joint à
