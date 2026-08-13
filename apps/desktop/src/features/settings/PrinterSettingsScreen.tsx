@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { LocalSession } from '../../core/auth/auth.service';
 import { BackupPanel } from './BackupPanel';
 import { BusinessProfilePanel } from './BusinessProfilePanel';
+import { UsersPanel } from './UsersPanel';
 import { UpdatePanel } from './UpdatePanel';
 import type { SqlExecutor } from '../../core/db/client';
 import {
@@ -138,6 +139,8 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <BusinessProfilePanel db={db} />
+
+      <UsersPanel session={session} db={db} />
 
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="font-semibold text-slate-900">Imprimante ticket</h2>

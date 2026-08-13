@@ -72,6 +72,9 @@ async fn pool<R: Runtime>(state: &ServerState<R>) -> Result<SqlitePool, String> 
 struct LoginBody {
     user_id: String,
     pin: String,
+    /// Reprend la main sur un compte déjà ouvert ailleurs, en déconnectant
+    /// l'appareil précédent. Jamais implicite : c'est un geste conscient.
+    takeover: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -168,7 +171,7 @@ async fn login<R: Runtime>(
         .map_err(|error| (StatusCode::SERVICE_UNAVAILABLE, error))?;
 
     let row = sqlx::query(
-        "SELECT full_name, pin_hash FROM app_user
+        "SELECT full_name, pin_hash, role FROM app_user
          WHERE id = ? AND deleted_at IS NULL AND is_active = 1",
     )
     .bind(&body.user_id)
@@ -193,6 +196,32 @@ async fn login<R: Runtime>(
     }
 
     state.sessions.record_success(&body.user_id).await;
+
+    // Un compte, un appareil — sauf l'administrateur, qui doit pouvoir
+    // regarder la salle depuis son bureau pendant qu'il tient le comptoir.
+    // Deux serveurs sous le même compte, ce sont deux commandes prises au même
+    // nom : la traçabilité disparaît là où elle protège le patron.
+    let role = row
+        .as_ref()
+        .map(|row| row.get::<String, _>("role"))
+        .unwrap_or_default();
+    let illimite = role == "owner";
+
+    if !illimite {
+        if let Some(minutes) = state.sessions.active_session_of(&body.user_id).await {
+            if body.takeover.unwrap_or(false) {
+                state.sessions.close_all_of(&body.user_id).await;
+            } else {
+                return Err((
+                    StatusCode::CONFLICT,
+                    format!(
+                        "Ce compte est déjà ouvert sur un autre appareil depuis {minutes} min."
+                    ),
+                ));
+            }
+        }
+    }
+
     let token = state.sessions.open(&body.user_id).await;
     Ok(Json(LoginResponse {
         token,
@@ -766,11 +795,23 @@ async fn release_table<R: Runtime>(
     Path(order_id): Path<String>,
     Json(body): Json<ReleaseBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    // Liste fermée, identique à celle de `@caisse/shared` : un serveur debout
+    // en plein service tape « ras » dans une zone de texte, et la trace ne vaut
+    // plus rien trois mois plus tard.
+    const MOTIFS: [&str; 6] = [
+        "paid",
+        "left",
+        "mistake",
+        "moved",
+        "offered",
+        "end_service",
+    ];
+
     let reason = body.reason.trim().to_string();
-    if reason.is_empty() {
+    if !MOTIFS.contains(&reason.as_str()) {
         return Err((
             StatusCode::BAD_REQUEST,
-            "indiquez pourquoi la table est libérée".into(),
+            "motif de libération inconnu".into(),
         ));
     }
 

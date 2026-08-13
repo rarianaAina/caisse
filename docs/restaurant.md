@@ -27,10 +27,24 @@ patron avec son code PIN.
 
 ### 3. Créer les serveurs
 
+**Réglages → Personnel → Ajouter une personne.** Nom, rôle, code PIN : le
+compte est utilisable immédiatement, sans serveur ni connexion.
+
 Chaque serveur a **son propre compte avec son code PIN**. C'est ce qui permet
-de savoir qui a pris une commande et qui a annulé un plat. Ne pas créer un
-compte unique « serveur » partagé : la traçabilité disparaîtrait, et c'est
-précisément ce qui protège le patron.
+de savoir qui a pris une commande, qui a annulé un plat, qui a libéré une
+table. Ne pas créer un compte unique « serveur » partagé : la traçabilité
+disparaîtrait, et c'est précisément ce qui protège le patron.
+
+> **Un compte, un appareil.** Si un serveur se connecte sur un deuxième
+> téléphone, la caisse refuse et indique depuis quand le compte est ouvert
+> ailleurs. Il peut reprendre la main explicitement — l'autre appareil est
+> alors déconnecté. L'administrateur, lui, n'est pas limité : il consulte la
+> salle depuis son bureau pendant qu'il tient le comptoir.
+
+Trois rôles : **Caissier / Serveur** (vend et prend les commandes),
+**Responsable** (+ catalogue, stock, rapports), **Administrateur** (+ comptes
+du personnel). Un compte ne se supprime pas — ses ventes le référencent — il se
+désactive.
 
 ### 4. Créer la salle
 

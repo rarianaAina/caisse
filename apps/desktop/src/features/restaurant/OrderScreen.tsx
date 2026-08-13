@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   COURSES,
+  RELEASE_REASONS,
   type Category,
   type Product,
   type SaleDetails,
@@ -52,6 +53,7 @@ export function OrderScreen({
   const [course, setCourse] = useState<number>(2);
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
+  const [releasing, setReleasing] = useState(false);
   const [receipt, setReceipt] = useState<{ details: SaleDetails; tax: TaxLine[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -215,16 +217,10 @@ export function OrderScreen({
    * cas réel où il reste quelque chose. Le motif est obligatoire, car ce qui
    * est parti en cuisine a coûté de la matière.
    */
-  const liberer = (): Promise<void> =>
+  const liberer = (reason: string): Promise<void> =>
     run(async () => {
-      const nonServis = aServir.length;
-      const reason = window.prompt(
-        (nonServis > 0 ? `Attention : ${String(nonServis)} article(s) non servis.\n\n` : '') +
-          'Pourquoi libérer la table ? (client parti, fin de service…)',
-      );
-      if (!reason || reason.trim() === '') return;
-
       const annules = await orders.releaseTable(orderId, session.user.id, reason);
+      setReleasing(false);
       setNotice(
         annules > 0 ? `Table libérée · ${String(annules)} article(s) annulé(s)` : 'Table libérée.',
       );
@@ -286,7 +282,7 @@ export function OrderScreen({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => void liberer()}
+              onClick={() => setReleasing(true)}
               className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
               title="Le client est parti : la table redevient libre"
             >
@@ -540,6 +536,42 @@ export function OrderScreen({
           )}
         </div>
       </aside>
+
+      {releasing && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-ardoise-900/50 p-4">
+          <div className="carte w-full max-w-md p-6 shadow-flottant">
+            <h3 className="text-lg font-semibold text-ardoise-900">Libérer la table</h3>
+            <p className="mt-1 text-sm text-ardoise-500">
+              {vivants.length > 0
+                ? `${String(vivants.length)} article(s) non facturé(s) seront annulés avec ce motif.`
+                : 'La table redevient libre pour le client suivant.'}
+            </p>
+
+            {/* Motif choisi, jamais saisi : une zone de texte donne « ras » en
+                plein service, et la trace ne vaut plus rien ensuite. */}
+            <div className="mt-4 grid gap-2">
+              {RELEASE_REASONS.map((entry) => (
+                <button
+                  key={entry.value}
+                  type="button"
+                  onClick={() => void liberer(entry.value)}
+                  className="rounded-xl border border-ardoise-200 px-4 py-3 text-left font-semibold text-ardoise-800 transition hover:border-caisse-500 hover:bg-caisse-50"
+                >
+                  {entry.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setReleasing(false)}
+              className="mt-4 w-full rounded-xl border border-ardoise-300 py-2.5 font-semibold text-ardoise-700"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
 
       {paying && totals && (
         <PaymentPanel

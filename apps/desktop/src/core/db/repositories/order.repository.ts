@@ -9,6 +9,7 @@ import {
   type TableStatus,
   activeItems,
   computeTotals,
+  isReleaseReason,
   itemsToDeliver,
   isFullyBilled,
   itemsToSend,
@@ -500,7 +501,9 @@ export class OrderRepository {
     const order = await this.findOrder(orderId);
     if (!order) throw new OrderError('Commande introuvable');
     if (order.status !== 'open') return 0;
-    if (reason.trim() === '') throw new OrderError('Indiquez pourquoi la table est libérée');
+    // Motif choisi dans une liste fermée : une saisie libre donne « ras » ou
+    // « xx », et la trace ne vaut plus rien trois mois plus tard.
+    if (!isReleaseReason(reason)) throw new OrderError('Choisissez un motif de libération');
 
     const restants = activeItems(await this.itemsOf(orderId));
     const now = nowIso();

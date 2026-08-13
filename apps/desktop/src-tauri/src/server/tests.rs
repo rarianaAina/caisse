@@ -123,7 +123,12 @@ async fn call(
     let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .unwrap_or_default();
-    let value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    // Les erreurs sont renvoyées en texte brut, pas en JSON : les exposer
+    // comme une chaîne permet de vérifier le MESSAGE, qui est ce que le
+    // serveur de salle lira sur son téléphone.
+    let value = serde_json::from_slice(&bytes).unwrap_or_else(|_| {
+        Value::String(String::from_utf8_lossy(&bytes).to_string())
+    });
     (status, value)
 }
 
@@ -540,7 +545,8 @@ async fn liberer_une_table_la_rend_disponible_avec_un_motif() {
         "POST",
         &format!("/api/orders/{order_id}/release"),
         Some(&token),
-        json!({ "reason": "   " }),
+        // Motif hors liste : refusé comme une absence de motif.
+        json!({ "reason": "parce que" }),
     )
     .await;
     assert_eq!(refus, StatusCode::BAD_REQUEST);
@@ -550,7 +556,7 @@ async fn liberer_une_table_la_rend_disponible_avec_un_motif() {
         "POST",
         &format!("/api/orders/{order_id}/release"),
         Some(&token),
-        json!({ "reason": "Client parti" }),
+        json!({ "reason": "left" }),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -610,4 +616,80 @@ async fn une_commande_se_deplace_vers_une_table_libre_seulement() {
     )
     .await;
     assert_eq!(conflit, StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn un_compte_ne_s_ouvre_pas_sur_deux_appareils() {
+    let (state, _, _) = setup().await;
+
+    let premier = logged_in(&state).await;
+
+    // Deuxième téléphone, même compte : refusé. Deux serveurs sous un même
+    // compte, ce sont deux commandes prises au même nom.
+    let (status, corps) = call(
+        &state,
+        "POST",
+        "/api/session",
+        None,
+        json!({ "user_id": "u1", "pin": "4917" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(corps.to_string().contains("autre appareil"));
+
+    // La session en cours n'est PAS cassée par la tentative : le serveur qui
+    // travaille ne doit rien perdre parce qu'un collègue s'est trompé.
+    let (ok, _) = call(&state, "GET", "/api/tables", Some(&premier), json!({})).await;
+    assert_eq!(ok, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn la_reprise_explicite_transfere_le_compte() {
+    let (state, _, _) = setup().await;
+    let premier = logged_in(&state).await;
+
+    // Téléphone tombé en panne de batterie : sans reprise, le compte resterait
+    // bloqué douze heures.
+    let (status, body) = call(
+        &state,
+        "POST",
+        "/api/session",
+        None,
+        json!({ "user_id": "u1", "pin": "4917", "takeover": true }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let second = body["token"].as_str().unwrap();
+
+    // L'ancien appareil est déconnecté : il ne peut jamais y en avoir deux.
+    let (perdu, _) = call(&state, "GET", "/api/tables", Some(&premier), json!({})).await;
+    assert_eq!(perdu, StatusCode::UNAUTHORIZED);
+    let (actif, _) = call(&state, "GET", "/api/tables", Some(second), json!({})).await;
+    assert_eq!(actif, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn l_administrateur_peut_ouvrir_plusieurs_appareils() {
+    let (state, _, _) = setup().await;
+
+    let pool = pool(&state).await.expect("base");
+    sqlx::query("INSERT INTO app_user (id, company_id, full_name, role, pin_hash, created_at, updated_at) VALUES ('u2', 'c1', 'Patronne', 'owner', ?, '2026-08-11T10:00:00.000Z', '2026-08-11T10:00:00.000Z')")
+        .bind(HASH_4917)
+        .execute(&pool)
+        .await
+        .expect("administratrice");
+
+    for _ in 0..2 {
+        let (status, _) = call(
+            &state,
+            "POST",
+            "/api/session",
+            None,
+            json!({ "user_id": "u2", "pin": "4917" }),
+        )
+        .await;
+        // Le patron regarde la salle depuis son bureau pendant qu'il tient le
+        // comptoir : la restriction ne s'applique pas à lui.
+        assert_eq!(status, StatusCode::OK);
+    }
 }

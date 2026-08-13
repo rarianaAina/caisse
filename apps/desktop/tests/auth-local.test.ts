@@ -5,6 +5,7 @@ import { toNumberedPlaceholders } from '../src/core/db/client';
 import { getServerUrl, normalizeServerUrl, setServerUrl } from '../src/core/api/client';
 import { ProvisionRepository } from '../src/core/db/repositories/provision.repository';
 import { META_KEYS, MetaRepository } from '../src/core/db/repositories/meta.repository';
+import { LocalTenantRepository } from '../src/core/db/repositories/user.repository';
 import { NodeSqliteExecutor } from './helpers/sqlite-executor';
 
 /**
@@ -303,5 +304,103 @@ describe('adresse du serveur', () => {
     const state = await new AuthService(db).deviceState();
     expect(state.serverUrl).toBe('https://api.client-a.mg');
     expect(getServerUrl()).toBe('https://api.client-a.mg');
+  });
+});
+
+describe('gestion des comptes du personnel', () => {
+  const tenant = () => new LocalTenantRepository(db);
+
+  it('crée un compte utilisable le soir même, sans serveur', async () => {
+    const cree = await tenant().createUser({
+      fullName: 'Naina',
+      role: 'cashier',
+      pin: '2580',
+      companyId: COMPANY_ID,
+      deviceId: DEVICE_ID,
+    });
+
+    expect(cree.role).toBe('cashier');
+    expect(cree.pinHash).not.toBeNull();
+
+    // Le vrai critère : la personne peut ouvrir sa session immédiatement.
+    const session = await auth.signInWithPin(cree.id, '2580');
+    expect(session.user.fullName).toBe('Naina');
+  });
+
+  it('refuse un PIN invalide et un nom vide', async () => {
+    const base = { role: 'cashier' as const, companyId: COMPANY_ID, deviceId: DEVICE_ID };
+    await expect(tenant().createUser({ ...base, fullName: '  ', pin: '2580' })).rejects.toThrow(
+      /nom/,
+    );
+    await expect(tenant().createUser({ ...base, fullName: 'Naina', pin: '12' })).rejects.toThrow(
+      /PIN/,
+    );
+  });
+
+  it('enfile la création pour un serveur futur', async () => {
+    await tenant().createUser({
+      fullName: 'Naina',
+      role: 'cashier',
+      pin: '2580',
+      companyId: COMPANY_ID,
+      deviceId: DEVICE_ID,
+    });
+
+    const [mutation] = await db.select<{ entity: string; op: string }>(
+      "SELECT entity, op FROM outbox WHERE entity = 'app_user'",
+    );
+    expect(mutation?.op).toBe('create');
+  });
+
+  it('désactive sans supprimer : l’historique reste vérifiable', async () => {
+    const cree = await tenant().createUser({
+      fullName: 'Naina',
+      role: 'cashier',
+      pin: '2580',
+      companyId: COMPANY_ID,
+      deviceId: DEVICE_ID,
+    });
+
+    await tenant().setActive(cree.id, false, DEVICE_ID);
+
+    // Retiré de l'écran d'ouverture de session…
+    expect((await auth.listSignableUsers()).some((user) => user.id === cree.id)).toBe(false);
+    // …mais toujours en base, puisque ses ventes le référencent.
+    expect((await tenant().listUsers()).some((user) => user.id === cree.id)).toBe(true);
+  });
+
+  it('empêche de retirer le dernier administrateur', async () => {
+    // Le compte créé à l'enrôlement est propriétaire : il est seul.
+    expect(await tenant().hasOtherActiveOwner(OWNER_ID)).toBe(false);
+
+    const second = await tenant().createUser({
+      fullName: 'Patronne',
+      role: 'owner',
+      pin: '9999',
+      companyId: COMPANY_ID,
+      deviceId: DEVICE_ID,
+    });
+    expect(await tenant().hasOtherActiveOwner(OWNER_ID)).toBe(true);
+
+    // Désactivé, il ne compte plus : se rétrograder enfermerait le commerçant
+    // dehors de son propre logiciel.
+    await tenant().setActive(second.id, false, DEVICE_ID);
+    expect(await tenant().hasOtherActiveOwner(OWNER_ID)).toBe(false);
+  });
+
+  it('change le code d’un compte sans toucher aux autres', async () => {
+    const cree = await tenant().createUser({
+      fullName: 'Naina',
+      role: 'cashier',
+      pin: '2580',
+      companyId: COMPANY_ID,
+      deviceId: DEVICE_ID,
+    });
+
+    await tenant().setPin(cree.id, '1357', DEVICE_ID);
+
+    await expect(auth.signInWithPin(cree.id, '2580')).rejects.toThrow();
+    const session = await auth.signInWithPin(cree.id, '1357');
+    expect(session.user.id).toBe(cree.id);
   });
 });

@@ -430,14 +430,16 @@ describe('libérer une table', () => {
     await orders.addItem(order.id, plat('Coca', 3000), USER_ID);
     await orders.sendToKitchen(order.id);
 
-    const annules = await orders.releaseTable(order.id, USER_ID, 'Client parti');
+    const annules = await orders.releaseTable(order.id, USER_ID, 'left');
 
     expect(annules).toBe(1);
     expect((await orders.findOrder(order.id))?.status).toBe('closed');
     // La table doit être immédiatement reprenable par le client suivant.
     expect(await orders.openOrders()).toHaveLength(0);
     const [ligne] = await orders.itemsOf(order.id);
-    expect(ligne?.voidReason).toBe('Client parti');
+    // Le motif est stocké sous sa VALEUR, pas son libellé : il reste
+    // comptable et traduisible.
+    expect(ligne?.voidReason).toBe('left');
   });
 
   it('laisse intactes les lignes déjà facturées', async () => {
@@ -455,7 +457,7 @@ describe('libérer une table', () => {
     });
     await orders.markBilled(order.id, [paye.id], vente.sale.id);
 
-    await orders.releaseTable(order.id, USER_ID, 'Fin de service');
+    await orders.releaseTable(order.id, USER_ID, 'end_service');
 
     const lignes = await orders.itemsOf(order.id);
     const facturee = lignes.find((item) => item.id === paye.id);
@@ -469,15 +471,18 @@ describe('libérer une table', () => {
     const order = await orders.open({ tableId: null, userId: USER_ID });
     await orders.addItem(order.id, plat('Coca', 3000), USER_ID);
 
-    await expect(orders.releaseTable(order.id, USER_ID, '   ')).rejects.toThrow(/pourquoi/);
+    // Le motif vient d'une liste fermée : une saisie libre donnerait « ras »
+    // en plein service, et la trace ne vaudrait plus rien.
+    await expect(orders.releaseTable(order.id, USER_ID, '   ')).rejects.toThrow(/motif/);
+    await expect(orders.releaseTable(order.id, USER_ID, 'parce que')).rejects.toThrow(/motif/);
   });
 
   it('reste sans effet sur une commande déjà close', async () => {
     const order = await orders.open({ tableId: null, userId: USER_ID });
     await orders.addItem(order.id, plat('Coca', 3000), USER_ID);
-    await orders.releaseTable(order.id, USER_ID, 'Client parti');
+    await orders.releaseTable(order.id, USER_ID, 'left');
 
-    expect(await orders.releaseTable(order.id, USER_ID, 'Encore')).toBe(0);
+    expect(await orders.releaseTable(order.id, USER_ID, 'left')).toBe(0);
   });
 });
 

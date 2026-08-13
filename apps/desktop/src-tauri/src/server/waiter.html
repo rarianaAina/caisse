@@ -735,6 +735,16 @@
       const $ = (id) => document.getElementById(id);
       const ecran = $('ecran');
       const barre = $('barre');
+      // Liste fermée, identique à celle de la caisse : en plein service, une
+      // zone de texte donne « ras », et la trace ne vaut plus rien ensuite.
+      const MOTIFS = [
+        { valeur: 'paid', nom: 'Addition réglée' },
+        { valeur: 'left', nom: 'Client parti' },
+        { valeur: 'mistake', nom: 'Erreur de saisie' },
+        { valeur: 'moved', nom: 'Clients changés de table' },
+        { valeur: 'offered', nom: 'Offert par la maison' },
+        { valeur: 'end_service', nom: 'Fin de service' },
+      ];
       const SERVICES = [
         { valeur: 1, nom: 'Entrée' },
         { valeur: 2, nom: 'Plat' },
@@ -854,24 +864,45 @@
           bouton.onclick = async () => {
             if (touche === '⌫') etat.pin = etat.pin.slice(0, -1);
             else if (touche === '✓') {
-              try {
-                const session = await api('/api/session', {
-                  method: 'POST',
-                  body: JSON.stringify({ user_id: personne.id, pin: etat.pin }),
-                });
-                etat.token = session.token;
-                etat.nom = session.name;
-                salle();
-              } catch (cause) {
-                etat.pin = '';
-                dessine();
-                message(String(cause.message || cause));
-              }
+              await connecter(personne, false, dessine);
               return;
             } else if (etat.pin.length < 8) etat.pin += touche;
             dessine();
           };
           clavier.append(bouton);
+        }
+      }
+
+      /**
+       * Ouvre la session, en gérant le compte déjà ouvert ailleurs.
+       *
+       * Un compte, un appareil : deux serveurs sous le même nom, ce sont deux
+       * commandes prises au même nom, et la traçabilité disparaît là où elle
+       * protège le patron. La reprise reste possible — un téléphone en panne de
+       * batterie bloquerait sinon le compte douze heures — mais elle est
+       * explicite et déconnecte l'autre appareil.
+       */
+      async function connecter(personne, takeover, dessine) {
+        try {
+          const session = await api('/api/session', {
+            method: 'POST',
+            body: JSON.stringify({ user_id: personne.id, pin: etat.pin, takeover }),
+          });
+          etat.token = session.token;
+          etat.nom = session.name;
+          salle();
+        } catch (cause) {
+          const texte = String(cause.message || cause);
+          if (texte.includes('autre appareil')) {
+            if (confirm(texte + '\n\nSe connecter ici et déconnecter l’autre appareil ?')) {
+              await connecter(personne, true, dessine);
+              return;
+            }
+          } else {
+            message(texte);
+          }
+          etat.pin = '';
+          dessine();
         }
       }
 
@@ -1349,7 +1380,7 @@
         liberer.type = 'button';
         liberer.className = 'btn danger';
         liberer.textContent = 'Libérer la table';
-        liberer.onclick = () => void libererTable();
+        liberer.onclick = () => libererTable();
 
         actions.append(transferer, liberer);
         ecran.append(actions);
@@ -1391,31 +1422,55 @@
         }
       }
 
-      async function libererTable() {
-        const reste = etat.lignes.filter((l) => !l.delivered).length;
-        const avertissement =
-          reste > 0 ? 'Attention : ' + reste + ' article(s) ne sont pas servis.\n\n' : '';
-        const motif = prompt(
-          avertissement +
-            'Libérer la table pour le client suivant ?\nIndiquez pourquoi (ex. : client parti, fin de service).',
-        );
-        if (!motif || !motif.trim()) return;
+      function libererTable() {
+        const nonServis = etat.lignes.filter((l) => !l.delivered).length;
 
-        try {
-          const resultat = await api('/api/orders/' + etat.orderId + '/release', {
-            method: 'POST',
-            body: JSON.stringify({ reason: motif.trim() }),
-          });
-          message(
-            resultat.cancelled > 0
-              ? 'Table libérée · ' + resultat.cancelled + ' article(s) annulé(s)'
-              : 'Table libérée',
-            true,
-          );
-          salle();
-        } catch (cause) {
-          message(String(cause.message || cause));
+        const voile = document.createElement('div');
+        voile.className = 'voile';
+        voile.onclick = (event) => {
+          if (event.target === voile) voile.remove();
+        };
+
+        const fiche = document.createElement('div');
+        fiche.className = 'fiche';
+        fiche.innerHTML =
+          '<div class="poignee"></div>' +
+          '<div style="font-size:20px;font-weight:700">Libérer la table</div>' +
+          '<div style="color:var(--gris);margin:6px 0 14px">' +
+          (nonServis > 0
+            ? '⚠ ' + nonServis + ' article(s) non servis seront annulés.'
+            : 'La table redevient libre pour le client suivant.') +
+          '</div>';
+
+        for (const motif of MOTIFS) {
+          const bouton = document.createElement('button');
+          bouton.type = 'button';
+          bouton.className = 'btn';
+          bouton.style.marginBottom = '8px';
+          bouton.textContent = motif.nom;
+          bouton.onclick = async () => {
+            voile.remove();
+            try {
+              const resultat = await api('/api/orders/' + etat.orderId + '/release', {
+                method: 'POST',
+                body: JSON.stringify({ reason: motif.valeur }),
+              });
+              message(
+                resultat.cancelled > 0
+                  ? 'Table libérée · ' + resultat.cancelled + ' article(s) annulé(s)'
+                  : 'Table libérée',
+                true,
+              );
+              salle();
+            } catch (cause) {
+              message(String(cause.message || cause));
+            }
+          };
+          fiche.append(bouton);
         }
+
+        voile.append(fiche);
+        document.body.append(voile);
       }
 
       async function ficheTransfert() {

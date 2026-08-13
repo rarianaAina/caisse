@@ -32,6 +32,37 @@ export interface DiningTable {
 
 export type OrderStatus = 'open' | 'closed' | 'cancelled';
 
+/**
+ * Motifs de libération d'une table, en liste fermée.
+ *
+ * POURQUOI PAS UNE SAISIE LIBRE : c'est un serveur debout, en plein service,
+ * qui appuie. Une zone de texte donne « ras », « ok », « xx » — trois mois plus
+ * tard, personne ne peut dire pourquoi une table a été vidée, et la trace ne
+ * vaut rien. Une liste se choisit d'un doigt et reste comptable : on peut
+ * compter les départs sans payer d'un mois sur l'autre.
+ *
+ * La liste est volontairement courte. Au-delà de six choix, on ne lit plus, on
+ * appuie sur le premier.
+ */
+export const RELEASE_REASONS = [
+  { value: 'paid', label: 'Addition réglée' },
+  { value: 'left', label: 'Client parti' },
+  { value: 'mistake', label: 'Erreur de saisie' },
+  { value: 'moved', label: 'Clients changés de table' },
+  { value: 'offered', label: 'Offert par la maison' },
+  { value: 'end_service', label: 'Fin de service' },
+] as const;
+
+export type ReleaseReason = (typeof RELEASE_REASONS)[number]['value'];
+
+export function releaseReasonLabel(value: string): string {
+  return RELEASE_REASONS.find((entry) => entry.value === value)?.label ?? value;
+}
+
+export function isReleaseReason(value: string): value is ReleaseReason {
+  return RELEASE_REASONS.some((entry) => entry.value === value);
+}
+
 /** Service : c'est lui qui décide de ce qui part en cuisine, et quand. */
 export const COURSES = [
   { value: 1, label: 'Entrée' },
