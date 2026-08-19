@@ -21,6 +21,7 @@ apps/desktop     application de caisse (React + Tauri)
   src/core/sync    moteur de synchronisation
   src-tauri        code Rust : plugins, migrations locales, impression
 apps/api         API NestJS + schéma Prisma/PostgreSQL
+apps/backoffice  tableau de bord web (lecture, + coupure d'un poste)
 packages/shared  types, constantes, arithmétique monétaire, protocole de synchro
 docs             architecture, protocole de synchro, décisions (ADR)
 ```
@@ -48,6 +49,7 @@ Puis, dans deux terminaux :
 ```bash
 pnpm dev:api          # API sur http://localhost:3000/api
 pnpm dev:tauri        # application de caisse (fenêtre native + SQLite)
+pnpm dev:backoffice   # tableau de bord sur http://localhost:5174
 ```
 
 `pnpm dev:desktop` lance l'interface dans un simple navigateur : pratique pour
@@ -132,6 +134,29 @@ validées par leurs outils. **Jamais essayé** : l'obtention réelle d'un
 certificat, qui demande un domaine public — elle aura lieu au premier
 déploiement.
 
+## Le tableau de bord
+
+`apps/backoffice` répond à la seule question qu'une caisse ne peut pas traiter :
+**ce que la boutique entière a fait**. Une caisse ne connaît que ses propres
+ventes ; le serveur les a toutes.
+
+Il est servi **à part de l'API**, jamais empaqueté dedans : un tableau de bord
+qui tombe ne doit pas pouvoir empêcher une caisse de remonter ses ventes.
+
+C'est un outil de **lecture**, avec une seule exception — couper un poste volé,
+qui se traite dans l'heure. Les ventes ne s'y modifient pas (une pièce comptable
+s'annule depuis la caisse, où il y a un client et un tiroir) et les comptes ne
+s'y créent pas (ils se créent sur la caisse, y compris sans Internet).
+
+L'écran **Postes** montre, pour chaque caisse, depuis quand elle n'a rien envoyé
+et de combien de changements elle est en retard. Les deux comptent : la première
+accumule des ventes qui n'existent nulle part ailleurs, la seconde vend avec des
+prix périmés.
+
+En production, déclarer son adresse dans `CORS_ORIGINS` — elle **s'ajoute** aux
+origines de la caisse, elle ne les remplace pas.
+[ADR 0019](docs/adr/0019-back-office.md).
+
 ## Sauvegarde de la caisse
 
 La base locale contient les ventes du jour, **y compris celles qui ne sont pas
@@ -160,7 +185,7 @@ pnpm typecheck        # TypeScript strict sur les trois paquets
 pnpm build            # build complet
 curl http://localhost:3000/api/health
 
-# Parcours de bout en bout contre l'API (démarrée) : 162 vérifications
+# Parcours de bout en bout contre l'API (démarrée) : 171 vérifications
 bash apps/api/test/auth-flow.sh      # authentification, rôles, multi-tenant
 bash apps/api/test/catalog-flow.sh   # catalogue et stock
 bash apps/api/test/sync-flow.sh      # deux caisses simulées : fusion, conflits, idempotence
@@ -362,3 +387,4 @@ distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
 - [ADR 0016 — moyens de paiement et ardoise](docs/adr/0016-encaissement-et-ardoise.md)
 - [ADR 0017 — la remontée des achats](docs/adr/0017-remontee-des-achats.md)
 - [ADR 0018 — la descente des ventes](docs/adr/0018-descente-des-ventes.md)
+- [ADR 0019 — le back-office](docs/adr/0019-back-office.md)

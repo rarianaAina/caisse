@@ -80,12 +80,18 @@ check "aucun doublon créé" 1 "$(field 'd.items.length')"
 
 echo '── Pull : la caisse B reçoit, la caisse A non ──────────────────────────'
 pull "$DEVICE_B" 0 > /dev/null
-check "la caisse B voit la création" 1 "$(field 'd.changes.length')"
-check "et reçoit l'état complet" "Café" "$(field 'd.changes[0].payload.name')"
+# Le journal contient aussi les DEUX caisses déclarées au rattachement : le
+# poste doit les connaître avant de recevoir la moindre vente qui les référence.
+check "la caisse B voit la création" 1 "$(field "d.changes.filter(c=>c.entity==='product').length")"
+check "et reçoit l'état complet" "Café" \
+  "$(field "(d.changes.find(c=>c.entity==='product')||{payload:{}}).payload.name")"
+check "et connaît les deux caisses de sa boutique" 2 \
+  "$(field "d.changes.filter(c=>c.entity==='register').length")"
 CURSOR_B=$(field 'd.nextCursor')
 
 pull "$DEVICE_A" 0 > /dev/null
-check "la caisse A ne reçoit pas sa propre écriture" 0 "$(field 'd.changes.length')"
+check "la caisse A ne reçoit pas sa PROPRE écriture" 0 \
+  "$(field "d.changes.filter(c=>c.originDeviceId==='$DEVICE_A').length")"
 
 pull "$DEVICE_B" "$CURSOR_B" > /dev/null
 check "le curseur évite de tout rejouer" 0 "$(field 'd.changes.length')"
@@ -241,6 +247,16 @@ check "et il atteint la caisse voisine" false \
 check "l'adresse de connexion reste hors de portée de la caisse" "" \
   "$(field "String((d.changes.filter(c=>c.entityId==='$STAFF_ID').pop()||{payload:{}}).payload.email ?? '')")"
 
+echo '── Les écritures du serveur descendent aussi ───────────────────────────'
+# Une caisse créée au rattachement d'un poste est journalisée SANS poste
+# d'origine — personne ne l'a poussée, le serveur l'a écrite. Le filtre naïf
+# « NOT origine = ce poste » les faisait disparaître pour TOUT LE MONDE : en
+# SQL, la comparaison vaut NULL, donc faux, dès que l'origine est nulle. Les
+# ventes référençant ces caisses restaient alors bloquées sur chaque poste.
+pull "$DEVICE_C" 0 > /dev/null
+check "une caisse reçoit les caisses déclarées sur sa boutique" 1 \
+  "$(field "d.changes.filter(c=>c.entity==='register'&&c.originDeviceId===null).length>0?1:0")"
+
 echo '── Étanchéité du journal ───────────────────────────────────────────────'
 status POST /auth/register "{
   \"companyName\":\"Voisin $STAMP\",\"fullName\":\"Chloé\",
@@ -251,7 +267,13 @@ OTHER_DEVICE=$(uuid)
 status POST /devices/enroll "{\"deviceId\":\"$OTHER_DEVICE\",\"name\":\"Caisse voisine\",\"storeId\":\"$OTHER_STORE\"}" "$OTHER_TOKEN" > /dev/null
 
 status GET "/sync/pull?protocolVersion=1&deviceId=$OTHER_DEVICE&since=0" "" "$OTHER_TOKEN" > /dev/null
-check "aucune fuite du journal vers l'autre entreprise" 0 "$(field 'd.changes.length')"
+# Le voisin reçoit SA propre caisse — c'est normal, elle lui appartient. Ce qui
+# ne doit jamais apparaître, c'est une ligne de l'autre entreprise : on le
+# vérifie sur l'entité et sur le contenu, pas sur un simple compte.
+check "l'autre entreprise ne voit aucun produit du premier" 0 \
+  "$(field "d.changes.filter(c=>c.entity!=='register').length")"
+check "ni aucune de ses caisses" 0 \
+  "$(field "d.changes.filter(c=>c.payload && c.payload.storeId && c.payload.storeId!=='$OTHER_STORE').length")"
 
 code=$(status GET "/sync/pull?protocolVersion=1&deviceId=$DEVICE_A&since=0" "" "$OTHER_TOKEN")
 check "un poste d'autrui n'est pas reconnu" 403 "$code"

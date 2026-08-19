@@ -17,6 +17,7 @@
     "db:migrate": "pnpm --filter @caisse/api db:migrate",
     "dev:api": "pnpm --filter @caisse/api dev",
     "dev:desktop": "pnpm --filter @caisse/desktop dev",
+    "dev:backoffice": "pnpm --filter @caisse/backoffice dev",
     "dev:tauri": "pnpm --filter @caisse/desktop tauri:dev"
   },
   "devDependencies": {

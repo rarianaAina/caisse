@@ -7,6 +7,7 @@ import {
 import {
   type AuthContext,
   type Device,
+  type DeviceHealth,
   type EnrollDeviceInput,
   type ProvisionResponse,
   canAccessStore,
@@ -153,6 +154,64 @@ export class DevicesService {
       tx.device.findMany({ orderBy: { createdAt: 'asc' } }),
     );
     return rows.map(toDevice);
+  }
+
+  /**
+   * État de chaque poste : depuis quand il n'a rien envoyé, et de combien de
+   * changements il est en retard.
+   *
+   * C'est ce qui permet de répondre au téléphone à « ma caisse marche-t-elle
+   * encore ? » sans se déplacer. Le retard est calculé contre le curseur
+   * courant du journal, commun à toute l'entreprise.
+   */
+  async fleet(auth: AuthContext): Promise<DeviceHealth[]> {
+    return this.prisma.withTenant(auth.companyId, async (tx) => {
+      const devices = await tx.device.findMany({ orderBy: { createdAt: 'asc' } });
+      const states = await tx.syncState.findMany({
+        where: { deviceId: { in: devices.map((device) => device.id) } },
+      });
+      const head = await tx.changeLog.findFirst({
+        where: { companyId: auth.companyId },
+        orderBy: { seq: 'desc' },
+        select: { seq: true },
+      });
+      const serverCursor = head ? Number(head.seq) : 0;
+      const byDevice = new Map(states.map((state) => [state.deviceId, state]));
+
+      const health: DeviceHealth[] = [];
+      for (const device of devices) {
+        const state = byDevice.get(device.id);
+        const lastPullSeq = state ? Number(state.lastPullSeq) : 0;
+
+        // Le retard se COMPTE, il ne se soustrait pas. `seq` est un compteur
+        // global à toute l'instance : la différence entre deux curseurs
+        // engloberait les changements de toutes les autres entreprises, et un
+        // poste parfaitement à jour afficherait des milliers de retard.
+        //
+        // Le filtre reprend EXACTEMENT celui du pull — même exclusion des
+        // écritures du poste lui-même, même portée de boutique. Sinon le
+        // chiffre affiché ne serait pas celui que la caisse recevra.
+        const behind = await tx.changeLog.count({
+          where: {
+            companyId: auth.companyId,
+            seq: { gt: BigInt(lastPullSeq) },
+            AND: [
+              { OR: [{ originDeviceId: null }, { originDeviceId: { not: device.id } }] },
+              ...(device.storeId ? [{ OR: [{ storeId: null }, { storeId: device.storeId }] }] : []),
+            ],
+          },
+        });
+
+        health.push({
+          device: toDevice(device),
+          lastPushAt: state?.lastPushAt?.toISOString() ?? null,
+          lastPullSeq,
+          serverCursor,
+          behind,
+        });
+      }
+      return health;
+    });
   }
 
   /** Un poste révoqué ne peut plus ni se rafraîchir ni se synchroniser. */

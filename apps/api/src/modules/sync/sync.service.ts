@@ -68,10 +68,21 @@ export class SyncService {
         where: {
           companyId: auth.companyId,
           seq: { gt: BigInt(request.since) },
-          NOT: { originDeviceId: request.deviceId },
-          // Les entités rattachées à une boutique ne descendent que sur les
-          // postes de cette boutique ; le catalogue (storeId nul) descend partout.
-          ...(request.storeId ? { OR: [{ storeId: null }, { storeId: request.storeId }] } : {}),
+          AND: [
+            // Le poste ne se voit pas renvoyer ses propres écritures.
+            //
+            // ⚠️ Le `NOT` naïf sur une colonne NULLABLE est un piège : en SQL,
+            // `NOT (origine = 'X')` vaut NULL — donc FAUX — quand l'origine est
+            // nulle, et les changements SANS poste d'origine disparaissaient
+            // pour TOUT LE MONDE. Ce sont précisément ceux que le serveur écrit
+            // lui-même : la caisse créée au rattachement d'un poste ne
+            // descendait sur personne, et les ventes qui la référencent
+            // restaient bloquées en file d'attente sur chaque caisse.
+            { OR: [{ originDeviceId: null }, { originDeviceId: { not: request.deviceId } }] },
+            // Les entités rattachées à une boutique ne descendent que sur les
+            // postes de cette boutique ; le catalogue (storeId nul) descend partout.
+            ...(request.storeId ? [{ OR: [{ storeId: null }, { storeId: request.storeId }] }] : []),
+          ],
         },
         orderBy: { seq: 'asc' },
         take: limit + 1,
@@ -92,12 +103,31 @@ export class SyncService {
       createdAt: row.createdAt.toISOString(),
     }));
 
+    const nextCursor = changes.at(-1)?.seq ?? request.since;
+
+    // Le curseur atteint est noté côté serveur. Sans lui, `sync_state` ne
+    // disait que la date du dernier ENVOI : impossible de répondre à « ce poste
+    // reçoit-il encore quelque chose ? », qui est la seule question posée quand
+    // un commerçant appelle. C'est une écriture d'observation, jamais lue par
+    // le protocole lui-même — un poste reste maître de son propre curseur.
+    await this.noteCursor(auth.companyId, request.deviceId, nextCursor);
+
     return {
       changes,
-      nextCursor: changes.at(-1)?.seq ?? request.since,
+      nextCursor,
       hasMore,
       serverTime: new Date().toISOString(),
     };
+  }
+
+  private async noteCursor(companyId: string, deviceId: string, cursor: number): Promise<void> {
+    await this.prisma.withTenant(companyId, async (tx) => {
+      await tx.syncState.upsert({
+        where: { deviceId },
+        create: { deviceId, lastPullSeq: BigInt(cursor) },
+        update: { lastPullSeq: BigInt(cursor) },
+      });
+    });
   }
 
   /* ─── Application d'une mutation ───────────────────────────────────────*/

@@ -52,3 +52,35 @@ export interface Device {
   revokedAt: string | null;
   createdAt: string;
 }
+
+/**
+ * Santé d'un poste, telle que le serveur peut l'observer.
+ *
+ * POURQUOI CE TYPE EXISTE : `sync_state` était renseigné à moitié — le serveur
+ * notait la date du dernier envoi, mais jamais le curseur atteint par le poste.
+ * Personne ne pouvait donc répondre à la seule question qui compte quand un
+ * commerçant appelle : « cette caisse reçoit-elle encore quelque chose ? »
+ *
+ * Ce qui N'Y FIGURE PAS : le nombre de mutations en attente sur le poste. Le
+ * serveur ne peut pas le connaître — c'est une file locale — et l'inventer
+ * serait pire que de l'omettre.
+ */
+export interface DeviceHealth {
+  device: Device;
+  /** Dernier envoi reçu de ce poste ; `null` s'il n'a jamais rien poussé. */
+  lastPushAt: string | null;
+  /** Dernier curseur que ce poste a effectivement appliqué. */
+  lastPullSeq: number;
+  /**
+   * Curseur courant du journal de l'entreprise. Informatif : `seq` est un
+   * compteur global à l'instance, il ne se compare pas d'une entreprise à
+   * l'autre et sa différence avec `lastPullSeq` ne veut RIEN dire.
+   */
+  serverCursor: number;
+  /**
+   * Changements que ce poste n'a pas encore reçus — COMPTÉS, avec le filtre
+   * exact du pull. C'est le nombre que la caisse recevra à sa prochaine
+   * synchronisation, pas une estimation.
+   */
+  behind: number;
+}

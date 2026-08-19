@@ -45,6 +45,9 @@ jobs:
       - run: pnpm -r typecheck
       - run: pnpm -r test
       - run: pnpm exec prettier --check .
+      # Le back-office est une page web ordinaire : sa compilation est le seul
+      # moyen de savoir qu'elle passe encore, faute d'installeur à produire.
+      - run: pnpm --filter @caisse/backoffice build
 
   # Le code Rust porte l'authentification du serveur de salle et la
   # vérification du PIN : ses tests doivent tourner à chaque poussée, pas
@@ -70,7 +73,7 @@ jobs:
       - run: cargo test --lib
         working-directory: apps/desktop/src-tauri
 
-  # Les cinq parcours de bout en bout — 162 vérifications — ne tournaient
+  # Les cinq parcours de bout en bout — 171 vérifications — ne tournaient
   # jusqu'ici que si un développeur y pensait. Ce sont pourtant les seuls tests
   # qui éprouvent l'API RÉELLE : multi-tenant, RLS, idempotence du push,
   # arbitrage des conflits. Un test qu'on oublie de lancer ne protège rien.

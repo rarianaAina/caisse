@@ -24,8 +24,9 @@ const envSchema = z
     /** `1` derrière un reverse proxy, pour lire l'IP réelle dans X-Forwarded-For. */
     TRUST_PROXY: z.string().optional(),
     /**
-     * Origines autorisées à appeler l'API depuis un navigateur, séparées par
-     * des virgules. Vide = les origines de l'application Tauri uniquement.
+     * Origines de NAVIGATEUR autorisées à appeler l'API, séparées par des
+     * virgules — typiquement l'adresse du back-office. Elles s'AJOUTENT à
+     * celles de l'application de caisse, qui sont toujours autorisées.
      */
     CORS_ORIGINS: z.string().optional(),
   })
@@ -78,18 +79,30 @@ export function validateEnv(raw: Record<string, unknown>): Env {
   return result.data;
 }
 
-/** Origines CORS effectives. */
+/**
+ * Origines de l'application de bureau. Tauri sert la WebView depuis un schéma
+ * propre, différent selon le système.
+ */
+const TAURI_ORIGINS = ['tauri://localhost', 'https://tauri.localhost', 'http://tauri.localhost'];
+
+/**
+ * Origines CORS effectives.
+ *
+ * `CORS_ORIGINS` S'AJOUTE aux origines de la caisse, il ne les remplace pas.
+ * C'était un piège : le jour où l'on déclare l'adresse du back-office, la
+ * variable écrasait la liste et TOUTES LES CAISSES perdaient l'accès à l'API —
+ * une panne générale du parc, provoquée par l'ajout d'un tableau de bord, et
+ * dont la cause n'a aucun rapport visible avec le symptôme.
+ */
 export function corsOrigins(env: Env): string[] | true {
-  if (env.CORS_ORIGINS) {
-    return env.CORS_ORIGINS.split(',')
-      .map((origin) => origin.trim())
-      .filter((origin) => origin !== '');
-  }
   // En développement, on reflète l'origine appelante : le front tourne sur un
   // port Vite qui change, et refuser ferait perdre du temps pour rien.
   if (env.NODE_ENV !== 'production') return true;
 
-  // En production, seules les origines de l'application de bureau. Tauri sert
-  // la WebView depuis un schéma propre, différent selon le système.
-  return ['tauri://localhost', 'https://tauri.localhost', 'http://tauri.localhost'];
+  const extra = (env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin !== '');
+
+  return [...TAURI_ORIGINS, ...extra];
 }

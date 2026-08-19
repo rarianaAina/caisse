@@ -1,0 +1,77 @@
+@import 'tailwindcss';
+
+/* ============================================================================
+   Système visuel du back-office.
+
+   Mêmes jetons de couleur que la caisse — un commerçant qui passe de l'un à
+   l'autre doit reconnaître son logiciel — mais des règles d'usage opposées :
+
+     * on est ASSIS devant un écran de bureau, pas debout devant un comptoir :
+       les cibles peuvent redescendre à des tailles ordinaires ;
+     * le texte se sélectionne et se copie — c'est un outil de lecture et de
+       diagnostic, on colle un numéro de ticket dans un courriel ;
+     * la densité prime sur la taille : on vient y comparer des chiffres.
+   ============================================================================ */
+
+@theme {
+  --color-caisse-50: oklch(0.97 0.02 250);
+  --color-caisse-100: oklch(0.94 0.04 250);
+  --color-caisse-200: oklch(0.88 0.07 250);
+  --color-caisse-300: oklch(0.79 0.11 250);
+  --color-caisse-400: oklch(0.69 0.15 250);
+  --color-caisse-500: oklch(0.6 0.16 250);
+  --color-caisse-600: oklch(0.53 0.16 250);
+  --color-caisse-700: oklch(0.45 0.15 250);
+  --color-caisse-800: oklch(0.37 0.12 250);
+  --color-caisse-900: oklch(0.29 0.09 250);
+
+  --color-ardoise-50: oklch(0.985 0.002 250);
+  --color-ardoise-100: oklch(0.965 0.004 250);
+  --color-ardoise-200: oklch(0.925 0.006 250);
+  --color-ardoise-300: oklch(0.87 0.008 250);
+  --color-ardoise-400: oklch(0.7 0.012 250);
+  --color-ardoise-500: oklch(0.56 0.014 250);
+  --color-ardoise-600: oklch(0.45 0.014 250);
+  --color-ardoise-700: oklch(0.37 0.014 250);
+  --color-ardoise-800: oklch(0.27 0.012 250);
+  --color-ardoise-900: oklch(0.19 0.01 250);
+
+  --shadow-carte: 0 1px 2px oklch(0.2 0.02 250 / 0.06), 0 1px 3px oklch(0.2 0.02 250 / 0.04);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ardoise-100);
+  color: var(--color-ardoise-900);
+  -webkit-font-smoothing: antialiased;
+}
+
+@utility carte {
+  border-radius: var(--radius-xl);
+  background: white;
+  box-shadow: var(--shadow-carte);
+  border: 1px solid var(--color-ardoise-200);
+}
+
+@utility champ {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-ardoise-300);
+  padding: 0.625rem 0.75rem;
+  outline: none;
+}
+
+.champ:focus {
+  border-color: var(--color-caisse-500);
+}
+
+/* Les chiffres s'alignent en colonne : c'est la moitié de l'intérêt d'un
+   tableau de chiffres. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
