@@ -71,6 +71,8 @@ pub fn run() {
         // qu'on le lui demande.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        // Ouverture du back-office dans le navigateur du système.
+        .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
                 // Chemin relatif : tauri-plugin-sql le résout dans le dossier

@@ -29,6 +29,15 @@ export const META_KEYS = {
   /** Adresse du serveur de synchronisation, saisie au rattachement du poste. */
   serverUrl: 'server_url',
   /**
+   * Adresse du tableau de bord web, ouverte dans le NAVIGATEUR depuis la
+   * console d'administration.
+   *
+   * Distincte de `serverUrl` : le back-office est servi à part de l'API
+   * (ADR 0019-A) et rien n'oblige à le publier sur le même hôte. Vide = le
+   * bouton n'apparaît pas, ce qui est le cas d'une caisse autonome.
+   */
+  backofficeUrl: 'backoffice_url',
+  /**
    * Type de commerce : `shop` (comptoir) ou `restaurant` (service en salle).
    *
    * Réglage du POSTE, pas de l'entreprise : c'est ce qui permet, dans un hôtel,

@@ -145,47 +145,32 @@ export function DayScreen({ store, currency }: { store: Store; currency: string 
           L’attendu est celui qui a été FIGÉ à la clôture, jamais recalculé : une caisse en retard
           qui remonte ses ventes ensuite ne doit pas faire apparaître un écart qui n’a pas existé.
         </p>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-ardoise-500">
-              <tr>
-                <th className="py-2 font-medium">Ouverte</th>
-                <th className="py-2 font-medium">État</th>
-                <th className="py-2 text-right font-medium">Attendu</th>
-                <th className="py-2 text-right font-medium">Compté</th>
-                <th className="py-2 text-right font-medium">Écart</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessions.map((entry) => (
-                <tr key={entry.id} className="border-t border-ardoise-100">
-                  <td className="py-2">{new Date(entry.openedAt).toLocaleString('fr-FR')}</td>
-                  <td className="py-2">{entry.status === 'open' ? 'Ouverte' : 'Clôturée'}</td>
-                  <td className="tabular py-2 text-right">
-                    {entry.expectedCents === null ? '—' : money(entry.expectedCents)}
-                  </td>
-                  <td className="tabular py-2 text-right">
-                    {entry.countedCents === null ? '—' : money(entry.countedCents)}
-                  </td>
-                  <td
-                    className={`tabular py-2 text-right font-medium ${
-                      (entry.differenceCents ?? 0) < 0 ? 'text-rose-700' : 'text-ardoise-700'
-                    }`}
-                  >
-                    {entry.differenceCents === null ? '—' : money(entry.differenceCents)}
-                  </td>
-                </tr>
-              ))}
-              {sessions.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-3 text-ardoise-400">
-                    Aucune session enregistrée.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <ul className="mt-3 divide-y divide-ardoise-100 text-sm">
+          {sessions.map((entry) => (
+            <li key={entry.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-2">
+              <span className="text-ardoise-700">
+                {new Date(entry.openedAt).toLocaleString('fr-FR')}
+              </span>
+              <span className="text-ardoise-400">
+                {entry.status === 'open' ? 'ouverte' : 'clôturée'}
+              </span>
+              <span
+                className={`tabular ml-auto font-medium ${
+                  (entry.differenceCents ?? 0) === 0 ? 'text-ardoise-700' : 'text-rose-700'
+                }`}
+              >
+                {entry.differenceCents === null ? '—' : `écart ${money(entry.differenceCents)}`}
+              </span>
+              <span className="tabular w-full text-ardoise-500 sm:w-auto">
+                attendu {entry.expectedCents === null ? '—' : money(entry.expectedCents)} · compté{' '}
+                {entry.countedCents === null ? '—' : money(entry.countedCents)}
+              </span>
+            </li>
+          ))}
+          {sessions.length === 0 && (
+            <li className="py-3 text-ardoise-400">Aucune session enregistrée.</li>
+          )}
+        </ul>
       </section>
 
       {busy && <p className="text-sm text-ardoise-400">Chargement…</p>}

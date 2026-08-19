@@ -73,7 +73,7 @@ export default function App() {
   return (
     <div className="flex min-h-full flex-col">
       <header className="bg-ardoise-900 text-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div>
             <p className="font-semibold leading-tight">{session.company.name}</p>
             <p className="text-sm text-ardoise-400">Administration</p>
@@ -97,7 +97,9 @@ export default function App() {
             )}
             <div className="text-right">
               <p className="font-medium leading-tight">{session.user.fullName}</p>
-              <p className="text-sm text-ardoise-400">{session.user.email}</p>
+              {/* L'adresse disparaît sur un téléphone : elle n'apprend rien à
+                  qui est déjà connecté, et vole une ligne à l'écran. */}
+              <p className="hidden text-sm text-ardoise-400 sm:block">{session.user.email}</p>
             </div>
             <button
               type="button"
@@ -109,7 +111,7 @@ export default function App() {
           </div>
         </div>
 
-        <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-3">
+        <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 pb-3 sm:px-4">
           {TABS.map((entry) => (
             <button
               key={entry.id}
@@ -127,7 +129,7 @@ export default function App() {
         </nav>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 p-6">
+      <main className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6">
         {!store ? (
           <p className="text-ardoise-500">Aucune boutique n’est rattachée à ce compte.</p>
         ) : !lecteur && tab !== 'parc' ? (

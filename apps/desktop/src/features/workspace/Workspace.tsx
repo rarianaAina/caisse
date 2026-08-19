@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
-import { can } from '@caisse/shared';
+import { ADMIN, COMPTOIR, type Mode, type Tab, visibles } from './tabs';
 import type { LocalSession } from '../../core/auth/auth.service';
 import { useSession } from '../../app/SessionProvider';
 import { META_KEYS, MetaRepository } from '../../core/db/repositories/meta.repository';
+import { BackofficeCard } from '../admin/BackofficeCard';
+import { DashboardScreen } from '../admin/DashboardScreen';
+import { StaffScreen } from '../admin/StaffScreen';
+import { CashSessionPanel } from '../sale/CashSessionPanel';
 import { CatalogScreen } from '../catalog/CatalogScreen';
 import { CustomersScreen } from '../customers/CustomersScreen';
 import { HistoryScreen } from '../history/HistoryScreen';
@@ -22,60 +26,35 @@ const ROLE_LABELS: Record<string, string> = {
   cashier: 'Caissier',
 };
 
-type Tab =
-  | 'sale'
-  | 'room'
-  | 'catalog'
-  | 'customers'
-  | 'stock'
-  | 'purchasing'
-  | 'history'
-  | 'reports'
-  | 'sync'
-  | 'settings';
-
-const TABS: { id: Tab; label: string; available: boolean }[] = [
-  { id: 'sale', label: 'Vente', available: true },
-  { id: 'room', label: 'Salle', available: true },
-  { id: 'catalog', label: 'Catalogue', available: true },
-  { id: 'customers', label: 'Clients', available: true },
-  { id: 'stock', label: 'Stock', available: true },
-  { id: 'purchasing', label: 'Achats', available: true },
-  { id: 'history', label: 'Historique', available: true },
-  { id: 'reports', label: 'Rapports', available: true },
-  { id: 'sync', label: 'Synchronisation', available: true },
-  { id: 'settings', label: 'Réglages', available: true },
-];
-
 /**
- * Sur une caisse autonome, l'onglet de synchronisation n'a aucun sens : il n'y
- * a pas de serveur, donc jamais de conflit ni de file à surveiller. L'afficher
- * ferait douter d'un réglage manquant.
+ * Deux interfaces, pas une seule couverte de gardes.
+ *
+ * POURQUOI : jusqu'ici, tout le monde voyait les dix onglets, et deux d'entre
+ * eux affichaient « Accès refusé » une fois ouverts. Un caissier passait donc
+ * sa journée devant Catalogue, Stock, Achats, Rapports et Synchronisation —
+ * cinq portes dont quatre lui sont fermées ou inutiles. Le bruit n'est pas
+ * seulement inélégant : sur un écran tactile, chaque onglet de trop est une
+ * chance de plus de sortir de l'écran de vente en plein service.
+ *
+ *   COMPTOIR        vendre, servir en salle, l'ardoise, ses tickets
+ *   ADMINISTRATION  ce que le poste sait de lui-même, HORS LIGNE
+ *
+ * Le mode par défaut est le COMPTOIR, pour tout le monde, y compris le
+ * propriétaire : le geste du matin est d'ouvrir la caisse, pas de consulter un
+ * tableau de bord. Qui peut administrer voit une bascule ; les autres ne
+ * soupçonnent pas qu'il existe un second monde.
+ *
+ * Le consolidé de plusieurs boutiques n'est PAS ici : il exige le serveur et
+ * vit dans le back-office web, qu'un bouton ouvre (ADR 0020).
  */
-const visibleTabs = (autonome: boolean, restaurant: boolean) =>
-  TABS.filter(
-    (entry) =>
-      entry.available &&
-      !(autonome && entry.id === 'sync') &&
-      // La salle n'apparaît que dans un restaurant : un quincaillier n'a pas
-      // de tables, et un onglet vide donne l'impression d'un réglage manquant.
-      !(!restaurant && entry.id === 'room'),
-  );
 
-/**
- * Coquille de l'application une fois la session ouverte.
- * Navigation par état plutôt que par routeur : deux écrans ne justifient pas
- * une dépendance supplémentaire (elle viendra si l'arborescence s'étoffe).
- */
 export function Workspace({ session }: { session: LocalSession }) {
   const { signOut, db, sync, standalone } = useSession();
+  const [mode, setMode] = useState<Mode>('comptoir');
   const [tab, setTab] = useState<Tab>('sale');
   const [restaurant, setRestaurant] = useState(false);
 
-  // Le type de commerce décide de l'onglet « Salle ». Lu au montage : il ne
-  // change qu'aux réglages, et un changement suppose de toute façon de revenir
-  // sur cet écran.
-  // Bons demandés depuis les téléphones des serveurs : l'écoute vit ici, pas
+  // Bons demandés depuis les téléphones des serveurs : l'écoute vit ici, et non
   // dans l'écran de salle, car un serveur envoie une commande pendant que le
   // patron regarde ses rapports.
   useKitchenTickets(session, db);
@@ -86,28 +65,68 @@ export function Workspace({ session }: { session: LocalSession }) {
       .get(META_KEYS.businessProfile)
       .then((value) => setRestaurant(value === 'restaurant'));
   }, [db]);
+
   const { user, company, store, register } = session;
+  const onglets = visibles(mode === 'admin' ? ADMIN : COMPTOIR, user.role, restaurant, standalone);
+  const administre = visibles(ADMIN, user.role, restaurant, standalone).length > 0;
+
+  /**
+   * Change de monde, et pose l'écran d'accueil de celui qu'on ouvre.
+   *
+   * Revenir en caisse doit ramener à l'écran de VENTE, jamais à l'onglet
+   * consulté la dernière fois : la bascule sert le plus souvent à reprendre le
+   * comptoir parce qu'un client attend.
+   */
+  const basculer = (next: Mode, cible?: Tab): void => {
+    setMode(next);
+    if (cible) {
+      setTab(cible);
+      return;
+    }
+    const accueil = visibles(
+      next === 'admin' ? ADMIN : COMPTOIR,
+      user.role,
+      restaurant,
+      standalone,
+    );
+    setTab(accueil[0]?.id ?? 'sale');
+  };
+
+  // Un onglet peut disparaître (changement de profil de commerce) : on ne reste
+  // jamais sur un écran devenu invisible.
+  useEffect(() => {
+    if (onglets.length > 0 && !onglets.some((entry) => entry.id === tab)) {
+      setTab(onglets[0]?.id ?? 'sale');
+    }
+  }, [onglets, tab]);
 
   return (
     <div className="flex min-h-full flex-col bg-ardoise-100">
-      {/* Bandeau sombre : il sépare nettement l'identité du poste du contenu
-          de travail, et fait ressortir les prix, qui sont sur fond clair. */}
-      <header className="bg-ardoise-900 text-white">
-        <div className="flex items-center justify-between px-6 py-3">
+      <header
+        className={mode === 'admin' ? 'bg-caisse-900 text-white' : 'bg-ardoise-900 text-white'}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-caisse-600 text-lg font-bold">
+            <span
+              className={`flex h-10 w-10 items-center justify-center rounded-xl text-lg font-bold ${
+                mode === 'admin' ? 'bg-white/20' : 'bg-caisse-600'
+              }`}
+            >
               {company.name.trim().charAt(0).toUpperCase()}
             </span>
             <div>
               <p className="font-semibold leading-tight">{company.name}</p>
               <p className="text-sm text-ardoise-400">
-                {store.name} · {register.name} ({register.receiptPrefix})
+                {mode === 'admin'
+                  ? 'Administration'
+                  : `${store.name} · ${register.name} (${register.receiptPrefix})`}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+
+          <div className="flex flex-wrap items-center gap-4">
             {!standalone && sync ? (
-              <SyncBadge engine={sync} onOpenConflicts={() => setTab('sync')} />
+              <SyncBadge engine={sync} onOpenConflicts={() => basculer('admin', 'sync')} />
             ) : standalone ? (
               <span
                 className="pastille bg-white/10 text-ardoise-300"
@@ -117,6 +136,19 @@ export function Workspace({ session }: { session: LocalSession }) {
                 Caisse autonome
               </span>
             ) : null}
+
+            {/* La bascule n'existe que pour qui a quelque chose à administrer :
+                un caissier ne doit pas même savoir qu'un autre monde existe. */}
+            {administre && (
+              <button
+                type="button"
+                onClick={() => basculer(mode === 'admin' ? 'comptoir' : 'admin')}
+                className="rounded-lg border border-white/25 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+              >
+                {mode === 'admin' ? '← Retour en caisse' : 'Administration →'}
+              </button>
+            )}
+
             <div className="text-right">
               <p className="font-medium leading-tight">{user.fullName}</p>
               <p className="text-sm text-ardoise-400">{ROLE_LABELS[user.role] ?? user.role}</p>
@@ -134,18 +166,16 @@ export function Workspace({ session }: { session: LocalSession }) {
         {/* Onglets en pastilles pleines plutôt qu'en soulignement : sur un
             écran tactile, la cible doit être un bloc, pas une ligne de texte. */}
         <nav className="flex gap-1 overflow-x-auto px-4 pb-3">
-          {visibleTabs(standalone, restaurant).map((entry) => (
+          {onglets.map((entry) => (
             <button
               key={entry.id}
               type="button"
-              disabled={!entry.available}
               onClick={() => setTab(entry.id)}
               className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition ${
                 tab === entry.id
                   ? 'bg-white text-ardoise-900 shadow-souleve'
                   : 'text-ardoise-300 hover:bg-white/10 hover:text-white'
-              } disabled:cursor-not-allowed disabled:opacity-40`}
-              title={entry.available ? undefined : 'À venir'}
+              }`}
             >
               {entry.label}
             </button>
@@ -156,38 +186,43 @@ export function Workspace({ session }: { session: LocalSession }) {
       {sync && <StaleBanner engine={sync} />}
 
       <main
-        className={`mx-auto w-full flex-1 p-6 ${tab === 'sale' || tab === 'reports' ? 'max-w-7xl' : 'max-w-6xl'}`}
+        className={`mx-auto w-full flex-1 p-6 ${
+          tab === 'sale' || tab === 'dashboard' ? 'max-w-7xl' : 'max-w-6xl'
+        }`}
       >
         {!db ? (
-          <p className="text-slate-500">Base locale indisponible.</p>
-        ) : tab === 'purchasing' ? (
-          can(user.role, 'adjustStock') ? (
-            <PurchasingScreen session={session} db={db} />
-          ) : (
-            <p className="text-slate-500">Accès refusé.</p>
-          )
-        ) : tab === 'room' ? (
-          <RoomScreen session={session} db={db} />
+          <p className="text-ardoise-500">Base locale indisponible.</p>
+        ) : tab === 'dashboard' ? (
+          <div className="space-y-5">
+            <DashboardScreen session={session} db={db} onNavigate={setTab} />
+            <BackofficeCard db={db} standalone={standalone} />
+          </div>
         ) : tab === 'sale' ? (
           <SaleScreen session={session} db={db} sync={sync} />
-        ) : tab === 'catalog' ? (
-          <CatalogScreen session={session} db={db} />
+        ) : tab === 'room' ? (
+          <RoomScreen session={session} db={db} />
         ) : tab === 'customers' ? (
           <CustomersScreen session={session} db={db} />
+        ) : tab === 'drawer' ? (
+          <div className="mx-auto max-w-3xl">
+            <CashSessionPanel session={session} db={db} />
+          </div>
         ) : tab === 'history' ? (
           <HistoryScreen session={session} db={db} sync={sync} />
+        ) : tab === 'catalog' ? (
+          <CatalogScreen session={session} db={db} />
+        ) : tab === 'stock' ? (
+          <StockScreen session={session} db={db} />
+        ) : tab === 'purchasing' ? (
+          <PurchasingScreen session={session} db={db} />
+        ) : tab === 'staff' ? (
+          <StaffScreen session={session} db={db} />
+        ) : tab === 'sync' ? (
+          <ConflictsScreen session={session} db={db} engine={sync} />
         ) : tab === 'reports' ? (
           <ReportsScreen session={session} db={db} sync={sync} />
         ) : tab === 'settings' ? (
           <PrinterSettingsScreen session={session} db={db} />
-        ) : tab === 'sync' ? (
-          <ConflictsScreen session={session} db={db} engine={sync} />
-        ) : tab === 'stock' ? (
-          can(user.role, 'sell') ? (
-            <StockScreen session={session} db={db} />
-          ) : (
-            <p className="text-slate-500">Accès refusé.</p>
-          )
         ) : null}
       </main>
     </div>

@@ -13,6 +13,7 @@ import {
 import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { CashSessionRepository } from '../../core/db/repositories/cash-session.repository';
+import { CashSessionPanel } from '../sale/CashSessionPanel';
 import { HistoryRepository } from '../../core/db/repositories/history.repository';
 import type { SyncEngine } from '../../core/sync/engine';
 
@@ -32,12 +33,8 @@ interface ReportsScreenProps {
 export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
   const [day, setDay] = useState(() => new Date().toISOString().slice(0, 10));
   const [summary, setSummary] = useState<SalesSummary | null>(null);
-  const [cashSession, setCashSession] = useState<CashSession | null>(null);
-  const [report, setReport] = useState<CashReport | null>(null);
   const [closedSessions, setClosedSessions] = useState<CashSession[]>([]);
-  const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
   const currency = session.company.currency;
   const history = useMemo(() => new HistoryRepository(db), [db]);
@@ -55,49 +52,22 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
   const canManage = can(session.user.role, 'viewReports');
 
   const reload = useCallback(async (): Promise<void> => {
-    const [{ summary: loaded }, current, closed] = await Promise.all([
-      history.summaryOfDay(new Date(`${day}T12:00:00`)),
-      sessions.current(),
-      sessions.listClosed(5),
-    ]);
-    setSummary(loaded);
-    setCashSession(current);
-    setClosedSessions(closed);
-    setReport(await sessions.report());
+    try {
+      const [{ summary: loaded }, closed] = await Promise.all([
+        history.summaryOfDay(new Date(`${day}T12:00:00`)),
+        sessions.listClosed(5),
+      ]);
+      setSummary(loaded);
+      setClosedSessions(closed);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Lecture impossible');
+    }
   }, [history, sessions, day]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
-
-  const run = async (action: () => Promise<void>): Promise<void> => {
-    setBusy(true);
-    setError(null);
-    try {
-      await action();
-      setInput('');
-      await reload();
-      void sync?.syncOnce();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Opération impossible');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const openSession = (): Promise<void> =>
-    run(async () => {
-      const cents = parseAmount(input || '0', currency);
-      if (cents === null) throw new Error('Montant invalide');
-      await sessions.open({ openingFloatCents: cents, userId: session.user.id });
-    });
-
-  const closeSession = (): Promise<void> =>
-    run(async () => {
-      const cents = parseAmount(input, currency);
-      if (cents === null) throw new Error('Indiquez le montant compté dans le tiroir');
-      await sessions.close({ countedCents: cents, userId: session.user.id });
-    });
 
   if (!canManage) {
     return <p className="text-slate-500">Les rapports demandent un compte responsable.</p>;
@@ -233,122 +203,33 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
         </div>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="font-medium text-slate-900">Caisse</h2>
+      {/* Le tiroir : même écran que celui du caissier, à l'identique. Le
+          dupliquer ici aurait fait diverger deux clôtures pour un seul
+          tiroir — et c'est le genre d'écart qu'on ne découvre qu'un soir
+          où les deux ne donnent pas le même chiffre. */}
+      <CashSessionPanel session={session} db={db} />
 
-        {cashSession ? (
-          <>
-            <p className="mt-1 text-sm text-slate-500">
-              Ouverte depuis {new Date(cashSession.openedAt).toLocaleString('fr-FR')} avec{' '}
-              {formatMoney(cashSession.openingFloatCents, currency)} de fond.
-            </p>
-
-            <dl className="mt-4 grid gap-3 sm:grid-cols-5">
-              {[
-                ['Fond de caisse', report?.openingFloatCents ?? 0],
-                ['Espèces encaissées', report?.cashSalesCents ?? 0],
-                ['Remboursements', -(report?.cashRefundsCents ?? 0)],
-                // Les ardoises réglées ne sont pas du chiffre d'affaires du
-                // jour, mais elles sont bien dans le tiroir.
-                ['Ardoises réglées', report?.accountPaymentsCents ?? 0],
-                ['Attendu en tiroir', report?.expectedCents ?? 0],
-              ].map(([label, value]) => (
-                <div key={label as string}>
-                  <dt className="text-sm text-slate-500">{label}</dt>
-                  <dd className="text-lg font-medium tabular-nums text-slate-900">
-                    {formatMoney(value as number, currency)}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-
-            <div className="mt-4 flex flex-wrap items-end gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700" htmlFor="counted">
-                  Montant compté dans le tiroir
-                </label>
-                <input
-                  id="counted"
-                  inputMode="decimal"
-                  value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  placeholder="0,00"
-                  className="mt-1 w-48 rounded-lg border border-slate-300 px-3 py-2 text-right tabular-nums outline-none focus:border-caisse-600"
-                />
-              </div>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void closeSession()}
-                className="rounded-lg bg-caisse-600 px-5 py-2.5 font-medium text-white transition hover:bg-caisse-700 disabled:opacity-50"
-              >
-                Clôturer la caisse
-              </button>
-              {input !== '' && report && (
-                <span className="text-sm text-slate-600">
-                  Écart :{' '}
-                  {formatMoney(
-                    (parseAmount(input, currency) ?? 0) - report.expectedCents,
-                    currency,
-                  )}
+      {closedSessions.length > 0 && (
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <h3 className="text-sm font-medium text-slate-700">Dernières clôtures</h3>
+          <ul className="mt-2 space-y-1.5 text-sm">
+            {closedSessions.map((closed) => (
+              <li key={closed.id} className="flex justify-between gap-2">
+                <span className="text-slate-500">
+                  {closed.closedAt && new Date(closed.closedAt).toLocaleString('fr-FR')}
                 </span>
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="mt-1 text-sm text-slate-500">
-              Aucune session ouverte. Les ventes restent possibles ; ouvrir une caisse permet de
-              contrôler le tiroir en fin de service.
-            </p>
-            <div className="mt-4 flex flex-wrap items-end gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700" htmlFor="float">
-                  Fond de caisse
-                </label>
-                <input
-                  id="float"
-                  inputMode="decimal"
-                  value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  placeholder="0,00"
-                  className="mt-1 w-48 rounded-lg border border-slate-300 px-3 py-2 text-right tabular-nums outline-none focus:border-caisse-600"
-                />
-              </div>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void openSession()}
-                className="rounded-lg bg-caisse-600 px-5 py-2.5 font-medium text-white transition hover:bg-caisse-700 disabled:opacity-50"
-              >
-                Ouvrir la caisse
-              </button>
-            </div>
-          </>
-        )}
-
-        {closedSessions.length > 0 && (
-          <div className="mt-6 border-t border-slate-200 pt-4">
-            <h3 className="text-sm font-medium text-slate-700">Dernières clôtures</h3>
-            <ul className="mt-2 space-y-1.5 text-sm">
-              {closedSessions.map((closed) => (
-                <li key={closed.id} className="flex justify-between gap-2">
-                  <span className="text-slate-500">
-                    {closed.closedAt && new Date(closed.closedAt).toLocaleString('fr-FR')}
-                  </span>
-                  <span
-                    className={`tabular-nums ${
-                      (closed.differenceCents ?? 0) === 0 ? 'text-emerald-700' : 'text-amber-800'
-                    }`}
-                  >
-                    écart {formatMoney(closed.differenceCents ?? 0, currency)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </section>
+                <span
+                  className={`tabular-nums ${
+                    (closed.differenceCents ?? 0) === 0 ? 'text-emerald-700' : 'text-amber-800'
+                  }`}
+                >
+                  écart {formatMoney(closed.differenceCents ?? 0, currency)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

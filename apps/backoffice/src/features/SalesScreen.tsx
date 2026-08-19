@@ -61,56 +61,46 @@ export function SalesScreen({ store, currency }: { store: Store; currency: strin
         </p>
       )}
 
-      <div className="carte overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left text-ardoise-500">
-            <tr>
-              <th className="px-4 py-2 font-medium">Ticket</th>
-              <th className="px-4 py-2 font-medium">Date</th>
-              <th className="px-4 py-2 font-medium">État</th>
-              <th className="px-4 py-2 text-right font-medium">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sales.map((sale) => (
-              <tr
-                key={sale.id}
-                onClick={() =>
-                  void api
-                    .sale(sale.id)
-                    .then(setSelected)
-                    .catch(() => undefined)
-                }
-                className="cursor-pointer border-t border-ardoise-100 hover:bg-ardoise-50"
+      {/* Une LISTE qui se replie, et non un tableau qui déborde. Le patron
+          consulte ses ventes depuis son téléphone : un tableau à quatre
+          colonnes y impose un défilement horizontal, c'est-à-dire de lire un
+          chiffre sans voir à quelle ligne il appartient. */}
+      <ul className="carte divide-y divide-ardoise-100">
+        {sales.map((sale) => (
+          <li key={sale.id}>
+            <button
+              type="button"
+              onClick={() =>
+                void api
+                  .sale(sale.id)
+                  .then(setSelected)
+                  .catch(() => undefined)
+              }
+              className="flex w-full flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3 text-left hover:bg-ardoise-50"
+            >
+              <span className="font-medium text-ardoise-900">{sale.receiptNumber}</span>
+              <span
+                className={`tabular order-1 ml-auto font-semibold sm:order-none ${
+                  sale.totalCents < 0 ? 'text-rose-700' : 'text-ardoise-900'
+                }`}
               >
-                <td className="px-4 py-2 font-medium text-ardoise-900">{sale.receiptNumber}</td>
-                <td className="px-4 py-2">{new Date(sale.soldAt).toLocaleString('fr-FR')}</td>
-                <td className="px-4 py-2">
-                  {sale.refundOfSaleId
-                    ? 'Remboursement'
-                    : sale.status === 'voided'
-                      ? 'Annulée'
-                      : 'Vente'}
-                </td>
-                <td
-                  className={`tabular px-4 py-2 text-right font-medium ${
-                    sale.totalCents < 0 ? 'text-rose-700' : 'text-ardoise-900'
-                  }`}
-                >
-                  {money(sale.totalCents)}
-                </td>
-              </tr>
-            ))}
-            {sales.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-4 text-ardoise-400">
-                  Aucune vente sur cette boutique.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                {money(sale.totalCents)}
+              </span>
+              <span className="w-full text-sm text-ardoise-500 sm:w-auto">
+                {new Date(sale.soldAt).toLocaleString('fr-FR')}
+                {sale.refundOfSaleId
+                  ? ' · remboursement'
+                  : sale.status === 'voided'
+                    ? ' · annulée'
+                    : ''}
+              </span>
+            </button>
+          </li>
+        ))}
+        {sales.length === 0 && (
+          <li className="px-4 py-4 text-sm text-ardoise-400">Aucune vente sur cette boutique.</li>
+        )}
+      </ul>
 
       <div className="flex items-center justify-between">
         <button

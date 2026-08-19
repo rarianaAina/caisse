@@ -134,6 +134,36 @@ validées par leurs outils. **Jamais essayé** : l'obtention réelle d'un
 certificat, qui demande un domaine public — elle aura lieu au premier
 déploiement.
 
+## Deux interfaces
+
+L'application de caisse en présente deux, choisies par le rôle :
+
+|                    |                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------- |
+| **Comptoir**       | Vendre, servir en salle, tenir l'ardoise, ouvrir et clôturer son tiroir, retrouver un ticket       |
+| **Administration** | Tableau de bord du poste, catalogue, stock, achats, clients, rapports, personnel, postes, réglages |
+
+Le mode par défaut est le comptoir **pour tout le monde**, y compris le
+propriétaire : le geste du matin est d'ouvrir la caisse. Qui peut administrer
+voit une bascule ; les autres ne soupçonnent pas qu'un second monde existe — pas
+un onglet grisé, pas un message de refus.
+
+La visibilité de chaque onglet dérive de `CAPABILITIES`, et elle est **éprouvée
+rôle par rôle** : la visibilité d'un écran est une règle de droits, pas une
+question de mise en page.
+
+Tout ce que la console d'administration montre se calcule **hors ligne**, sur la
+base du poste : un commerçant doit pouvoir configurer sa boutique un jour où
+Internet est coupé. Le consolidé de plusieurs boutiques exige le serveur et vit
+dans le tableau de bord web, qu'un bouton ouvre dans le navigateur du système.
+[ADR 0020](docs/adr/0020-deux-interfaces.md).
+
+### Sur smartphone
+
+Deux usages, aucune application à installer : le **patron** ouvre le tableau de
+bord dans le navigateur de son téléphone, le **serveur de salle** ouvre la page
+servie par la caisse elle-même ([ADR 0014](docs/adr/0014-serveur-de-salle.md)).
+
 ## Le tableau de bord
 
 `apps/backoffice` répond à la seule question qu'une caisse ne peut pas traiter :
@@ -177,7 +207,7 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 411 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
+pnpm test             # 427 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
                       #             PIN, rôles, schéma local, catalogue, stock, achats, ventes,
                       #             ardoises, ticket, ESC/POS, rapports, synchro, recherche en
                       #             volume, limitation des tentatives de connexion
@@ -388,3 +418,4 @@ distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
 - [ADR 0017 — la remontée des achats](docs/adr/0017-remontee-des-achats.md)
 - [ADR 0018 — la descente des ventes](docs/adr/0018-descente-des-ventes.md)
 - [ADR 0019 — le back-office](docs/adr/0019-back-office.md)
+- [ADR 0020 — deux interfaces, et la porte entre elles](docs/adr/0020-deux-interfaces.md)

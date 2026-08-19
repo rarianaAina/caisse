@@ -27,6 +27,10 @@ sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runti
 # Mise à jour de l'application, et redémarrage après installation.
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+# Ouvre le back-office dans le NAVIGATEUR du système, pas dans la WebView de la
+# caisse : un tableau de bord qui se charge dans la fenêtre de vente masquerait
+# l'écran d'encaissement, et un serveur lent bloquerait le comptoir.
+tauri-plugin-opener = "2"
 
 # Serveur local pour les téléphones des serveurs de salle (module 15).
 axum = "0.8.4"
