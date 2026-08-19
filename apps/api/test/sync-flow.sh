@@ -201,6 +201,46 @@ code=$(push "$DEVICE_B" "{\"mutationId\":\"$(uuid)\",\"entity\":\"product\",\"en
   \"payload\":{\"name\":\"X\",\"priceCents\":1,\"unit\":\"unit\",\"createdAt\":\"$TS\",\"updatedAt\":\"$TS\"}}")
 check "un poste révoqué ne se synchronise plus" 403 "$code"
 
+echo '── Comptes du personnel : embauche et renvoi se propagent ──────────────'
+# Une caisse crée les comptes elle-même (un serveur embauché le matin doit
+# travailler le soir). Sans gestionnaire côté serveur, ces mutations étaient
+# REFUSÉES : l'employé n'existait que sur la caisse qui l'avait saisi, et un
+# employé renvoyé continuait de vendre sur la caisse d'à côté.
+# La caisse B a été révoquée juste au-dessus : on rattache un poste neuf, qui
+# joue ici le rôle de la deuxième caisse de la même boutique.
+DEVICE_C=$(uuid)
+status POST /devices/enroll "{\"deviceId\":\"$DEVICE_C\",\"name\":\"Caisse C\",\"storeId\":\"$STORE_ID\"}" "$TOKEN" > /dev/null
+
+STAFF_ID=$(uuid)
+push "$DEVICE_A" "{\"mutationId\":\"$(uuid)\",\"entity\":\"app_user\",\"entityId\":\"$STAFF_ID\",
+  \"op\":\"create\",\"baseVersion\":null,\"deviceId\":\"$DEVICE_A\",\"clientTs\":\"$(now)\",
+  \"payload\":{\"id\":\"$STAFF_ID\",\"fullName\":\"Naina\",\"role\":\"cashier\",
+    \"pinHash\":\"pbkdf2-sha256\$100000\$sel\$empreinte\",\"isActive\":true,
+    \"createdAt\":\"$(now)\",\"updatedAt\":\"$(now)\"}}" > /dev/null
+check "l'embauche saisie au comptoir est acceptée" applied "$(field 'd.results[0].status')"
+
+pull "$DEVICE_C" 0 > /dev/null
+check "la caisse voisine reçoit le compte" 1 \
+  "$(field "d.changes.filter(c=>c.entity==='app_user'&&c.entityId==='$STAFF_ID').length")"
+check "avec son empreinte de PIN, vérifiable hors ligne" "pbkdf2-sha256\$100000\$sel\$empreinte" \
+  "$(field "(d.changes.find(c=>c.entityId==='$STAFF_ID')||{payload:{}}).payload.pinHash")"
+
+push "$DEVICE_A" "{\"mutationId\":\"$(uuid)\",\"entity\":\"app_user\",\"entityId\":\"$STAFF_ID\",
+  \"op\":\"update\",\"baseVersion\":1,\"deviceId\":\"$DEVICE_A\",\"clientTs\":\"$(now)\",
+  \"payload\":{\"isActive\":false,\"updatedAt\":\"$(now)\"}}" > /dev/null
+check "le renvoi est accepté" applied "$(field 'd.results[0].status')"
+
+# On relit tout le journal et on retient la DERNIÈRE écriture sur ce compte :
+# c'est l'état que la caisse voisine appliquera.
+pull "$DEVICE_C" 0 > /dev/null
+check "et il atteint la caisse voisine" false \
+  "$(field "String((d.changes.filter(c=>c.entityId==='$STAFF_ID').pop()||{payload:{}}).payload.isActive)")"
+
+# Le mot de passe et l'adresse de connexion ne se pilotent pas depuis un
+# comptoir : une caisse compromise ne doit pas s'attribuer l'identité du patron.
+check "l'adresse de connexion reste hors de portée de la caisse" "" \
+  "$(field "String((d.changes.filter(c=>c.entityId==='$STAFF_ID').pop()||{payload:{}}).payload.email ?? '')")"
+
 echo '── Étanchéité du journal ───────────────────────────────────────────────'
 status POST /auth/register "{
   \"companyName\":\"Voisin $STAMP\",\"fullName\":\"Chloé\",

@@ -49,6 +49,10 @@ model Company {
   sessions  CashSession[]
   sales     Sale[]
   changes   ChangeLog[]
+  customers Customer[]
+  accountMovements CustomerAccountMovement[]
+  suppliers Supplier[]
+  receipts  PurchaseReceipt[]
 
   @@map("company")
 }
@@ -349,6 +353,10 @@ model Sale {
   totalCents      Int       @map("total_cents")
   currency        String    @db.Char(3)
   refundOfSaleId  String?   @map("refund_of_sale_id") @db.Uuid
+  /// Client à qui la vente est portée ; NULL pour un passage anonyme, qui reste
+  /// le cas majoritaire. Renseigné obligatoirement dès qu'un règlement est
+  /// « à crédit » — une créance sans débiteur n'est pas une créance.
+  customerId      String?   @map("customer_id") @db.Uuid
   note            String?
   soldAt          DateTime  @map("sold_at") @db.Timestamptz(3)
   /// Chaînage fiscal (NF525 & équivalents) : prêt, non alimenté au MVP
@@ -364,6 +372,7 @@ model Sale {
   register    Register     @relation(fields: [registerId], references: [id], onDelete: Cascade)
   cashSession CashSession? @relation(fields: [cashSessionId], references: [id])
   user        User         @relation(fields: [userId], references: [id])
+  customer    Customer?    @relation(fields: [customerId], references: [id])
   refundOf    Sale?        @relation("SaleRefund", fields: [refundOfSaleId], references: [id])
   refunds     Sale[]       @relation("SaleRefund")
   items       SaleItem[]
@@ -373,6 +382,7 @@ model Sale {
   @@unique([registerId, seqInRegister])
   @@index([storeId, soldAt])
   @@index([cashSessionId])
+  @@index([customerId])
   @@map("sale")
 }
 
@@ -414,6 +424,149 @@ model Payment {
 
   @@index([saleId])
   @@map("payment")
+}
+
+// ─── Achats ─────────────────────────────────────────────────────────────────
+
+/// Fournisseur.
+///
+/// `product.supplier_id` circulait dans le protocole de synchronisation depuis
+/// les déclinaisons, mais la table ne suivait pas : une deuxième caisse
+/// recevait un identifiant qui ne pointait sur rien. Le serveur ne fait que
+/// transporter — les réceptions restent tenues localement (ADR 0015).
+model Supplier {
+  id        String    @id @db.Uuid
+  companyId String    @map("company_id") @db.Uuid
+  name      String
+  contact   String?
+  phone     String?
+  email     String?
+  address   String?
+  note      String?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version   Int       @default(1)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, name])
+  @@map("supplier")
+}
+
+/// Bon de réception VALIDÉ.
+///
+/// Seules les réceptions validées remontent : un brouillon est un travail en
+/// cours, comme un panier. Une fois validée, la pièce ne bouge plus (ADR 0015-B)
+/// et se transporte donc exactement comme une vente — en création pure, sans
+/// conflit possible.
+///
+/// Le serveur ne recalcule AUCUN stock à partir d'elle : les mouvements de type
+/// `purchase` remontent séparément et font foi. La réception n'est ici que le
+/// document qui explique d'où vient l'entrée.
+model PurchaseReceipt {
+  id          String    @id @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  storeId     String    @map("store_id") @db.Uuid
+  supplierId  String?   @map("supplier_id") @db.Uuid
+  reference   String?
+  /// 'draft' | 'received' | 'cancelled' — seul 'received' est jamais transmis
+  status      String    @default("received")
+  totalCents  Int       @map("total_cents")
+  currency    String    @db.Char(3)
+  note        String?
+  receivedAt  DateTime? @map("received_at") @db.Timestamptz(3)
+  receivedBy  String?   @map("received_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version     Int       @default(1)
+
+  company Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  items   PurchaseReceiptItem[]
+
+  @@index([companyId, storeId, receivedAt])
+  @@map("purchase_receipt")
+}
+
+model PurchaseReceiptItem {
+  id             String @id @db.Uuid
+  receiptId      String @map("receipt_id") @db.Uuid
+  productId      String @map("product_id") @db.Uuid
+  qtyMilli       BigInt @map("qty_milli")
+  /// Prix d'achat de CETTE livraison : il varie d'une réception à l'autre, et
+  /// c'est précisément ce qu'on veut pouvoir comparer dans le temps.
+  unitCostCents  Int    @map("unit_cost_cents")
+  lineTotalCents Int    @map("line_total_cents")
+  position       Int    @default(0)
+
+  receipt PurchaseReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@index([receiptId])
+  @@map("purchase_receipt_item")
+}
+
+// ─── Clients et ardoise ─────────────────────────────────────────────────────
+
+/// Client connu du commerce. Ne devient utile qu'avec l'ardoise : un passage
+/// anonyme n'a aucune raison d'être enregistré, et l'imposer ralentirait chaque
+/// encaissement pour servir une minorité de tickets.
+model Customer {
+  id        String    @id @db.Uuid
+  companyId String    @map("company_id") @db.Uuid
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  note      String?
+  /// NULL = crédit illimité, 0 = aucun crédit. La distinction est commerciale :
+  /// le défaut prudent est 0.
+  creditLimitCents Int? @default(0) @map("credit_limit_cents")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version   Int       @default(1)
+
+  company   Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  movements CustomerAccountMovement[]
+  sales     Sale[]
+
+  @@index([companyId, name])
+  @@index([companyId, phone])
+  @@map("customer")
+}
+
+/// Journal APPEND-ONLY du compte client : le solde en est la somme, jamais une
+/// colonne. Deux caisses hors-ligne y ajoutent des lignes qui s'additionnent au
+/// lieu de s'écraser — une ardoise ne peut donc pas entrer en conflit, et un
+/// solde reste justifiable ligne à ligne devant le client qui le conteste.
+model CustomerAccountMovement {
+  id            String   @id @db.Uuid
+  companyId     String   @map("company_id") @db.Uuid
+  customerId    String   @map("customer_id") @db.Uuid
+  storeId       String   @map("store_id") @db.Uuid
+  /// 'opening' | 'sale_credit' | 'payment' | 'adjustment'
+  type          String
+  /// SIGNÉ : positif quand le client doit davantage, négatif quand il rembourse
+  amountCents   Int      @map("amount_cents")
+  /// Moyen du remboursement ; NULL sur une vente à crédit
+  method        String?
+  /// Session de caisse du règlement : une ardoise réglée en espèces remplit le
+  /// tiroir sans qu'aucune vente ne l'explique
+  cashSessionId String?  @map("cash_session_id") @db.Uuid
+  refType       String?  @map("ref_type")
+  refId         String?  @map("ref_id") @db.Uuid
+  userId        String?  @map("user_id") @db.Uuid
+  note          String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt])
+  @@index([cashSessionId])
+  @@index([refType, refId])
+  @@map("customer_account_movement")
 }
 
 // ─── Synchronisation ────────────────────────────────────────────────────────
@@ -474,4 +627,25 @@ model SyncState {
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
   @@map("sync_state")
+}
+
+/// Limitation des tentatives de connexion, PARTAGÉE entre les instances de l'API.
+///
+/// POURQUOI EN BASE ET NON EN MÉMOIRE : le compteur en mémoire disparaissait au
+/// redémarrage et n'était pas partagé. Deux exemplaires de l'API derrière un
+/// répartiteur divisaient donc la protection par deux — sans aucun signal, et
+/// précisément sur la route la plus exposée d'Internet.
+///
+/// Pas de `company_id` : la clé est consultée AVANT que le tenant soit connu,
+/// comme `auth_lookup_user`. Il n'y a donc rien à cloisonner, et aucune RLS.
+model LoginAttempt {
+  /// « <e-mail normalisé>|<ip> » — cf. LoginThrottleService.key()
+  key             String    @id
+  failures        Int       @default(0)
+  windowStartedAt DateTime  @map("window_started_at") @db.Timestamptz(3)
+  lockedUntil     DateTime? @map("locked_until") @db.Timestamptz(3)
+  updatedAt       DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  @@index([updatedAt])
+  @@map("login_attempt")
 }

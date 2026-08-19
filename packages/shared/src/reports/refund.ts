@@ -83,6 +83,9 @@ export function buildRefund(input: RefundInput): RefundDraft {
       totalCents,
       currency: input.original.currency,
       refundOfSaleId: input.original.id,
+      // Le remboursement suit le client de la vente d'origine : sans quoi un
+      // avoir sur une vente à crédit ne saurait pas quelle ardoise créditer.
+      customerId: input.original.customerId,
       note: `Remboursement de ${input.original.receiptNumber}`,
       soldAt: input.at,
       prevHash: null,

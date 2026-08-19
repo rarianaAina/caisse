@@ -32,6 +32,7 @@ export function mapSale(row: Record<string, unknown>): Sale {
     totalCents: num(row['total_cents']),
     currency: str(row['currency']),
     refundOfSaleId: strOrNull(row['refund_of_sale_id']),
+    customerId: strOrNull(row['customer_id']),
     note: strOrNull(row['note']),
     soldAt: str(row['sold_at']),
     prevHash: strOrNull(row['prev_hash']),

@@ -43,6 +43,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0005_service_en_salle.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 6,
+            description: "clients et ardoise : qui doit quoi, et depuis quand",
+            sql: include_str!("../migrations/0006_clients_et_ardoise.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

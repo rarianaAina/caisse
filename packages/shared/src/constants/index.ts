@@ -52,13 +52,24 @@ export type CashSessionStatus = (typeof CASH_SESSION_STATUSES)[number];
 
 /* ─── Synchronisation ─────────────────────────────────────────────────────*/
 
-/** Entités transportées par le protocole de synchro. */
+/**
+ * Entités transportées par le protocole de synchro.
+ *
+ * `user_store` n'y figure PAS, alors que la table existe des deux côtés. Ce
+ * n'est pas un oubli : l'affectation d'un utilisateur à une boutique est
+ * appliquée au RATTACHEMENT du poste, en ne descendant que les utilisateurs de
+ * la boutique concernée (`DevicesService.enroll`). Localement, tout compte
+ * présent est donc affecté à cette boutique par construction — la table de
+ * liaison n'y apprend rien.
+ *
+ * Elle a été déclarée ici pendant six mois sans gestionnaire d'aucun côté : le
+ * protocole annonçait une capacité qui aurait rejeté toute mutation reçue.
+ */
 export const SYNC_ENTITIES = [
   'company',
   'store',
   'register',
   'app_user',
-  'user_store',
   'category',
   'product',
   'stock_movement',
@@ -66,6 +77,11 @@ export const SYNC_ENTITIES = [
   'sale',
   'sale_item',
   'payment',
+  'customer',
+  'customer_movement',
+  'supplier',
+  'purchase_receipt',
+  'purchase_receipt_item',
 ] as const;
 export type SyncEntity = (typeof SYNC_ENTITIES)[number];
 
@@ -73,7 +89,18 @@ export type SyncEntity = (typeof SYNC_ENTITIES)[number];
  * Entités append-only : jamais modifiées après création.
  * Conséquence : elles ne peuvent PAS entrer en conflit, seulement être dédupliquées.
  */
-export const IMMUTABLE_ENTITIES: readonly SyncEntity[] = ['stock_movement', 'sale_item', 'payment'];
+export const IMMUTABLE_ENTITIES: readonly SyncEntity[] = [
+  'stock_movement',
+  'sale_item',
+  'payment',
+  // Le solde d'une ardoise est la somme d'un journal, jamais un compteur :
+  // deux caisses hors-ligne y ajoutent sans jamais s'écraser.
+  'customer_movement',
+  // Une réception validée est une pièce comptable : elle ne se modifie plus,
+  // elle se corrige par un ajustement de stock (ADR 0015-B).
+  'purchase_receipt',
+  'purchase_receipt_item',
+];
 
 /**
  * Champs dont la collision ne peut PAS être arbitrée automatiquement :
@@ -86,6 +113,10 @@ export const MANUAL_CONFLICT_FIELDS: Partial<Record<SyncEntity, readonly string[
   product: ['priceCents', 'deletedAt'],
   category: ['deletedAt'],
   app_user: ['role', 'deletedAt'],
+  // Le plafond de crédit engage l'argent du commerçant : deux responsables qui
+  // le modifient en même temps doivent trancher, pas laisser l'horloge décider.
+  customer: ['creditLimitCents', 'deletedAt'],
+  supplier: ['deletedAt'],
 };
 
 export const MUTATION_OPS = ['create', 'update', 'delete'] as const;

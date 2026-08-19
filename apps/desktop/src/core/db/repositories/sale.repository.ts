@@ -16,6 +16,7 @@ import {
   sumCents,
 } from '@caisse/shared';
 import type { SqlExecutor } from '../client';
+import type { CustomerRepository } from './customer.repository';
 import { OutboxRepository } from './outbox.repository';
 
 interface SaleRow {
@@ -34,6 +35,7 @@ interface SaleRow {
   total_cents: number;
   currency: string;
   refund_of_sale_id: string | null;
+  customer_id: string | null;
   note: string | null;
   sold_at: string;
   prev_hash: string | null;
@@ -86,6 +88,7 @@ const toSale = (row: SaleRow): Sale => ({
   totalCents: row.total_cents,
   currency: row.currency,
   refundOfSaleId: row.refund_of_sale_id,
+  customerId: row.customer_id,
   note: row.note,
   soldAt: row.sold_at,
   prevHash: row.prev_hash,
@@ -150,6 +153,14 @@ export class SaleRepository {
       receiptPrefix: string;
       deviceId: string;
     },
+    /**
+     * Dépôt des clients, nécessaire uniquement pour vendre à crédit.
+     *
+     * Facultatif à dessein : l'écrasante majorité des ventes ne touche aucune
+     * ardoise, et les écrans qui n'en font jamais (salle, remboursement) n'ont
+     * pas à instancier un dépôt dont ils n'ont que faire.
+     */
+    private readonly customers?: CustomerRepository,
   ) {
     this.outbox = new OutboxRepository(db);
   }
@@ -180,9 +191,23 @@ export class SaleRepository {
     userId: string;
     soldAt?: string;
     note?: string | null;
+    /** Client à qui la vente est portée ; obligatoire s'il y a du crédit. */
+    customerId?: string | null;
   }): Promise<SaleDetails> {
     if (params.cart.lines.length === 0) {
       throw new SaleError('Le panier est vide');
+    }
+
+    // Une créance sans débiteur n'est pas une créance : mieux vaut refuser la
+    // saisie que produire une ligne « à crédit » que personne ne pourra
+    // recouvrer. Vérifié AVANT toute écriture.
+    const creditCents = sumCents(
+      params.payments
+        .filter((payment) => payment.method === 'credit')
+        .map((payment) => payment.amountCents),
+    );
+    if (creditCents > 0 && !params.customerId) {
+      throw new SaleError('Une vente à crédit doit être rattachée à un client');
     }
 
     const paid = sumCents(params.payments.map((payment) => payment.amountCents));
@@ -219,9 +244,13 @@ export class SaleRepository {
       method: payment.method,
       amountCents: payment.amountCents,
       tenderedCents: payment.tenderedCents ?? null,
+      // La monnaie se calcule contre le montant IMPUTÉ par ce règlement, pas
+      // contre le total du ticket : sur un paiement mixte, rendre l'écart avec
+      // le total viderait le tiroir de tout ce qui a déjà été réglé autrement.
+      // Sur un règlement unique en espèces, les deux formules coïncident.
       changeCents:
         payment.method === 'cash' && payment.tenderedCents
-          ? changeDue(params.totals.totalCents, payment.tenderedCents)
+          ? changeDue(payment.amountCents, payment.tenderedCents)
           : null,
       reference: payment.reference ?? null,
       createdAt: now,
@@ -248,6 +277,7 @@ export class SaleRepository {
         totalCents: params.totals.totalCents,
         currency: params.cart.currency,
         refundOfSaleId: null,
+        customerId: params.customerId ?? null,
         note: params.note ?? null,
         soldAt,
         prevHash: null,
@@ -293,6 +323,22 @@ export class SaleRepository {
       }
 
       await this.decrementStock(items, saleId, params.userId, now);
+
+      // La charge au compte du client vit dans LA MÊME transaction que la
+      // vente : si le ticket existe, la créance existe. Un dépassement de
+      // plafond lève ici, et rien n'est écrit — ni vente, ni ardoise.
+      if (creditCents > 0 && params.customerId) {
+        if (!this.customers) {
+          throw new SaleError('Vente à crédit impossible depuis cet écran');
+        }
+        await this.customers.chargeSale({
+          customerId: params.customerId,
+          saleId,
+          amountCents: creditCents,
+          userId: params.userId,
+          at: now,
+        });
+      }
 
       return record;
     });
@@ -627,9 +673,9 @@ export class SaleRepository {
     await this.db.execute(
       `INSERT INTO sale (id, company_id, store_id, register_id, cash_session_id, user_id,
                          receipt_number, seq_in_register, status, subtotal_cents, discount_cents,
-                         tax_cents, total_cents, currency, refund_of_sale_id, note, sold_at,
-                         created_at, updated_at, version)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+                         tax_cents, total_cents, currency, refund_of_sale_id, customer_id, note,
+                         sold_at, created_at, updated_at, version)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         sale.id,
         sale.companyId,
@@ -646,6 +692,7 @@ export class SaleRepository {
         sale.totalCents,
         sale.currency,
         sale.refundOfSaleId,
+        sale.customerId,
         sale.note,
         sale.soldAt,
         sale.createdAt,

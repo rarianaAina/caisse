@@ -94,6 +94,7 @@ export class ReportsService {
         openingFloatCents: data.session.openingFloatCents,
         cashSalesCents: 0,
         cashRefundsCents: 0,
+        accountPaymentsCents: 0,
         expectedCents: data.session.expectedCents ?? 0,
         countedCents: data.session.countedCents,
         differenceCents: data.session.differenceCents,

@@ -298,6 +298,15 @@ export class SyncService {
     return [...new Set(rows.flatMap((row) => row.changedFields))];
   }
 
+  /** Boutique à laquelle un poste est rattaché ; `null` s'il n'en a pas. */
+  private async storeOfDevice(tx: PrismaClient, deviceId: string): Promise<string | null> {
+    const device = await tx.device.findUnique({
+      where: { id: deviceId },
+      select: { storeId: true },
+    });
+    return device?.storeId ?? null;
+  }
+
   /** Dernier poste ayant écrit sur cette entité — sert au départage. */
   private async lastWriterOf(tx: PrismaClient, entityId: string): Promise<string | null> {
     const row = await tx.changeLog.findFirst({
@@ -325,7 +334,13 @@ export class SyncService {
     const handler = ENTITY_HANDLERS[mutation.entity];
     await this.changes.record(tx, {
       companyId: auth.companyId,
-      storeId: handler?.storeIdOf?.(row) ?? null,
+      // Trois portées possibles : l'entité porte sa boutique (ventes, stock),
+      // elle ne concerne que celle du poste émetteur (comptes du personnel), ou
+      // elle vaut pour toute l'entreprise (catalogue) — dans ce dernier cas
+      // `null`, et le pull la descend partout.
+      storeId:
+        handler?.storeIdOf?.(row) ??
+        (handler?.scopeToDeviceStore ? await this.storeOfDevice(tx, mutation.deviceId) : null),
       entity: mutation.entity,
       entityId: row.id,
       op,

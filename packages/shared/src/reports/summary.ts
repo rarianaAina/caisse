@@ -1,6 +1,8 @@
 import type { PaymentMethod } from '../constants/index.js';
 import type { Cents, QtyMilli, TaxBp } from '../money/index.js';
 import type { Payment, Sale, SaleItem } from '../domain/sale.js';
+import type { CustomerAccountMovement } from '../domain/customer.js';
+import { cashCollectedOnAccounts } from '../customers/account.js';
 import type { EntityId } from '../ids/index.js';
 
 /**
@@ -191,6 +193,15 @@ export interface CashReport {
   /** Espèces encaissées, remboursements déduits. */
   cashSalesCents: Cents;
   cashRefundsCents: Cents;
+  /**
+   * Ardoises réglées en espèces pendant la session.
+   *
+   * Ce n'est pas du chiffre d'affaires — la vente a été comptée le jour où elle
+   * a eu lieu — mais c'est bien de l'argent posé sur le comptoir. L'omettre
+   * ferait apparaître un excédent de caisse exactement égal aux ardoises
+   * réglées ce jour-là.
+   */
+  accountPaymentsCents: Cents;
   /** Ce que le tiroir devrait contenir. */
   expectedCents: Cents;
   countedCents: Cents | null;
@@ -209,6 +220,12 @@ export function computeCashReport(input: {
   sales: readonly Sale[];
   payments: readonly Payment[];
   countedCents?: Cents | null;
+  /**
+   * Écritures d'ardoise de la session, s'il y en a. Facultatif : un commerce
+   * sans clients à crédit n'a rien à passer ici, et le rapport reste identique.
+   */
+  accountMovements?: readonly CustomerAccountMovement[];
+  cashSessionId?: string | null;
 }): CashReport {
   const active = new Set(
     input.sales
@@ -225,13 +242,20 @@ export function computeCashReport(input: {
     else cashRefundsCents += Math.abs(payment.amountCents);
   }
 
-  const expectedCents = input.openingFloatCents + cashSalesCents - cashRefundsCents;
+  const accountPaymentsCents =
+    input.accountMovements && input.cashSessionId
+      ? cashCollectedOnAccounts(input.accountMovements, input.cashSessionId)
+      : 0;
+
+  const expectedCents =
+    input.openingFloatCents + cashSalesCents - cashRefundsCents + accountPaymentsCents;
   const countedCents = input.countedCents ?? null;
 
   return {
     openingFloatCents: input.openingFloatCents,
     cashSalesCents,
     cashRefundsCents,
+    accountPaymentsCents,
     expectedCents,
     countedCents,
     differenceCents: countedCents === null ? null : countedCents - expectedCents,

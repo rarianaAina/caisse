@@ -4,6 +4,7 @@ import type { LocalSession } from '../../core/auth/auth.service';
 import { useSession } from '../../app/SessionProvider';
 import { META_KEYS, MetaRepository } from '../../core/db/repositories/meta.repository';
 import { CatalogScreen } from '../catalog/CatalogScreen';
+import { CustomersScreen } from '../customers/CustomersScreen';
 import { HistoryScreen } from '../history/HistoryScreen';
 import { ReportsScreen } from '../reports/ReportsScreen';
 import { SaleScreen } from '../sale/SaleScreen';
@@ -25,6 +26,7 @@ type Tab =
   | 'sale'
   | 'room'
   | 'catalog'
+  | 'customers'
   | 'stock'
   | 'purchasing'
   | 'history'
@@ -36,6 +38,7 @@ const TABS: { id: Tab; label: string; available: boolean }[] = [
   { id: 'sale', label: 'Vente', available: true },
   { id: 'room', label: 'Salle', available: true },
   { id: 'catalog', label: 'Catalogue', available: true },
+  { id: 'customers', label: 'Clients', available: true },
   { id: 'stock', label: 'Stock', available: true },
   { id: 'purchasing', label: 'Achats', available: true },
   { id: 'history', label: 'Historique', available: true },
@@ -169,6 +172,8 @@ export function Workspace({ session }: { session: LocalSession }) {
           <SaleScreen session={session} db={db} sync={sync} />
         ) : tab === 'catalog' ? (
           <CatalogScreen session={session} db={db} />
+        ) : tab === 'customers' ? (
+          <CustomersScreen session={session} db={db} />
         ) : tab === 'history' ? (
           <HistoryScreen session={session} db={db} sync={sync} />
         ) : tab === 'reports' ? (

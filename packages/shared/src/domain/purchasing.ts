@@ -1,5 +1,6 @@
 import type { EntityId } from '../ids/index.js';
 import type { Cents, QtyMilli } from '../money/index.js';
+import type { SyncMeta } from './tenant.js';
 
 /**
  * Achats : fournisseurs et réceptions de marchandise.
@@ -12,7 +13,15 @@ import type { Cents, QtyMilli } from '../money/index.js';
  * ordinaires de type `purchase`. Le niveau reste la somme du journal.
  */
 
-export interface Supplier {
+/**
+ * Fournisseur — entité SYNCHRONISÉE.
+ *
+ * Elle ne l'était pas au départ, alors que `product.supplierId` voyageait déjà
+ * dans le protocole : une deuxième caisse recevait donc un identifiant qui ne
+ * pointait sur rien, et affichait un produit « sans fournisseur » que la
+ * première caisse rattachait correctement.
+ */
+export interface Supplier extends SyncMeta {
   id: EntityId;
   companyId: EntityId;
   name: string;
@@ -25,7 +34,16 @@ export interface Supplier {
 
 export type ReceiptStatus = 'draft' | 'received' | 'cancelled';
 
-export interface PurchaseReceipt {
+/**
+ * Bon de réception — entité SYNCHRONISÉE, et IMMUABLE.
+ *
+ * Seules les réceptions VALIDÉES remontent. Un brouillon est un travail en
+ * cours, comme un panier : il n'a rien à faire sur le serveur, et le
+ * synchroniser obligerait à arbitrer des conflits sur une saisie que personne
+ * d'autre ne regarde. Une fois validée, la réception ne bouge plus (ADR 0015-B)
+ * — elle se transporte donc exactement comme une vente.
+ */
+export interface PurchaseReceipt extends SyncMeta {
   id: EntityId;
   companyId: EntityId;
   storeId: EntityId;

@@ -37,6 +37,7 @@ const sale = (overrides: Partial<Sale> = {}): Sale => ({
   totalCents: 1000,
   currency: 'EUR',
   refundOfSaleId: null,
+  customerId: null,
   note: null,
   soldAt: '2026-08-10T12:30:00.000Z',
   prevHash: null,

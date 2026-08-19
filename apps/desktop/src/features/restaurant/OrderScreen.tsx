@@ -3,6 +3,7 @@ import {
   COURSES,
   RELEASE_REASONS,
   type Category,
+  type PaymentDraft,
   type Product,
   type SaleDetails,
   type ServiceOrder,
@@ -157,7 +158,7 @@ export function OrderScreen({
         })
       : null;
 
-  const encaisser = async (tenderedCents: number): Promise<void> => {
+  const encaisser = async (payments: PaymentDraft[]): Promise<void> => {
     const ids = facturables.map((item) => item.id);
     const { cart } = await orders.toCart(orderId, ids);
     const computed = computeTotals(cart);
@@ -167,7 +168,7 @@ export function OrderScreen({
     const details = await sales.record({
       cart,
       totals: computed,
-      payments: [{ method: 'cash', amountCents: computed.totalCents, tenderedCents }],
+      payments,
       userId: session.user.id,
     });
     const closed = await orders.markBilled(orderId, ids, details.sale.id);

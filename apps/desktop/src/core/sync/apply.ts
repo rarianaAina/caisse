@@ -1,4 +1,9 @@
-import { type ChangeEvent, type SyncEntity, buildSearchKey } from '@caisse/shared';
+import {
+  IMMUTABLE_ENTITIES,
+  type ChangeEvent,
+  type SyncEntity,
+  buildSearchKey,
+} from '@caisse/shared';
 import type { SqlExecutor } from '../db/client';
 
 /**
@@ -122,6 +127,88 @@ const TABLES: Partial<Record<SyncEntity, TableSpec>> = {
       ...SYNC_META,
     ],
   },
+  purchase_receipt: {
+    table: 'purchase_receipt',
+    primaryKey: ['id'],
+    columns: [
+      col('id', 'id'),
+      col('companyId', 'company_id'),
+      col('storeId', 'store_id'),
+      col('supplierId', 'supplier_id'),
+      col('reference', 'reference'),
+      col('status', 'status'),
+      col('totalCents', 'total_cents'),
+      col('currency', 'currency'),
+      col('note', 'note'),
+      col('receivedAt', 'received_at'),
+      col('receivedBy', 'received_by'),
+      col('createdAt', 'created_at'),
+      col('updatedAt', 'updated_at'),
+      col('version', 'version'),
+    ],
+  },
+  purchase_receipt_item: {
+    table: 'purchase_receipt_item',
+    primaryKey: ['id'],
+    columns: [
+      col('id', 'id'),
+      col('receiptId', 'receipt_id'),
+      col('productId', 'product_id'),
+      col('qtyMilli', 'qty_milli'),
+      col('unitCostCents', 'unit_cost_cents'),
+      col('lineTotalCents', 'line_total_cents'),
+      col('position', 'position'),
+    ],
+  },
+  supplier: {
+    table: 'supplier',
+    primaryKey: ['id'],
+    columns: [
+      col('id', 'id'),
+      col('companyId', 'company_id'),
+      col('name', 'name'),
+      col('contact', 'contact'),
+      col('phone', 'phone'),
+      col('email', 'email'),
+      col('address', 'address'),
+      col('note', 'note'),
+      ...SYNC_META,
+    ],
+  },
+  customer: {
+    table: 'customer',
+    primaryKey: ['id'],
+    columns: [
+      col('id', 'id'),
+      col('companyId', 'company_id'),
+      col('name', 'name'),
+      col('phone', 'phone'),
+      col('email', 'email'),
+      col('address', 'address'),
+      col('note', 'note'),
+      col('creditLimitCents', 'credit_limit_cents'),
+      ...SYNC_META,
+    ],
+  },
+  customer_movement: {
+    table: 'customer_movement',
+    primaryKey: ['id'],
+    columns: [
+      col('id', 'id'),
+      col('companyId', 'company_id'),
+      col('customerId', 'customer_id'),
+      col('storeId', 'store_id'),
+      col('type', 'type'),
+      col('amountCents', 'amount_cents'),
+      col('method', 'method'),
+      col('cashSessionId', 'cash_session_id'),
+      col('refType', 'ref_type'),
+      col('refId', 'ref_id'),
+      col('userId', 'user_id'),
+      col('note', 'note'),
+      col('createdAt', 'created_at'),
+    ],
+  },
   stock_movement: {
     table: 'stock_movement',
     primaryKey: ['id'],
@@ -165,16 +252,19 @@ export class ChangeApplier {
     if (await this.hasPendingLocalChange(change.entity, change.entityId)) return 'skipped';
     if (await this.isStaleVersion(spec, change)) return 'skipped';
 
-    // Un mouvement de stock est immuable : on ne le réécrit jamais, et son
-    // arrivée doit se répercuter sur le cache de niveau.
-    if (change.entity === 'stock_movement') {
+    // Une entité append-only ne se réécrit JAMAIS : mouvements de stock,
+    // écritures d'ardoise. La règle est lue dans IMMUTABLE_ENTITIES plutôt que
+    // codée entité par entité — un oubli ici réécrirait une ligne comptable.
+    if (IMMUTABLE_ENTITIES.includes(change.entity)) {
       const known = await this.db.select<{ id: string }>(
-        'SELECT id FROM stock_movement WHERE id = ?',
+        `SELECT id FROM ${spec.table} WHERE id = ?`,
         [change.entityId],
       );
       if (known.length > 0) return 'skipped';
       await this.upsert(spec, change.payload);
-      await this.bumpStockLevel(change.payload);
+      // Le cache de niveau suit le mouvement : le laisser dériver rendrait
+      // l'écran de stock faux jusqu'à la prochaine reconstruction.
+      if (change.entity === 'stock_movement') await this.bumpStockLevel(change.payload);
       return 'applied';
     }
 

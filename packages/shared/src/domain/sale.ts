@@ -24,6 +24,12 @@ export interface Sale extends SyncMeta {
   totalCents: Cents;
   currency: string;
   refundOfSaleId: EntityId | null;
+  /**
+   * Client à qui la vente est rattachée ; `null` pour un passage anonyme, qui
+   * reste le cas majoritaire. Obligatoire dès qu'un règlement est « à crédit » :
+   * une créance sans débiteur n'est pas une créance.
+   */
+  customerId: EntityId | null;
   note: string | null;
   soldAt: string; // horodatage métier, en UTC
   /** Chaînage fiscal (NF525 & équivalents) — non alimenté au MVP. */

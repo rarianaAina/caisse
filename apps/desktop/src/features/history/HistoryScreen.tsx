@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  PAYMENT_METHOD_LABELS,
   type Sale,
   type SaleDetails,
   can,
@@ -210,7 +211,12 @@ export function HistoryScreen({ session, db, sync }: HistoryScreenProps) {
               </div>
               {selected.payments.map((payment) => (
                 <div key={payment.id} className="flex justify-between text-sm text-slate-500">
-                  <span>{payment.method === 'cash' ? 'Espèces' : payment.method}</span>
+                  <span>
+                    {PAYMENT_METHOD_LABELS[payment.method]}
+                    {payment.reference && (
+                      <span className="text-slate-400"> · {payment.reference}</span>
+                    )}
+                  </span>
                   <span className="tabular-nums">
                     {formatMoney(payment.amountCents, selected.sale.currency)}
                   </span>

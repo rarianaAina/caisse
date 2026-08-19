@@ -1,8 +1,8 @@
-import type { PaymentMethod } from '../constants/index.js';
 import { formatMoney, formatQty, formatTaxRate } from '../money/index.js';
 import type { Company, Register, Store } from '../domain/tenant.js';
 import type { Payment, Sale, SaleItem } from '../domain/sale.js';
 import type { TaxLine } from './cart.js';
+import { PAYMENT_METHOD_LABELS } from './payment.js';
 
 /**
  * Construction du ticket — pure, sans I/O.
@@ -24,14 +24,6 @@ export interface ReceiptContext {
   /** Largeur du papier, en caractères. 42 pour du 80 mm, 32 pour du 58 mm. */
   width?: number;
 }
-
-const PAYMENT_LABELS: Record<PaymentMethod, string> = {
-  cash: 'Espèces',
-  card: 'Carte',
-  mobile: 'Paiement mobile',
-  voucher: 'Bon d’achat',
-  credit: 'À crédit',
-};
 
 const center = (text: string, width: number): string => {
   const padding = Math.max(0, Math.floor((width - text.length) / 2));
@@ -96,7 +88,7 @@ export function renderReceipt(context: ReceiptContext): string[] {
   lines.push('');
 
   for (const payment of payments) {
-    lines.push(justify(PAYMENT_LABELS[payment.method], money(payment.amountCents), width));
+    lines.push(justify(PAYMENT_METHOD_LABELS[payment.method], money(payment.amountCents), width));
     if (payment.method === 'cash' && payment.tenderedCents !== null) {
       lines.push(justify('  Reçu', money(payment.tenderedCents), width));
       lines.push(justify('  Rendu', money(payment.changeCents ?? 0), width));

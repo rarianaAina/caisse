@@ -1,7 +1,15 @@
 import type { SyncEntity } from '@caisse/shared';
 import type { PrismaClient } from '@prisma/client';
 import { toCategory, toProduct, toStockMovement } from '../../common/mappers-catalog';
+import { toLocalUser } from '../../common/mappers';
 import { toCashSession, toPayment, toSale, toSaleItem } from '../../common/mappers-sale';
+import {
+  toCustomer,
+  toCustomerMovement,
+  toPurchaseReceipt,
+  toPurchaseReceiptItem,
+  toSupplier,
+} from '../../common/mappers-customer';
 
 /**
  * Comment le moteur de synchronisation lit et écrit chaque entité.
@@ -41,6 +49,12 @@ export interface MutableHandler {
   ): Promise<EntityRow>;
   toPayload(row: EntityRow): Record<string, unknown>;
   storeIdOf?(row: EntityRow): string | null;
+  /**
+   * L'entité ne porte pas de boutique, mais son changement ne concerne QUE la
+   * boutique du poste qui l'a émis. Le journal reçoit alors cette boutique, et
+   * le pull ne descend le changement que sur les caisses concernées.
+   */
+  scopeToDeviceStore?: boolean;
 }
 
 export interface ImmutableHandler {
@@ -49,6 +63,7 @@ export interface ImmutableHandler {
   create(tx: PrismaClient, companyId: string, payload: Record<string, unknown>): Promise<EntityRow>;
   toPayload(row: EntityRow): Record<string, unknown>;
   storeIdOf?(row: EntityRow): string | null;
+  scopeToDeviceStore?: boolean;
 }
 
 export type EntityHandler = MutableHandler | ImmutableHandler;
@@ -217,6 +232,7 @@ const SALE: ImmutableHandler = {
         totalCents: int(payload['totalCents']),
         currency: str(payload['currency'] ?? 'EUR'),
         refundOfSaleId: strOrNull(payload['refundOfSaleId']),
+        customerId: strOrNull(payload['customerId']),
         note: strOrNull(payload['note']),
         soldAt: date(payload['soldAt']),
         prevHash: strOrNull(payload['prevHash']),
@@ -326,6 +342,245 @@ const CASH_SESSION: MutableHandler = {
 };
 
 /**
+ * Clients : entité mutable ordinaire.
+ *
+ * Le plafond de crédit figure parmi les champs à arbitrage humain
+ * (MANUAL_CONFLICT_FIELDS) : il engage l'argent du commerçant, et deux
+ * responsables qui le modifient le même jour doivent trancher plutôt que
+ * laisser l'horloge la plus avancée décider.
+ */
+const CUSTOMER: MutableHandler = {
+  kind: 'mutable',
+  writable: ['name', 'phone', 'email', 'address', 'note', 'creditLimitCents', 'deletedAt'],
+  async find(tx, id) {
+    return (await tx.customer.findUnique({ where: { id } })) as EntityRow | null;
+  },
+  async create(tx, companyId, payload) {
+    return (await tx.customer.create({
+      data: {
+        id: str(payload['id']),
+        companyId,
+        name: str(payload['name']),
+        phone: strOrNull(payload['phone']),
+        email: strOrNull(payload['email']),
+        address: strOrNull(payload['address']),
+        note: strOrNull(payload['note']),
+        // `null` = crédit illimité : à distinguer d'un plafond nul, qui interdit
+        // le crédit. Un `int()` par défaut écraserait la nuance.
+        creditLimitCents:
+          payload['creditLimitCents'] === null ? null : int(payload['creditLimitCents']),
+        createdAt: date(payload['createdAt']),
+        updatedAt: date(payload['updatedAt']),
+      },
+    })) as EntityRow;
+  },
+  async update(tx, id, data, updatedAt) {
+    return (await tx.customer.update({
+      where: { id },
+      data: { ...data, updatedAt, version: { increment: 1 } },
+    })) as EntityRow;
+  },
+  toPayload: (row) => toCustomer(row as never) as unknown as Record<string, unknown>,
+};
+
+/**
+ * Écritures d'ardoise : append-only, comme les mouvements de stock.
+ *
+ * C'est ce qui rend une ardoise incapable d'entrer en conflit. Deux caisses
+ * hors-ligne qui vendent à crédit au même client produisent deux lignes qui
+ * s'additionnent ; avec un solde en colonne, la seconde synchronisation
+ * effacerait la première — donc une créance, sans laisser de trace.
+ */
+const CUSTOMER_MOVEMENT: ImmutableHandler = {
+  kind: 'immutable',
+  async exists(tx, id) {
+    return (
+      (await tx.customerAccountMovement.findUnique({ where: { id }, select: { id: true } })) !==
+      null
+    );
+  },
+  async create(tx, companyId, payload) {
+    const movement = await tx.customerAccountMovement.create({
+      data: {
+        id: str(payload['id']),
+        companyId,
+        customerId: str(payload['customerId']),
+        storeId: str(payload['storeId']),
+        type: str(payload['type']),
+        amountCents: int(payload['amountCents']),
+        method: strOrNull(payload['method']),
+        cashSessionId: strOrNull(payload['cashSessionId']),
+        refType: strOrNull(payload['refType']),
+        refId: strOrNull(payload['refId']),
+        userId: strOrNull(payload['userId']),
+        note: strOrNull(payload['note']),
+        createdAt: date(payload['createdAt']),
+      },
+    });
+    return {
+      ...movement,
+      version: 1,
+      updatedAt: movement.createdAt,
+      deletedAt: null,
+    } as EntityRow;
+  },
+  toPayload: (row) => toCustomerMovement(row as never) as unknown as Record<string, unknown>,
+  storeIdOf: (row) => strOrNull(row['storeId']),
+};
+
+const SUPPLIER: MutableHandler = {
+  kind: 'mutable',
+  writable: ['name', 'contact', 'phone', 'email', 'address', 'note', 'deletedAt'],
+  async find(tx, id) {
+    return (await tx.supplier.findUnique({ where: { id } })) as EntityRow | null;
+  },
+  async create(tx, companyId, payload) {
+    return (await tx.supplier.create({
+      data: {
+        id: str(payload['id']),
+        companyId,
+        name: str(payload['name']),
+        contact: strOrNull(payload['contact']),
+        phone: strOrNull(payload['phone']),
+        email: strOrNull(payload['email']),
+        address: strOrNull(payload['address']),
+        note: strOrNull(payload['note']),
+        createdAt: date(payload['createdAt']),
+        updatedAt: date(payload['updatedAt']),
+      },
+    })) as EntityRow;
+  },
+  async update(tx, id, data, updatedAt) {
+    return (await tx.supplier.update({
+      where: { id },
+      data: { ...data, updatedAt, version: { increment: 1 } },
+    })) as EntityRow;
+  },
+  toPayload: (row) => toSupplier(row as never) as unknown as Record<string, unknown>,
+};
+
+/**
+ * Réceptions de marchandise : append-only, comme les ventes.
+ *
+ * Seules les réceptions VALIDÉES arrivent ici — un brouillon reste sur la
+ * caisse qui le saisit. Le serveur ne recalcule AUCUN stock à partir d'elles :
+ * les mouvements de type `purchase` remontent séparément et font foi. Les
+ * compter ici aussi doublerait chaque entrée de marchandise.
+ */
+const PURCHASE_RECEIPT: ImmutableHandler = {
+  kind: 'immutable',
+  async exists(tx, id) {
+    return (await tx.purchaseReceipt.findUnique({ where: { id }, select: { id: true } })) !== null;
+  },
+  async create(tx, companyId, payload) {
+    const receipt = await tx.purchaseReceipt.create({
+      data: {
+        id: str(payload['id']),
+        companyId,
+        storeId: str(payload['storeId']),
+        supplierId: strOrNull(payload['supplierId']),
+        reference: strOrNull(payload['reference']),
+        status: str(payload['status'] ?? 'received'),
+        totalCents: int(payload['totalCents']),
+        currency: str(payload['currency'] ?? 'EUR'),
+        note: strOrNull(payload['note']),
+        receivedAt: payload['receivedAt'] === null ? null : date(payload['receivedAt']),
+        receivedBy: strOrNull(payload['receivedBy']),
+        createdAt: date(payload['createdAt']),
+        updatedAt: date(payload['updatedAt']),
+      },
+    });
+    return receipt as unknown as EntityRow;
+  },
+  toPayload: (row) => toPurchaseReceipt(row as never) as unknown as Record<string, unknown>,
+  storeIdOf: (row) => strOrNull(row['storeId']),
+};
+
+const PURCHASE_RECEIPT_ITEM: ImmutableHandler = {
+  kind: 'immutable',
+  async exists(tx, id) {
+    return (
+      (await tx.purchaseReceiptItem.findUnique({ where: { id }, select: { id: true } })) !== null
+    );
+  },
+  async create(tx, _companyId, payload) {
+    const item = await tx.purchaseReceiptItem.create({
+      data: {
+        id: str(payload['id']),
+        receiptId: str(payload['receiptId']),
+        productId: str(payload['productId']),
+        qtyMilli: BigInt(int(payload['qtyMilli'])),
+        unitCostCents: int(payload['unitCostCents']),
+        lineTotalCents: int(payload['lineTotalCents']),
+        position: int(payload['position']),
+      },
+    });
+    return { ...item, version: 1, updatedAt: new Date(), deletedAt: null } as EntityRow;
+  },
+  toPayload: (row) => toPurchaseReceiptItem(row as never) as unknown as Record<string, unknown>,
+};
+
+/**
+ * Comptes du personnel.
+ *
+ * POURQUOI CE GESTIONNAIRE MANQUAIT, ET CE QUE ÇA COÛTAIT : la caisse enfilait
+ * déjà des mutations `app_user` — création d'un employé, changement de code,
+ * de rôle, désactivation — depuis le module des comptes. Faute de gestionnaire
+ * ici, le serveur les REFUSAIT toutes. Conséquences sur un parc à plusieurs
+ * caisses :
+ *
+ *   * un employé embauché le matin sur la caisse 1 ne pouvait jamais ouvrir de
+ *     session sur la caisse 2 ;
+ *   * un employé RENVOYÉ et désactivé sur la caisse 1 continuait de vendre sur
+ *     la caisse 2 — c'est le point qui rendait la correction urgente ;
+ *   * la file de synchronisation se remplissait de mutations abandonnées, que
+ *     l'écran présentait au commerçant sans qu'il puisse rien y faire.
+ *
+ * L'adresse e-mail et le mot de passe NE SONT PAS modifiables depuis une
+ * caisse : le premier est l'identité de connexion en ligne, unique sur toute
+ * l'instance ; le second ne descend jamais sur un poste. Une caisse compromise
+ * ne doit pas pouvoir s'attribuer l'adresse du patron.
+ */
+const APP_USER: MutableHandler = {
+  kind: 'mutable',
+  writable: ['fullName', 'role', 'pinHash', 'isActive', 'deletedAt'],
+  async find(tx, id) {
+    return (await tx.user.findUnique({ where: { id } })) as EntityRow | null;
+  },
+  async create(tx, companyId, payload) {
+    return (await tx.user.create({
+      data: {
+        id: str(payload['id']),
+        companyId,
+        // Jamais l'adresse envoyée par la caisse : un compte créé au comptoir
+        // sert à ouvrir une session par PIN, pas à se connecter en ligne.
+        email: null,
+        fullName: str(payload['fullName']),
+        role: str(payload['role'] ?? 'cashier'),
+        pinHash: strOrNull(payload['pinHash']),
+        isActive: bool(payload['isActive']),
+        createdAt: date(payload['createdAt']),
+        updatedAt: date(payload['updatedAt']),
+      },
+    })) as EntityRow;
+  },
+  async update(tx, id, data, updatedAt) {
+    return (await tx.user.update({
+      where: { id },
+      data: { ...data, updatedAt, version: { increment: 1 } },
+    })) as EntityRow;
+  },
+  // `pinHash` figure dans la charge utile : c'est ce qui permet à une autre
+  // caisse de vérifier le code HORS LIGNE, exactement comme au rattachement du
+  // poste. Le mot de passe, lui, n'y est jamais.
+  toPayload: (row) => toLocalUser(row as never) as unknown as Record<string, unknown>,
+  // Un compte ne descend que sur les caisses de SA boutique. Sans cette
+  // portée, un poste de la boutique A recevrait les empreintes de PIN du
+  // personnel de la boutique B, et les afficherait à son écran de session.
+  scopeToDeviceStore: true,
+};
+
+/**
  * Entités acceptées par le push.
  *
  * Une entité absente d'ici est rejetée : mieux vaut refuser explicitement une
@@ -333,6 +588,7 @@ const CASH_SESSION: MutableHandler = {
  * à moitié.
  */
 export const ENTITY_HANDLERS: Partial<Record<SyncEntity, EntityHandler>> = {
+  app_user: APP_USER,
   category: CATEGORY,
   product: PRODUCT,
   stock_movement: STOCK_MOVEMENT,
@@ -340,4 +596,9 @@ export const ENTITY_HANDLERS: Partial<Record<SyncEntity, EntityHandler>> = {
   sale_item: SALE_ITEM,
   payment: PAYMENT,
   cash_session: CASH_SESSION,
+  customer: CUSTOMER,
+  customer_movement: CUSTOMER_MOVEMENT,
+  supplier: SUPPLIER,
+  purchase_receipt: PURCHASE_RECEIPT,
+  purchase_receipt_item: PURCHASE_RECEIPT_ITEM,
 };

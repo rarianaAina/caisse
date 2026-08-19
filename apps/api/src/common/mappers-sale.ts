@@ -36,6 +36,7 @@ export function toSale(row: PrismaSale): Sale {
     totalCents: row.totalCents,
     currency: row.currency,
     refundOfSaleId: row.refundOfSaleId,
+    customerId: row.customerId,
     note: row.note,
     soldAt: iso(row.soldAt),
     prevHash: row.prevHash,

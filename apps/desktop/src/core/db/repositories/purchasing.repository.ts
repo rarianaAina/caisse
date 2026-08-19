@@ -10,6 +10,7 @@ import {
   weightedAverageCost,
 } from '@caisse/shared';
 import type { SqlExecutor } from '../client';
+import { OutboxRepository } from './outbox.repository';
 import { StockRepository } from './stock.repository';
 
 /**
@@ -37,6 +38,10 @@ const mapSupplier = (row: Record<string, unknown>): Supplier => ({
   email: row['email'] === null ? null : String(row['email']),
   address: row['address'] === null ? null : String(row['address']),
   note: row['note'] === null ? null : String(row['note']),
+  createdAt: String(row['created_at']),
+  updatedAt: String(row['updated_at']),
+  deletedAt: row['deleted_at'] === null ? null : String(row['deleted_at']),
+  version: Number(row['version'] ?? 1),
 });
 
 const mapReceipt = (row: Record<string, unknown>): PurchaseReceipt => ({
@@ -51,6 +56,12 @@ const mapReceipt = (row: Record<string, unknown>): PurchaseReceipt => ({
   note: row['note'] === null ? null : String(row['note']),
   receivedAt: row['received_at'] === null ? null : String(row['received_at']),
   receivedBy: row['received_by'] === null ? null : String(row['received_by']),
+  createdAt: String(row['created_at']),
+  updatedAt: String(row['updated_at']),
+  // La table locale ne porte pas de suppression logique : une réception
+  // validée ne se supprime pas, elle se corrige par un mouvement de stock.
+  deletedAt: null,
+  version: Number(row['version'] ?? 1),
 });
 
 const mapItem = (row: Record<string, unknown>): PurchaseReceiptItem => ({
@@ -65,6 +76,7 @@ const mapItem = (row: Record<string, unknown>): PurchaseReceiptItem => ({
 
 export class PurchasingRepository {
   private readonly stock: StockRepository;
+  private readonly outbox: OutboxRepository;
 
   constructor(
     private readonly db: SqlExecutor,
@@ -80,6 +92,7 @@ export class PurchasingRepository {
       storeId: context.storeId,
       deviceId: context.deviceId,
     });
+    this.outbox = new OutboxRepository(db);
   }
 
   /* ─── Fournisseurs ──────────────────────────────────────────────────────*/
@@ -110,38 +123,68 @@ export class PurchasingRepository {
       email: input.email ?? null,
       address: input.address ?? null,
       note: input.note ?? null,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      version: 1,
     };
 
-    await this.db.execute(
-      `INSERT INTO supplier (id, company_id, name, contact, phone, email, address, note,
-                             created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        supplier.id,
-        supplier.companyId,
-        supplier.name,
-        supplier.contact,
-        supplier.phone,
-        supplier.email,
-        supplier.address,
-        supplier.note,
-        now,
-        now,
-      ],
-    );
+    await this.db.transaction(async () => {
+      await this.db.execute(
+        `INSERT INTO supplier (id, company_id, name, contact, phone, email, address, note,
+                               created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          supplier.id,
+          supplier.companyId,
+          supplier.name,
+          supplier.contact,
+          supplier.phone,
+          supplier.email,
+          supplier.address,
+          supplier.note,
+          now,
+          now,
+        ],
+      );
+      // Sans cette mutation, une deuxième caisse recevait des produits pointant
+      // vers un fournisseur qu'elle ne connaissait pas.
+      await this.outbox.enqueue({
+        entity: 'supplier',
+        entityId: supplier.id,
+        op: 'create',
+        payload: supplier as unknown as Record<string, unknown>,
+        baseVersion: null,
+        deviceId: this.context.deviceId,
+      });
+    });
     return supplier;
   }
 
   async deleteSupplier(id: string): Promise<void> {
     const now = nowIso();
-    await this.db.execute('UPDATE supplier SET deleted_at = ?, updated_at = ? WHERE id = ?', [
-      now,
-      now,
-      id,
-    ]);
-    // Les produits ne sont pas supprimés : ils perdent simplement leur
-    // fournisseur, comme un produit perd sa catégorie.
-    await this.db.execute('UPDATE product SET supplier_id = NULL WHERE supplier_id = ?', [id]);
+    const rows = await this.db.select<{ version: number }>(
+      'SELECT version FROM supplier WHERE id = ?',
+      [id],
+    );
+
+    await this.db.transaction(async () => {
+      await this.db.execute(
+        'UPDATE supplier SET deleted_at = ?, updated_at = ?, version = version + 1 WHERE id = ?',
+        [now, now, id],
+      );
+      await this.outbox.enqueue({
+        entity: 'supplier',
+        entityId: id,
+        op: 'delete',
+        payload: { deletedAt: now },
+        baseVersion: rows[0]?.version ?? null,
+        deviceId: this.context.deviceId,
+      });
+      // Les produits ne sont pas supprimés : ils perdent simplement leur
+      // fournisseur, comme un produit perd sa catégorie.
+      await this.db.execute('UPDATE product SET supplier_id = NULL WHERE supplier_id = ?', [id]);
+    });
   }
 
   /* ─── Réceptions ────────────────────────────────────────────────────────*/
@@ -164,6 +207,12 @@ export class PurchasingRepository {
       note: input.note ?? null,
       receivedAt: null,
       receivedBy: null,
+      createdAt: now,
+      updatedAt: now,
+      // Une réception validée ne se supprime pas : elle se corrige par un
+      // mouvement de stock. La colonne n'existe donc pas en base.
+      deletedAt: null,
+      version: 1,
     };
 
     await this.db.execute(
@@ -301,6 +350,33 @@ export class PurchasingRepository {
 
     const updated = await this.findReceipt(receiptId);
     if (!updated) throw new PurchasingError('Réception introuvable après validation');
+
+    // La remontée n'a lieu qu'ICI, à la validation, jamais au brouillon : une
+    // saisie en cours n'a rien à faire sur le serveur, et la synchroniser
+    // obligerait à arbitrer des conflits sur un document que personne d'autre
+    // ne regarde. Validée, la réception ne bouge plus — elle se transporte donc
+    // comme une vente, en création pure.
+    await this.db.transaction(async () => {
+      await this.outbox.enqueue({
+        entity: 'purchase_receipt',
+        entityId: updated.id,
+        op: 'create',
+        payload: updated as unknown as Record<string, unknown>,
+        baseVersion: null,
+        deviceId: this.context.deviceId,
+      });
+      for (const item of items) {
+        await this.outbox.enqueue({
+          entity: 'purchase_receipt_item',
+          entityId: item.id,
+          op: 'create',
+          payload: item as unknown as Record<string, unknown>,
+          baseVersion: null,
+          deviceId: this.context.deviceId,
+        });
+      }
+    });
+
     return updated;
   }
 

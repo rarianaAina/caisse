@@ -1,6 +1,9 @@
 import {
+  type AccountMovementType,
   type CashReport,
   type CashSession,
+  type CustomerAccountMovement,
+  type PaymentMethod,
   computeCashReport,
   newId,
   nowIso,
@@ -142,7 +145,39 @@ export class CashSessionRepository {
       sales,
       payments,
       countedCents: countedCents ?? null,
+      accountMovements: await this.accountMovementsOf(session.id),
+      cashSessionId: session.id,
     });
+  }
+
+  /**
+   * Règlements d'ardoise reçus pendant la session.
+   *
+   * Requête directe plutôt qu'une dépendance vers le dépôt des clients : la
+   * session de caisse n'a besoin que des montants entrés dans le tiroir, pas de
+   * la gestion des comptes. Un commerce sans clients à crédit renvoie ici une
+   * liste vide et son rapport reste identique au précédent.
+   */
+  private async accountMovementsOf(sessionId: string): Promise<CustomerAccountMovement[]> {
+    const rows = await this.db.select<Record<string, unknown>>(
+      'SELECT * FROM customer_movement WHERE cash_session_id = ?',
+      [sessionId],
+    );
+    return rows.map((row) => ({
+      id: String(row['id']),
+      companyId: String(row['company_id']),
+      customerId: String(row['customer_id']),
+      storeId: String(row['store_id']),
+      type: String(row['type']) as AccountMovementType,
+      amountCents: Number(row['amount_cents']),
+      method: row['method'] === null ? null : (String(row['method']) as PaymentMethod),
+      cashSessionId: row['cash_session_id'] === null ? null : String(row['cash_session_id']),
+      refType: row['ref_type'] === null ? null : String(row['ref_type']),
+      refId: row['ref_id'] === null ? null : String(row['ref_id']),
+      userId: row['user_id'] === null ? null : String(row['user_id']),
+      note: row['note'] === null ? null : String(row['note']),
+      createdAt: String(row['created_at']),
+    }));
   }
 
   /**
@@ -162,6 +197,11 @@ export class CashSessionRepository {
       sales,
       payments,
       countedCents: params.countedCents,
+      // Une ardoise réglée en espèces remplit le tiroir sans qu'aucune vente ne
+      // l'explique : l'omettre ferait apparaître un excédent tous les soirs où
+      // un client vient solder son compte.
+      accountMovements: await this.accountMovementsOf(session.id),
+      cashSessionId: session.id,
     });
 
     const now = nowIso();

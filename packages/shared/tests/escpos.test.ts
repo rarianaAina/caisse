@@ -161,6 +161,7 @@ describe('ticket complet', () => {
       totalCents: 1100,
       currency: 'EUR',
       refundOfSaleId: null,
+      customerId: null,
       note: null,
       soldAt: '2026-08-10T12:30:00.000Z',
       prevHash: null,

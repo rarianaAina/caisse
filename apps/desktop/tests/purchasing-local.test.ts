@@ -314,3 +314,52 @@ describe('fournisseurs', () => {
     await expect(purchasing.createSupplier({ name: '   ' })).rejects.toThrow(/nom/);
   });
 });
+
+describe('remontée des achats', () => {
+  /** Mutations en file pour une entité donnée, tous états confondus. */
+  const enfilees = (entity: string) =>
+    db.select<{ entity: string; op: string; entity_id: string }>(
+      'SELECT entity, op, entity_id FROM outbox WHERE entity = ? ORDER BY seq',
+      [entity],
+    );
+
+  it('ne remonte rien tant que la réception est un brouillon', async () => {
+    const vis = await produit('Vis');
+    const bon = await purchasing.createReceipt({ reference: 'BL-77' });
+    await purchasing.addLine(bon.id, { productId: vis.id, qtyMilli: 10_000, unitCostCents: 500 });
+
+    // Un brouillon est un travail en cours, comme un panier : le synchroniser
+    // obligerait à arbitrer des conflits sur un document que personne d'autre
+    // ne regarde.
+    expect(await enfilees('purchase_receipt')).toHaveLength(0);
+    expect(await enfilees('purchase_receipt_item')).toHaveLength(0);
+  });
+
+  it('remonte le bon et ses lignes à la validation', async () => {
+    const vis = await produit('Vis');
+    const clous = await produit('Clous');
+    const bon = await purchasing.createReceipt({ reference: 'BL-78' });
+    await purchasing.addLine(bon.id, { productId: vis.id, qtyMilli: 10_000, unitCostCents: 500 });
+    await purchasing.addLine(bon.id, { productId: clous.id, qtyMilli: 2_000, unitCostCents: 800 });
+
+    await purchasing.receive(bon.id, USER_ID);
+
+    const bons = await enfilees('purchase_receipt');
+    expect(bons).toHaveLength(1);
+    expect(bons[0]?.op).toBe('create');
+    expect(bons[0]?.entity_id).toBe(bon.id);
+    expect(await enfilees('purchase_receipt_item')).toHaveLength(2);
+  });
+
+  it('remonte le fournisseur, faute de quoi le produit pointerait dans le vide', async () => {
+    const holcim = await purchasing.createSupplier({ name: 'Holcim' });
+
+    const mutations = await enfilees('supplier');
+    expect(mutations).toHaveLength(1);
+    expect(mutations[0]?.op).toBe('create');
+    expect(mutations[0]?.entity_id).toBe(holcim.id);
+
+    await purchasing.deleteSupplier(holcim.id);
+    expect((await enfilees('supplier')).map((row) => row.op)).toEqual(['create', 'delete']);
+  });
+});

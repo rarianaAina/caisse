@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  PAYMENT_METHOD_LABELS,
   type CashReport,
   type CashSession,
-  type PaymentMethod,
   type SalesSummary,
   can,
   formatMoney,
@@ -21,14 +21,6 @@ interface ReportsScreenProps {
   db: SqlExecutor;
   sync: SyncEngine | null;
 }
-
-const METHOD_LABELS: Record<PaymentMethod, string> = {
-  cash: 'Espèces',
-  card: 'Carte',
-  mobile: 'Mobile',
-  voucher: 'Bon d’achat',
-  credit: 'Crédit',
-};
 
 /**
  * Rapports du jour et clôture de caisse.
@@ -161,7 +153,7 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
             {summary?.byPaymentMethod.map((entry) => (
               <li key={entry.method} className="flex justify-between">
                 <span className="text-slate-600">
-                  {METHOD_LABELS[entry.method]} ({entry.count})
+                  {PAYMENT_METHOD_LABELS[entry.method]} ({entry.count})
                 </span>
                 <span className="tabular-nums text-slate-900">
                   {formatMoney(entry.amountCents, currency)}
@@ -251,11 +243,14 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
               {formatMoney(cashSession.openingFloatCents, currency)} de fond.
             </p>
 
-            <dl className="mt-4 grid gap-3 sm:grid-cols-4">
+            <dl className="mt-4 grid gap-3 sm:grid-cols-5">
               {[
                 ['Fond de caisse', report?.openingFloatCents ?? 0],
                 ['Espèces encaissées', report?.cashSalesCents ?? 0],
                 ['Remboursements', -(report?.cashRefundsCents ?? 0)],
+                // Les ardoises réglées ne sont pas du chiffre d'affaires du
+                // jour, mais elles sont bien dans le tiroir.
+                ['Ardoises réglées', report?.accountPaymentsCents ?? 0],
                 ['Attendu en tiroir', report?.expectedCents ?? 0],
               ].map(([label, value]) => (
                 <div key={label as string}>

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type Cart,
   type Category,
+  type Customer,
+  type PaymentDraft,
   type Product,
   type SaleDetails,
   type TaxLine,
@@ -23,6 +25,7 @@ import {
 import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { CatalogRepository } from '../../core/db/repositories/catalog.repository';
+import { CustomerRepository } from '../../core/db/repositories/customer.repository';
 import { SaleRepository } from '../../core/db/repositories/sale.repository';
 import type { SyncEngine } from '../../core/sync/engine';
 import { PaymentPanel } from './PaymentPanel';
@@ -57,22 +60,39 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
   const [paying, setPaying] = useState(false);
   const [receipt, setReceipt] = useState<{ details: SaleDetails; tax: TaxLine[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Client de la vente en cours ; renseigné seulement pour une ardoise. */
+  const [customer, setCustomer] = useState<Customer | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const catalog = useMemo(
     () => new CatalogRepository(db, { companyId: session.company.id, deviceId: session.deviceId }),
     [db, session],
   );
-  const sales = useMemo(
+  const customers = useMemo(
     () =>
-      new SaleRepository(db, {
+      new CustomerRepository(db, {
         companyId: session.company.id,
         storeId: session.store.id,
-        registerId: session.register.id,
-        receiptPrefix: session.register.receiptPrefix,
         deviceId: session.deviceId,
       }),
     [db, session],
+  );
+  const sales = useMemo(
+    () =>
+      new SaleRepository(
+        db,
+        {
+          companyId: session.company.id,
+          storeId: session.store.id,
+          registerId: session.register.id,
+          receiptPrefix: session.register.receiptPrefix,
+          deviceId: session.deviceId,
+        },
+        // La vente à crédit écrit au compte du client dans la MÊME transaction
+        // que le ticket : si la vente existe, la créance existe.
+        customers,
+      ),
+    [customers, db, session],
   );
 
   const totals = computeTotals(cart);
@@ -158,15 +178,17 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
     setCart((cartState) => setCartDiscount(cartState, cents));
   };
 
-  const confirmPayment = async (tenderedCents: number): Promise<void> => {
+  const confirmPayment = async (payments: PaymentDraft[]): Promise<void> => {
     const details = await sales.record({
       cart,
       totals,
-      payments: [{ method: 'cash', amountCents: totals.totalCents, tenderedCents }],
+      payments,
       userId: session.user.id,
+      customerId: customer?.id ?? null,
     });
 
     setPaying(false);
+    setCustomer(null);
     setReceipt({ details, tax: totals.taxBreakdown });
     setCart((current) => clearCart(current));
     await reload();
@@ -396,6 +418,9 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
 
       {paying && (
         <PaymentPanel
+          searchCustomers={(term) => customers.search(term)}
+          customer={customer}
+          onCustomerChange={setCustomer}
           totalCents={totals.totalCents}
           currency={cart.currency}
           onConfirm={confirmPayment}
