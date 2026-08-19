@@ -70,6 +70,97 @@ jobs:
       - run: cargo test --lib
         working-directory: apps/desktop/src-tauri
 
+  # Les cinq parcours de bout en bout — 162 vérifications — ne tournaient
+  # jusqu'ici que si un développeur y pensait. Ce sont pourtant les seuls tests
+  # qui éprouvent l'API RÉELLE : multi-tenant, RLS, idempotence du push,
+  # arbitrage des conflits. Un test qu'on oublie de lancer ne protège rien.
+  parcours-api:
+    name: Parcours d'API
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: caisse
+          POSTGRES_PASSWORD: caisse
+          POSTGRES_DB: caisse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U caisse -d caisse"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    env:
+      # Deux rôles, comme en production : les migrations appartiennent au
+      # propriétaire, l'API tourne sous un rôle ordinaire soumis à la RLS.
+      # Employer le même rôle pour les deux rendrait le cloisonnement
+      # décoratif — et ces parcours le vérifient précisément.
+      DIRECT_DATABASE_URL: postgresql://caisse:caisse@localhost:5432/caisse?schema=public
+      DATABASE_URL: postgresql://caisse_app:caisse_app@localhost:5432/caisse?schema=public
+      JWT_ACCESS_SECRET: secret-de-test-sans-valeur-aucune
+      JWT_REFRESH_SECRET: autre-secret-de-test-sans-valeur
+      NODE_ENV: development
+      API_PORT: 3000
+      API_URL: http://localhost:3000/api
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @caisse/shared build
+      - run: pnpm --filter @caisse/api exec prisma generate
+
+      # `migrate deploy` et non `migrate dev` : on applique les migrations
+      # telles qu'elles sont versionnées, sans jamais en engendrer une nouvelle.
+      # C'est exactement ce que fera la mise en production.
+      - run: pnpm --filter @caisse/api exec prisma migrate deploy
+
+      - run: pnpm --filter @caisse/api build
+
+      - name: Démarrer l'API
+        working-directory: apps/api
+        run: |
+          # Démarrée depuis apps/api, comme en production : c'est de là que se
+          # résolvent `@caisse/shared` et le client Prisma engendré.
+          node dist/main.js > /tmp/api.log 2>&1 &
+          echo $! > /tmp/api.pid
+          for _ in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/health > /dev/null; then
+              echo "API prête"; exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::l'API n'a pas démarré en 30 s"
+          cat /tmp/api.log
+          exit 1
+
+      # Chaque parcours s'exécute même si le précédent échoue : découvrir les
+      # cinq problèmes d'un coup vaut mieux que les découvrir un par jour.
+      - name: Authentification, rôles, multi-tenant
+        run: bash apps/api/test/auth-flow.sh
+      - name: Catalogue et stock
+        if: '!cancelled()'
+        run: bash apps/api/test/catalog-flow.sh
+      - name: Synchronisation — fusion, conflits, idempotence
+        if: '!cancelled()'
+        run: bash apps/api/test/sync-flow.sh
+      - name: Vente complète — ticket, TVA, stock, rejeu
+        if: '!cancelled()'
+        run: bash apps/api/test/sale-flow.sh
+      - name: Journée, remboursement, clôture
+        if: '!cancelled()'
+        run: bash apps/api/test/reports-flow.sh
+
+      - name: Arrêter l'API
+        if: always()
+        run: kill "$(cat /tmp/api.pid)" || true
+
   # L'image du serveur est construite à chaque poussée, sans être publiée : une
   # erreur de Dockerfile doit se voir ici, pas le soir d'une mise en production.
   image-serveur:

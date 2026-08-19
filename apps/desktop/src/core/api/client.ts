@@ -134,6 +134,17 @@ export const api = {
   listDevices: (token: string) => request<Device[]>('/devices', { token }),
 
   /**
+   * Coupe un poste : il ne peut plus ni se rafraîchir ni se synchroniser.
+   *
+   * L'opération se fait DEPUIS une caisse, faute de back-office : quand un
+   * poste est volé ou qu'un employé part avec, personne n'a de terminal
+   * PostgreSQL sous la main, et attendre le lendemain laisse la nuit entière à
+   * qui détient l'appareil.
+   */
+  revokeDevice: (token: string, deviceId: string) =>
+    request<void>(`/devices/${encodeURIComponent(deviceId)}`, { method: 'DELETE', token }),
+
+  /**
    * Synchronisation. Délai plus généreux que les autres appels : un lot de
    * mutations après plusieurs jours hors-ligne peut être long à traiter, et
    * abandonner trop tôt relancerait le même lot indéfiniment.

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSession } from '../../app/SessionProvider';
 import type { LocalSession } from '../../core/auth/auth.service';
 import { BackupPanel } from './BackupPanel';
+import { DevicesPanel } from './DevicesPanel';
+import { MaintenancePanel } from './MaintenancePanel';
 import { BusinessProfilePanel } from './BusinessProfilePanel';
 import { UsersPanel } from './UsersPanel';
 import { UpdatePanel } from './UpdatePanel';
@@ -43,6 +46,7 @@ const KIND_HINTS: Record<Kind, string> = {
  * l'une sur le rouleau de l'autre.
  */
 export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProps) {
+  const { standalone } = useSession();
   const [settings, setSettings] = useState<PrinterSettings>(DEFAULT_PRINTER_SETTINGS);
   const [kind, setKind] = useState<Kind>('network');
   const [host, setHost] = useState('192.168.1.100');
@@ -141,6 +145,10 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
       <BusinessProfilePanel db={db} />
 
       <UsersPanel session={session} db={db} />
+
+      {/* Une caisse autonome n'a pas de serveur, donc pas de parc à tenir :
+          l'écran n'aurait rien à afficher qu'un message d'erreur. */}
+      {!standalone && <DevicesPanel session={session} db={db} />}
 
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="font-semibold text-slate-900">Imprimante ticket</h2>
@@ -316,6 +324,8 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
           ))}
         </div>
       </section>
+
+      <MaintenancePanel session={session} db={db} />
 
       <BackupPanel db={db} />
 

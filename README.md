@@ -120,6 +120,11 @@ quotidienne. Le détail, la restauration et la surveillance :
 L'adresse du serveur se saisit à l'écran de rattachement de la caisse et n'est
 plus figée à la compilation : la même installation sert tous les clients.
 
+Un poste perdu ou volé se coupe depuis l'onglet **Réglages** d'une autre caisse :
+il ne reçoit plus rien et ne remonte plus rien. La révocation n'efface pas sa
+base locale — aucun moyen fiable n'existe d'effacer à distance une machine hors
+ligne, et le prétendre donnerait une fausse sécurité.
+
 **Vérifié** : image construite et exécutée, migrations appliquées, les cinq
 parcours d'API (162 vérifications) rejoués contre le conteneur, sauvegarde puis
 restauration réelles (14 entreprises → 0 → 14), configuration Caddy et compose
@@ -147,9 +152,10 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 375 tests TypeScript + 26 tests Rust : devises, monnaie, panier, PIN, rôles, schéma local,
-                      #             catalogue, stock, ventes, ticket, ESC/POS, rapports, synchro,
-                      #             recherche en volume, limitation des tentatives de connexion
+pnpm test             # 408 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
+                      #             PIN, rôles, schéma local, catalogue, stock, achats, ventes,
+                      #             ardoises, ticket, ESC/POS, rapports, synchro, recherche en
+                      #             volume, limitation des tentatives de connexion
 pnpm typecheck        # TypeScript strict sur les trois paquets
 pnpm build            # build complet
 curl http://localhost:3000/api/health
@@ -213,12 +219,39 @@ L'écran de vente fonctionne intégralement hors-ligne : recherche dans la copie
 locale, panier calculé par `packages/shared`, encaissement écrit directement
 dans SQLite. La remontée au serveur est un effet de bord.
 
+Un ticket se règle **en une ou plusieurs fois**, par n'importe quelle
+combinaison d'espèces, carte, paiement mobile, bon d'achat et ardoise — le cas
+courant là où le mobile money est répandu. Le geste le plus fréquent reste à une
+touche : le panneau s'ouvre sur les espèces au compte juste, « Entrée »
+encaisse. Seules les espèces rendent la monnaie ; carte, mobile et bon
+demandent une référence de transaction, sans jamais l'exiger.
+
 Le total affiché, celui enregistré et celui imprimé viennent du **même code**.
 Une remise globale est répartie sur les lignes _avant_ le calcul de TVA, faute
 de quoi la ventilation par taux serait fausse sur un ticket mêlant plusieurs
 taux — et la somme des parts tombe toujours juste au centime près.
 
 Le lecteur de code-barres est un simple clavier : aucun pilote, aucun plugin.
+
+## Clients et ardoise
+
+Un client connu peut emporter sa marchandise et régler plus tard. Le solde
+n'est **pas un compteur** : c'est la somme d'un journal append-only, comme le
+stock. Deux caisses hors-ligne qui vendent à crédit au même client écrivent deux
+écritures qui s'additionnent — avec une colonne « solde », la seconde
+synchronisation aurait effacé la première, c'est-à-dire une créance.
+
+Conséquences directes : une ardoise ne peut pas entrer en conflit, et son solde
+est justifiable ligne à ligne devant le client qui le conteste.
+
+Le crédit est le **seul refus** de l'application. Encaisser ne se refuse jamais ;
+accorder un crédit est une décision commerciale, et un plafond franchi sans le
+savoir n'en est pas un. Une vente à crédit sans client est refusée : une créance
+sans débiteur n'est pas une créance.
+
+Un règlement d'ardoise en espèces est rattaché à la session de caisse ouverte —
+sans quoi la clôture afficherait un excédent égal, au centime près, aux ardoises
+réglées ce jour-là. Détail : [ADR 0016](docs/adr/0016-encaissement-et-ardoise.md).
 
 ## Historique et rapports
 
@@ -325,3 +358,5 @@ distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
 - [ADR 0013 — le service en salle](docs/adr/0013-restaurant.md)
 - [ADR 0014 — le serveur de salle](docs/adr/0014-serveur-de-salle.md)
 - [ADR 0015 — achats et déclinaisons](docs/adr/0015-quincaillerie.md)
+- [ADR 0016 — moyens de paiement et ardoise](docs/adr/0016-encaissement-et-ardoise.md)
+- [ADR 0017 — la remontée des achats](docs/adr/0017-remontee-des-achats.md)

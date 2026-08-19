@@ -109,10 +109,11 @@ export class AuthService {
   }
 
   async login(input: LoginInput, ip = 'inconnue'): Promise<SessionResponse> {
-    // Vérifié AVANT toute requête : un compte bloqué ne doit coûter ni accès
-    // à la base ni calcul argon2, sinon la limite devient elle-même un levier
-    // de surcharge.
-    this.throttle.assertAllowed(input.email, ip);
+    // Vérifié en premier : un compte bloqué ne doit coûter aucun calcul
+    // argon2, sinon la limite devient elle-même un levier de surcharge. Depuis
+    // que le compteur est partagé, elle coûte UNE lecture indexée sur clé
+    // primaire — sans commune mesure avec le hachage qu'elle évite.
+    await this.throttle.assertAllowed(input.email, ip);
 
     // La recherche a lieu avant que l'entreprise soit connue : elle passe donc
     // par une fonction SECURITY DEFINER (cf. migration 20260810120000).
@@ -130,11 +131,11 @@ export class AuthService {
 
     if (!found || !valid) {
       if (!found) await this.passwords.verify(input.password, null);
-      this.throttle.recordFailure(input.email, ip);
+      await this.throttle.recordFailure(input.email, ip);
       throw new UnauthorizedException('Identifiants invalides');
     }
 
-    this.throttle.recordSuccess(input.email, ip);
+    await this.throttle.recordSuccess(input.email, ip);
     return this.loadSession(found.id, found.company_id, found.role as UserRole, null);
   }
 

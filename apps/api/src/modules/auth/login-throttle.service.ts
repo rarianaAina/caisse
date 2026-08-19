@@ -1,4 +1,5 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { PrismaService } from '../../database/prisma.service';
 
 /**
  * Limitation des tentatives de connexion par mot de passe.
@@ -16,11 +17,11 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
  *  - par IP seule, une boutique entière derrière une même connexion serait
  *    bloquée par un employé qui se trompe.
  *
- * ⚠️ Le compteur vit EN MÉMOIRE : il est remis à zéro au redémarrage de l'API
- * et n'est pas partagé entre plusieurs instances. C'est suffisant pour le
- * déploiement actuel (une instance). Le jour où l'API tournera en plusieurs
- * exemplaires, ce service devra s'appuyer sur un stockage partagé (Redis) —
- * l'interface ne changera pas.
+ * Le compteur est PARTAGÉ, en base : il vivait auparavant dans la mémoire du
+ * processus, ce qui le remettait à zéro à chaque redémarrage et le rendait
+ * inopérant dès qu'une deuxième instance d'API répondait aux mêmes clients. La
+ * protection de la seule route ouverte sur Internet ne peut pas dépendre de la
+ * topologie du déploiement.
  */
 
 /** Au-delà, la tentative est refusée sans même vérifier le mot de passe. */
@@ -29,15 +30,67 @@ const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
 /** Durée du blocage une fois le seuil atteint. */
 const LOCK_MS = 15 * 60 * 1000;
+/** Au-delà, une clé dormante est effacée à l'occasion d'une écriture. */
+const PRUNE_AFTER_MS = 24 * 60 * 60 * 1000;
 
-interface Attempts {
-  failures: number[];
+export interface ThrottleRecord {
+  failures: number;
+  /** Début de la fenêtre d'observation courante, en millisecondes epoch. */
+  windowStartedAt: number;
+  /** Fin du blocage, en millisecondes epoch ; 0 si la clé n'est pas bloquée. */
   lockedUntil: number;
 }
 
+/**
+ * Stockage des compteurs.
+ *
+ * Isolé derrière une interface pour deux raisons : la politique reste testable
+ * sans base, et remplacer PostgreSQL par Redis le jour où le volume le
+ * justifiera ne touchera pas au calcul.
+ */
+export interface ThrottleStore {
+  read(key: string): Promise<ThrottleRecord | null>;
+  write(key: string, record: ThrottleRecord, now: number): Promise<void>;
+  clear(key: string): Promise<void>;
+}
+
+export const THROTTLE_STORE = Symbol('ThrottleStore');
+
+/* ─── Politique ────────────────────────────────────────────────────────────*/
+
+/**
+ * Compte un échec, en fonctions pures.
+ *
+ * La fenêtre glisse par blocs plutôt que par horodatage individuel : quatre
+ * erreurs de frappe étalées sur la journée ne s'additionnent pas, mais cinq
+ * essais rapprochés bloquent. Stocker chaque horodatage n'apporterait rien de
+ * plus et ferait grossir une ligne sans limite.
+ */
+export function registerFailure(previous: ThrottleRecord | null, now: number): ThrottleRecord {
+  const expired = previous === null || now - previous.windowStartedAt > WINDOW_MS;
+  const failures = expired ? 1 : previous.failures + 1;
+
+  if (failures >= MAX_ATTEMPTS) {
+    return { failures: 0, windowStartedAt: now, lockedUntil: now + LOCK_MS };
+  }
+  return {
+    failures,
+    windowStartedAt: expired ? now : previous.windowStartedAt,
+    lockedUntil: previous?.lockedUntil ?? 0,
+  };
+}
+
+/** Millisecondes de blocage restantes ; 0 si la clé est libre. */
+export function lockRemainingMs(record: ThrottleRecord | null, now: number): number {
+  if (!record) return 0;
+  return Math.max(0, record.lockedUntil - now);
+}
+
+/* ─── Service ──────────────────────────────────────────────────────────────*/
+
 @Injectable()
 export class LoginThrottleService {
-  private readonly entries = new Map<string, Attempts>();
+  constructor(@Inject(THROTTLE_STORE) private readonly store: ThrottleStore) {}
 
   /**
    * Surchargeable dans les tests, qui ne peuvent pas attendre un quart d'heure.
@@ -49,11 +102,8 @@ export class LoginThrottleService {
   }
 
   /** Lève 429 si la clé est bloquée. À appeler AVANT de vérifier le mot de passe. */
-  assertAllowed(email: string, ip: string): void {
-    const entry = this.entries.get(this.key(email, ip));
-    if (!entry) return;
-
-    const remaining = entry.lockedUntil - this.now();
+  async assertAllowed(email: string, ip: string): Promise<void> {
+    const remaining = lockRemainingMs(await this.store.read(this.key(email, ip)), this.now());
     if (remaining <= 0) return;
 
     const seconds = Math.ceil(remaining / 1000);
@@ -67,40 +117,74 @@ export class LoginThrottleService {
     );
   }
 
-  recordFailure(email: string, ip: string): void {
+  async recordFailure(email: string, ip: string): Promise<void> {
     const key = this.key(email, ip);
     const now = this.now();
-    const entry = this.entries.get(key) ?? { failures: [], lockedUntil: 0 };
-
-    entry.failures = entry.failures.filter((at) => now - at < WINDOW_MS);
-    entry.failures.push(now);
-    if (entry.failures.length >= MAX_ATTEMPTS) {
-      entry.lockedUntil = now + LOCK_MS;
-      entry.failures = [];
-    }
-
-    this.entries.set(key, entry);
-    this.prune(now);
+    await this.store.write(key, registerFailure(await this.store.read(key), now), now);
   }
 
   /** Une connexion réussie efface l'ardoise : l'utilisateur a prouvé son identité. */
-  recordSuccess(email: string, ip: string): void {
-    this.entries.delete(this.key(email, ip));
+  async recordSuccess(email: string, ip: string): Promise<void> {
+    await this.store.clear(this.key(email, ip));
   }
 
   private key(email: string, ip: string): string {
     return `${email.trim().toLowerCase()}|${ip}`;
   }
+}
+
+/* ─── Stockage PostgreSQL ──────────────────────────────────────────────────*/
+
+/**
+ * Compteurs en base.
+ *
+ * La lecture puis l'écriture ne sont pas atomiques entre deux instances : deux
+ * échecs simultanés peuvent n'en compter qu'un. C'est assumé — le pire cas est
+ * une poignée d'essais supplémentaires avant le blocage, alors qu'une
+ * transaction verrouillante sur la route de connexion offrirait un levier de
+ * contention à qui la martèle. Le seuil n'est pas une frontière au coup près.
+ */
+@Injectable()
+export class PrismaThrottleStore implements ThrottleStore {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async read(key: string): Promise<ThrottleRecord | null> {
+    const row = await this.prisma.loginAttempt.findUnique({ where: { key } });
+    if (!row) return null;
+    return {
+      failures: row.failures,
+      windowStartedAt: row.windowStartedAt.getTime(),
+      lockedUntil: row.lockedUntil?.getTime() ?? 0,
+    };
+  }
+
+  async write(key: string, record: ThrottleRecord, now: number): Promise<void> {
+    const data = {
+      failures: record.failures,
+      windowStartedAt: new Date(record.windowStartedAt),
+      lockedUntil: record.lockedUntil > 0 ? new Date(record.lockedUntil) : null,
+      updatedAt: new Date(now),
+    };
+    await this.prisma.loginAttempt.upsert({
+      where: { key },
+      create: { key, ...data },
+      update: data,
+    });
+    await this.prune(now);
+  }
+
+  async clear(key: string): Promise<void> {
+    await this.prisma.loginAttempt.deleteMany({ where: { key } });
+  }
 
   /**
-   * Purge paresseuse, sans minuterie : un `setInterval` empêcherait les tests
-   * de se terminer et maintiendrait le processus éveillé pour rien.
+   * Purge paresseuse, sans minuterie : un `setInterval` maintiendrait le
+   * processus éveillé pour rien et empêcherait les tests de se terminer. Une
+   * clé dormante depuis un jour n'a plus rien à protéger.
    */
-  private prune(now: number): void {
-    if (this.entries.size < 1000) return;
-    for (const [key, entry] of this.entries) {
-      const idle = entry.failures.length === 0 || now - Math.max(...entry.failures) > WINDOW_MS;
-      if (idle && entry.lockedUntil < now) this.entries.delete(key);
-    }
+  private async prune(now: number): Promise<void> {
+    await this.prisma.loginAttempt.deleteMany({
+      where: { updatedAt: { lt: new Date(now - PRUNE_AFTER_MS) } },
+    });
   }
 }
