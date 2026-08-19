@@ -152,7 +152,7 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 408 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
+pnpm test             # 411 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
                       #             PIN, rôles, schéma local, catalogue, stock, achats, ventes,
                       #             ardoises, ticket, ESC/POS, rapports, synchro, recherche en
                       #             volume, limitation des tentatives de connexion
@@ -209,6 +209,7 @@ applique ce qu'il sait.
 | Même champ sensible (prix, rôle)              | **Arbitrage humain** — rien n'est écrasé       |
 | Modification hors-ligne d'un produit supprimé | La **suppression l'emporte**                   |
 | Caisse muette depuis 24 h                     | Bandeau d'avertissement, **la vente continue** |
+| Changement reçu qui ne s'applique pas         | Mis de côté et rejoué ; signalé s'il persiste  |
 
 L'encaissement n'est **jamais** bloqué. Alternatives écartées et raisons :
 [ADR 0004](docs/adr/0004-moteur-de-synchronisation.md).
@@ -360,3 +361,4 @@ distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
 - [ADR 0015 — achats et déclinaisons](docs/adr/0015-quincaillerie.md)
 - [ADR 0016 — moyens de paiement et ardoise](docs/adr/0016-encaissement-et-ardoise.md)
 - [ADR 0017 — la remontée des achats](docs/adr/0017-remontee-des-achats.md)
+- [ADR 0018 — la descente des ventes](docs/adr/0018-descente-des-ventes.md)

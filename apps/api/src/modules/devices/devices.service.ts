@@ -15,10 +15,14 @@ import {
 import type { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { toCompany, toDevice, toLocalUser, toRegister, toStore } from '../../common/mappers';
+import { ChangeLogService } from '../sync/change-log.service';
 
 @Injectable()
 export class DevicesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly changes: ChangeLogService,
+  ) {}
 
   /**
    * Enrôle un poste et lui renvoie tout ce dont il a besoin pour fonctionner
@@ -40,20 +44,47 @@ export class DevicesService {
       });
       if (!store) throw new NotFoundException('Boutique introuvable');
 
-      const register = input.registerId
+      const existingRegister = input.registerId
         ? await tx.register.findFirst({
             where: { id: input.registerId, storeId: store.id, deletedAt: null },
           })
-        : await tx.register.create({
-            data: {
-              id: newId(),
-              companyId: auth.companyId,
-              storeId: store.id,
-              name: input.registerName ?? input.name,
-              receiptPrefix: input.receiptPrefix ?? (await this.nextPrefix(tx, store.id)),
-            },
-          });
+        : null;
+
+      const register =
+        existingRegister ??
+        (input.registerId
+          ? null
+          : await tx.register.create({
+              data: {
+                id: newId(),
+                companyId: auth.companyId,
+                storeId: store.id,
+                name: input.registerName ?? input.name,
+                receiptPrefix: input.receiptPrefix ?? (await this.nextPrefix(tx, store.id)),
+              },
+            }));
       if (!register) throw new NotFoundException('Caisse introuvable');
+
+      // Une caisse créée ici doit devenir CONNUE des autres postes de la
+      // boutique. Sans cette écriture au journal, une vente encaissée sur ce
+      // poste arriverait chez ses voisins en référençant une caisse qu'ils
+      // n'ont jamais vue — et leur base la refuserait.
+      if (!existingRegister) {
+        await this.changes.record(tx, {
+          companyId: auth.companyId,
+          storeId: store.id,
+          entity: 'register',
+          entityId: register.id,
+          op: 'create',
+          payload: toRegister(register) as unknown as Record<string, unknown>,
+          changedFields: [],
+          version: register.version,
+          // Aucun poste d'origine : le nouveau venu doit se recevoir lui-même
+          // pour connaître sa propre caisse s'il repart d'une base vide.
+          originDeviceId: null,
+          actorUserId: auth.userId,
+        });
+      }
 
       const existing = await tx.device.findUnique({ where: { id: input.deviceId } });
       if (existing?.revokedAt) {

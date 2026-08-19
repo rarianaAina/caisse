@@ -91,6 +91,10 @@ export type SyncEntity = (typeof SYNC_ENTITIES)[number];
  */
 export const IMMUTABLE_ENTITIES: readonly SyncEntity[] = [
   'stock_movement',
+  // Une vente n'est jamais modifiée : on l'annule ou on la rembourse par une
+  // AUTRE vente (ADR 0006-A). La réécrire à la réception serait réécrire
+  // l'historique d'une caisse depuis une autre.
+  'sale',
   'sale_item',
   'payment',
   // Le solde d'une ardoise est la somme d'un journal, jamais un compteur :

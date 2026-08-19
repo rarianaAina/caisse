@@ -103,13 +103,21 @@ describe('coupure réseau', () => {
   it('signale une caisse muette depuis trop longtemps', () => {
     const ancien = new Date(Date.now() - 48 * 3600_000).toISOString();
     expect(
-      isStale({ state: 'idle', pending: 3, conflicts: 0, lastSuccessAt: ancien, lastError: null }),
+      isStale({
+        state: 'idle',
+        pending: 3,
+        conflicts: 0,
+        deferred: 0,
+        lastSuccessAt: ancien,
+        lastError: null,
+      }),
     ).toBe(true);
     expect(
       isStale({
         state: 'idle',
         pending: 0,
         conflicts: 0,
+        deferred: 0,
         lastSuccessAt: nowIso(),
         lastError: null,
       }),
@@ -436,5 +444,222 @@ describe('état exposé à l’interface', () => {
     expect(engine.getSnapshot().state).toBe('idle');
     expect(engine.getSnapshot().pending).toBe(0);
     expect(engine.getSnapshot().lastSuccessAt).not.toBeNull();
+  });
+});
+
+describe('ventes des autres caisses', () => {
+  const REGISTER_2 = newId();
+  const USER_2 = newId();
+  const SALE_2 = newId();
+
+  const seedRegister = (): void =>
+    server.seed('register', {
+      id: REGISTER_2,
+      companyId: COMPANY_ID,
+      storeId: STORE_ID,
+      name: 'Caisse 2',
+      receiptPrefix: 'C2',
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      deletedAt: null,
+      version: 1,
+    });
+
+  const seedSale = (): void => {
+    server.seed('app_user', {
+      id: USER_2,
+      companyId: COMPANY_ID,
+      email: null,
+      fullName: 'Naina',
+      role: 'cashier',
+      isActive: true,
+      pinHash: null,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      deletedAt: null,
+      version: 1,
+    });
+    server.seed('sale', {
+      id: SALE_2,
+      companyId: COMPANY_ID,
+      storeId: STORE_ID,
+      registerId: REGISTER_2,
+      cashSessionId: null,
+      userId: USER_2,
+      receiptNumber: 'C2-20260819-000001',
+      seqInRegister: 1,
+      status: 'completed',
+      subtotalCents: 12_000,
+      discountCents: 0,
+      taxCents: 0,
+      totalCents: 12_000,
+      currency: 'MGA',
+      refundOfSaleId: null,
+      customerId: null,
+      note: null,
+      soldAt: nowIso(),
+      prevHash: null,
+      signature: null,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      deletedAt: null,
+      version: 1,
+    });
+  };
+
+  it('descendent avec leur caisse, pour qu’un remboursement soit possible partout', async () => {
+    seedRegister();
+    seedSale();
+
+    await engine.syncOnce();
+
+    const [vente] = await db.select<{ receipt_number: string; total_cents: number }>(
+      'SELECT receipt_number, total_cents FROM sale WHERE id = ?',
+      [SALE_2],
+    );
+    expect(vente?.receipt_number).toBe('C2-20260819-000001');
+    expect(vente?.total_cents).toBe(12_000);
+  });
+
+  it('ne se réécrivent jamais : une vente est une pièce close', async () => {
+    seedRegister();
+    seedSale();
+    await engine.syncOnce();
+
+    // Le serveur republie la même vente avec un total différent — ce qui ne
+    // devrait jamais arriver, et ne doit surtout pas réécrire l'historique.
+    server.seed('sale', {
+      id: SALE_2,
+      companyId: COMPANY_ID,
+      storeId: STORE_ID,
+      registerId: REGISTER_2,
+      cashSessionId: null,
+      userId: USER_2,
+      receiptNumber: 'C2-20260819-000001',
+      seqInRegister: 1,
+      status: 'completed',
+      subtotalCents: 99_000,
+      discountCents: 0,
+      taxCents: 0,
+      totalCents: 99_000,
+      currency: 'MGA',
+      refundOfSaleId: null,
+      customerId: null,
+      note: null,
+      soldAt: nowIso(),
+      prevHash: null,
+      signature: null,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      deletedAt: null,
+      version: 2,
+    });
+    await engine.syncOnce();
+
+    const [vente] = await db.select<{ total_cents: number }>(
+      'SELECT total_cents FROM sale WHERE id = ?',
+      [SALE_2],
+    );
+    expect(vente?.total_cents).toBe(12_000);
+  });
+});
+
+describe('changement inapplicable', () => {
+  const REGISTER_3 = newId();
+  const USER_3 = newId();
+  const SALE_3 = newId();
+
+  it('est mis de côté sans bloquer la file, puis rejoué quand il devient applicable', async () => {
+    // Une vente arrive AVANT la caisse qui l'a émise : sa clé étrangère ne
+    // peut pas être satisfaite. Autrefois, cette page échouait à chaque cycle
+    // et la caisse cessait définitivement de recevoir quoi que ce soit.
+    server.seed('app_user', {
+      id: USER_3,
+      companyId: COMPANY_ID,
+      email: null,
+      fullName: 'Hanta',
+      role: 'cashier',
+      isActive: true,
+      pinHash: null,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      deletedAt: null,
+      version: 1,
+    });
+    server.seed('sale', {
+      id: SALE_3,
+      companyId: COMPANY_ID,
+      storeId: STORE_ID,
+      registerId: REGISTER_3,
+      cashSessionId: null,
+      userId: USER_3,
+      receiptNumber: 'C3-20260819-000001',
+      seqInRegister: 1,
+      status: 'completed',
+      subtotalCents: 5_000,
+      discountCents: 0,
+      taxCents: 0,
+      totalCents: 5_000,
+      currency: 'MGA',
+      refundOfSaleId: null,
+      customerId: null,
+      note: null,
+      soldAt: nowIso(),
+      prevHash: null,
+      signature: null,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      deletedAt: null,
+      version: 1,
+    });
+
+    // Un changement parfaitement valide, POSTÉRIEUR au fautif : il doit passer.
+    const produit = newId();
+    server.seed('product', {
+      id: produit,
+      companyId: COMPANY_ID,
+      categoryId: null,
+      sku: null,
+      barcode: null,
+      name: 'Sucre',
+      description: null,
+      unit: 'unit',
+      priceCents: 3_000,
+      costCents: 0,
+      taxRateBp: 0,
+      trackStock: true,
+      isActive: true,
+      imagePath: null,
+      parentId: null,
+      variantLabel: null,
+      supplierId: null,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      deletedAt: null,
+      version: 1,
+    });
+
+    await engine.syncOnce();
+
+    expect(await localProduct(produit)).not.toBeNull();
+    expect((await db.select('SELECT id FROM sale WHERE id = ?', [SALE_3])).length).toBe(0);
+    expect(engine.getSnapshot().deferred).toBe(1);
+
+    // La caisse manquante arrive : le changement écarté redevient applicable.
+    server.seed('register', {
+      id: REGISTER_3,
+      companyId: COMPANY_ID,
+      storeId: STORE_ID,
+      name: 'Caisse 3',
+      receiptPrefix: 'C3',
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      deletedAt: null,
+      version: 1,
+    });
+    await engine.syncOnce();
+
+    expect((await db.select('SELECT id FROM sale WHERE id = ?', [SALE_3])).length).toBe(1);
+    expect(engine.getSnapshot().deferred).toBe(0);
   });
 });

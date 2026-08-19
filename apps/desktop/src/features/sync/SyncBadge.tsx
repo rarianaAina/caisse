@@ -30,6 +30,21 @@ export function SyncBadge({
     setSyncing(false);
   };
 
+  // Les changements écartés passent AVANT le reste : une caisse « à jour » qui
+  // ne reçoit en réalité plus rien est le défaut le plus coûteux à découvrir.
+  if (snapshot.conflicts === 0 && snapshot.deferred > 0) {
+    return (
+      <button
+        type="button"
+        onClick={onOpenConflicts}
+        title="Des changements reçus du serveur n’ont pas pu être appliqués. La caisse réessaie à chaque cycle."
+        className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-900 transition hover:bg-amber-200"
+      >
+        {snapshot.deferred} changement{snapshot.deferred > 1 ? 's' : ''} en attente d’application
+      </button>
+    );
+  }
+
   if (snapshot.conflicts > 0) {
     return (
       <button

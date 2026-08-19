@@ -1,4 +1,5 @@
 import {
+  type ChangeEvent,
   type Mutation,
   type MutationOp,
   type PullResponse,
@@ -13,6 +14,7 @@ import { META_KEYS, MetaRepository } from '../db/repositories/meta.repository';
 import { OutboxRepository, type OutboxRow } from '../db/repositories/outbox.repository';
 import { ChangeApplier } from './apply';
 import { ConflictRepository } from './conflicts';
+import { DeferredRepository } from './deferred';
 
 export interface SyncTransport {
   push(token: string, body: unknown): Promise<PushResponse>;
@@ -36,6 +38,8 @@ export interface SyncSnapshot {
   state: SyncState;
   pending: number;
   conflicts: number;
+  /** Changements reçus qui n'ont pas encore pu s'appliquer. */
+  deferred: number;
   lastSuccessAt: string | null;
   lastError: string | null;
 }
@@ -59,6 +63,7 @@ export class SyncEngine {
   private readonly outbox: OutboxRepository;
   private readonly applier: ChangeApplier;
   private readonly conflicts: ConflictRepository;
+  private readonly deferred: DeferredRepository;
 
   private running = false;
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -67,6 +72,7 @@ export class SyncEngine {
     state: 'idle',
     pending: 0,
     conflicts: 0,
+    deferred: 0,
     lastSuccessAt: null,
     lastError: null,
   };
@@ -85,6 +91,7 @@ export class SyncEngine {
     this.outbox = new OutboxRepository(db);
     this.applier = new ChangeApplier(db);
     this.conflicts = new ConflictRepository(db);
+    this.deferred = new DeferredRepository(db);
   }
 
   subscribe(listener: (snapshot: SyncSnapshot) => void): () => void {
@@ -233,6 +240,47 @@ export class SyncEngine {
 
   /* ─── Pull ─────────────────────────────────────────────────────────────*/
 
+  /**
+   * Applique un changement, ou le met de côté s'il échoue.
+   *
+   * La plupart des échecs sont transitoires : la ligne dont dépend le
+   * changement arrive au cycle suivant. Renvoie `true` si le changement a été
+   * réellement appliqué.
+   */
+  private async applyOrDefer(change: ChangeEvent): Promise<boolean> {
+    try {
+      await this.applier.apply(change);
+      await this.deferred.remove(change.seq);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Application impossible';
+      await this.deferred.put(change, message);
+      return false;
+    }
+  }
+
+  /**
+   * Rejoue ce qui n'avait pas pu s'appliquer, APRÈS avoir tiré du neuf.
+   *
+   * L'ordre n'est pas indifférent. Un changement écarté l'a presque toujours
+   * été parce que la ligne dont il dépend n'était pas encore arrivée — et
+   * cette ligne se trouve, le plus souvent, dans la page qu'on vient
+   * justement d'appliquer. Rejouer avant le tirage ferait attendre un cycle
+   * entier à chaque fois.
+   *
+   * Rejouer un changement ANCIEN après des changements récents ne réécrit pas
+   * l'histoire à l'envers : `isStaleVersion` refuse déjà d'appliquer une
+   * version antérieure à celle déjà en base, et les entités append-only ne
+   * sont jamais réécrites.
+   */
+  private async replayDeferred(): Promise<number> {
+    let applied = 0;
+    for (const change of await this.deferred.due()) {
+      if (await this.applyOrDefer(change)) applied += 1;
+    }
+    return applied;
+  }
+
   private async pullChanges(token: string): Promise<{ changes: number; cursor: number }> {
     let cursor = await this.cursor();
     let total = 0;
@@ -247,18 +295,21 @@ export class SyncEngine {
       });
 
       for (const change of response.changes) {
-        await this.applier.apply(change);
-        total += 1;
+        if (await this.applyOrDefer(change)) total += 1;
       }
 
       // Le curseur n'avance qu'APRÈS application : une coupure en cours de
-      // page fait simplement rejouer la page, jamais sauter un changement.
+      // page fait simplement rejouer la page, jamais sauter un changement. Un
+      // changement qu'on n'a pas su appliquer est mis DE CÔTÉ, jamais ignoré —
+      // sans quoi il ferait échouer cette page à chaque cycle et la caisse
+      // cesserait de recevoir quoi que ce soit, silencieusement.
       cursor = response.nextCursor;
       await this.setCursor(cursor);
 
       if (!response.hasMore) break;
     }
 
+    total += await this.replayDeferred();
     return { changes: total, cursor };
   }
 
@@ -331,6 +382,7 @@ export class SyncEngine {
       ...patch,
       pending: await this.outbox.countPending(),
       conflicts: await this.conflicts.count(),
+      deferred: await this.deferred.count(),
     };
     for (const listener of this.listeners) listener(this.snapshot);
   }

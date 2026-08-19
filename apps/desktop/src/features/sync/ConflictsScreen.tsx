@@ -3,6 +3,7 @@ import { formatMoney } from '@caisse/shared';
 import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { ConflictRepository, type SyncConflict } from '../../core/sync/conflicts';
+import { DeferredRepository, type DeferredRow } from '../../core/sync/deferred';
 import type { SyncEngine } from '../../core/sync/engine';
 
 interface ConflictsScreenProps {
@@ -29,13 +30,16 @@ const FIELD_LABELS: Record<string, string> = {
  */
 export function ConflictsScreen({ session, db, engine }: ConflictsScreenProps) {
   const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
+  const [ecartes, setEcartes] = useState<DeferredRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
   const repository = useMemo(() => new ConflictRepository(db), [db]);
+  const deferred = useMemo(() => new DeferredRepository(db), [db]);
 
   const reload = useCallback(async (): Promise<void> => {
     setConflicts(await repository.pending());
-  }, [repository]);
+    setEcartes(await deferred.abandoned());
+  }, [deferred, repository]);
 
   useEffect(() => {
     void reload();
@@ -61,21 +65,52 @@ export function ConflictsScreen({ session, db, engine }: ConflictsScreenProps) {
     return String(value);
   };
 
+  /**
+   * Changements que la caisse n'a pas su appliquer, même après plusieurs
+   * tentatives. Montrés plutôt que masqués : c'est le seul signe qu'une caisse
+   * en apparence « à jour » ne reçoit plus tout ce que le serveur lui envoie.
+   */
+  const bloc_ecartes =
+    ecartes.length === 0 ? null : (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+        <h3 className="font-medium text-amber-900">
+          {ecartes.length} changement{ecartes.length > 1 ? 's' : ''} reçus mais pas appliqués
+        </h3>
+        <p className="mt-1 text-sm text-amber-800">
+          La caisse a renoncé à les rejouer. Le reste de la synchronisation continue normalement, et
+          la vente n’est pas affectée — mais ces données-là manquent sur ce poste. Signalez le
+          message ci-dessous à votre installateur.
+        </p>
+        <ul className="mt-3 space-y-1 text-sm text-amber-900">
+          {ecartes.map((row) => (
+            <li key={row.seq} className="font-mono text-xs">
+              {row.entity} · {row.entity_id.slice(0, 8)} · {row.attempts} essais ·{' '}
+              {row.last_error ?? 'raison inconnue'}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+
   if (conflicts.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
-        <p className="text-3xl">✅</p>
-        <p className="mt-3 font-medium text-slate-900">Aucun conflit</p>
-        <p className="mt-1 text-sm text-slate-500">
-          Les modifications concurrentes sont fusionnées automatiquement, sauf sur les champs
-          sensibles comme le prix.
-        </p>
+      <div className="space-y-4">
+        {bloc_ecartes}
+        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
+          <p className="text-3xl">✅</p>
+          <p className="mt-3 font-medium text-slate-900">Aucun conflit</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Les modifications concurrentes sont fusionnées automatiquement, sauf sur les champs
+            sensibles comme le prix.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {bloc_ecartes}
       <p className="text-sm text-slate-600">
         Ces modifications ont été faites en même temps sur deux postes. Choisissez la valeur à
         conserver ; l’autre sera abandonnée.
