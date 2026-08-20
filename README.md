@@ -389,8 +389,21 @@ La CI construit les deux plateformes et crée une publication **en brouillon** �
 les installeurs ne sont pas signés, il faut relire avant d'exposer. Détail des
 choix : [ADR 0008](docs/adr/0008-packaging.md).
 
-⚠️ Les **icônes sont des placeholders** (carrés bleus). À remplacer avant toute
-distribution : `pnpm --filter @caisse/desktop tauri icon chemin/vers/logo.png`.
+Les icônes sont engendrées depuis `apps/desktop/app-icon.png` — l'**emblème
+seul**, découpé du logo complet et détouré. Le verrou entier (emblème, mot-signe,
+accroche) porte trop de texte pour une icône : à 32 px il devient illisible. Il
+sert à l'écran d'ouverture de session, où il y a la place de le lire.
+
+Pour repartir d'un autre logo :
+
+```bash
+pnpm --filter @caisse/desktop tauri icon app-icon.png
+```
+
+⚠️ L'emblème reste **lisible jusqu'à 24 px** et devient une tache à 16 px, taille
+employée par la barre de titre Windows. Un logo illustratif ne descend pas
+plus bas ; y remédier demanderait un second symbole simplifié, décision de
+marque et non de code.
 
 ## Documentation
 

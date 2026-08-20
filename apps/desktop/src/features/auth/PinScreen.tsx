@@ -1,3 +1,4 @@
+import logo from '../../assets/logo.png';
 import { useEffect, useState } from 'react';
 import { PIN_MAX_LENGTH, PIN_MIN_LENGTH, type LocalUser, isValidPin } from '@caisse/shared';
 import { Keypad } from '../../components/ui/Keypad';
@@ -71,7 +72,10 @@ export function PinScreen({
     <main className="flex min-h-full items-center justify-center bg-slate-100 p-6">
       <div className="grid w-full max-w-4xl gap-6 md:grid-cols-2">
         <section className="rounded-2xl bg-white p-6 shadow-lg">
-          <h1 className="text-xl font-semibold text-slate-900">Ouvrir une session</h1>
+          {/* Le seul écran que voit un caissier avant d'ouvrir sa journée :
+              c'est là que la marque a sa place, pas dans la barre d'outils. */}
+          <img src={logo} alt="" className="mx-auto h-24 w-auto" />
+          <h1 className="mt-4 text-xl font-semibold text-slate-900">Ouvrir une session</h1>
           <p className="mt-1 text-sm text-slate-500">
             {storeName} · {registerName}
           </p>
