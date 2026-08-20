@@ -233,7 +233,7 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 465 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
+pnpm test             # 479 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
                       #             PIN, rôles, schéma local, catalogue, stock, achats, ventes,
                       #             ardoises, ticket, ESC/POS, rapports, synchro, recherche en
                       #             volume, limitation des tentatives de connexion
@@ -328,6 +328,18 @@ changement de quantité, mais n'écrase **jamais** un prix fixé à la main.
 Un prix de gros supérieur au détail est refusé — c'est presque toujours une
 inversion de saisie, et elle ne se verrait qu'à l'inventaire.
 [ADR 0022](docs/adr/0022-tarifs-gros-detail.md).
+
+## Articles pesés
+
+Une balance de rayon imprime une étiquette dont le code-barres encode le poids
+ou le prix de **cette barquette**. La caisse sait les lire : le poids devient la
+quantité de la ligne, le prix s'y impose tel quel — la balance a déjà fait le
+calcul, et le refaire créerait un écart entre l'étiquette et le ticket.
+
+Le découpage se règle par poste, dans **Réglages → Balance du rayon**, avec un
+essai : un format faux ne lève aucune erreur, il lit un article plausible à un
+poids plausible, et l'écart ne se voit qu'à l'inventaire. On colle donc une
+vraie étiquette avant de vendre. [ADR 0023](docs/adr/0023-balance.md).
 
 ## Clients et ardoise
 
@@ -474,3 +486,4 @@ marque et non de code.
 - [ADR 0020 — deux interfaces, et la porte entre elles](docs/adr/0020-deux-interfaces.md)
 - [ADR 0021 — les clés d'activation](docs/adr/0021-cles-d-activation.md)
 - [ADR 0022 — tarifs gros et détail](docs/adr/0022-tarifs-gros-detail.md)
+- [ADR 0023 — la balance du rayon frais](docs/adr/0023-balance.md)

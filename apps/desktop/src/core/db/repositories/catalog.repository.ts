@@ -380,6 +380,28 @@ export class CatalogRepository {
     return row ? toProduct(row) : null;
   }
 
+  /**
+   * Retrouve l'article désigné par une étiquette de balance.
+   *
+   * Le code imprimé par la balance est un code INTERNE au magasin : on le
+   * cherche d'abord dans la référence, puis dans le code-barres. Les zéros de
+   * tête comptent — « 000042 » et « 42 » sont deux articles distincts pour une
+   * balance — mais un commerçant qui a saisi « 42 » dans sa fiche produit doit
+   * quand même retrouver son article, d'où la seconde tentative sans zéros.
+   */
+  async findByScaleCode(itemCode: string): Promise<Product | null> {
+    const sansZeros = itemCode.replace(/^0+/, '');
+    const rows = await this.db.select<ProductRow>(
+      `SELECT * FROM product
+        WHERE deleted_at IS NULL AND (sku = ? OR barcode = ? OR sku = ? OR barcode = ?)
+        ORDER BY CASE WHEN sku = ? THEN 0 ELSE 1 END
+        LIMIT 1`,
+      [itemCode, itemCode, sansZeros, sansZeros, itemCode],
+    );
+    const row = rows[0];
+    return row ? toProduct(row) : null;
+  }
+
   async createProduct(input: CreateProductInput): Promise<Product> {
     await this.assertUniqueCodes(input.sku ?? null, input.barcode ?? null, null);
 

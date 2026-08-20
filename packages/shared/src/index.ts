@@ -11,6 +11,7 @@ export * from './licence/cle-publique.js';
 export * from './dto/auth.js';
 export * from './dto/catalog.js';
 export * from './catalog/search.js';
+export * from './catalog/balance.js';
 export * from './stock/rules.js';
 export * from './customers/account.js';
 export * from './cart/cart.js';

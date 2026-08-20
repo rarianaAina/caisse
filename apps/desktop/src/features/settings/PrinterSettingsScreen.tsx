@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { LocalSession } from '../../core/auth/auth.service';
 import { BackupPanel } from './BackupPanel';
 import { MaintenancePanel } from './MaintenancePanel';
+import { ScalePanel } from './ScalePanel';
 import { BusinessProfilePanel } from './BusinessProfilePanel';
 import { UpdatePanel } from './UpdatePanel';
 import type { SqlExecutor } from '../../core/db/client';
@@ -314,6 +315,8 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
           ))}
         </div>
       </section>
+
+      <ScalePanel session={session} db={db} />
 
       <MaintenancePanel session={session} db={db} />
 

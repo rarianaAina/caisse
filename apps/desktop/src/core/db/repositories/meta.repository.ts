@@ -48,6 +48,15 @@ export const META_KEYS = {
   businessProfile: 'business_profile',
   /** Réglages d'impression : propres au poste, jamais synchronisés. */
   printerSettings: 'printer_settings',
+  /**
+   * Format des codes-barres de la balance du rayon frais.
+   *
+   * Réglage du POSTE, comme l'imprimante : chaque balance se configure
+   * différemment, et deux magasins d'une même enseigne peuvent employer des
+   * découpages distincts. Absent = aucune balance, les codes en 2x sont alors
+   * traités comme des codes-barres ordinaires.
+   */
+  scaleFormat: 'scale_format',
   /** Dernière sauvegarde locale réussie, pour n'en déclencher qu'une par jour. */
   lastBackupAt: 'last_backup_at',
   /** Version du schéma pour laquelle la clé de recherche a été reconstruite. */

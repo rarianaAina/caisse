@@ -14,7 +14,11 @@ import {
   formatMoney,
   formatQty,
   isFractionalUnit,
+  type ScaleFormat,
   looksLikeBarcode,
+  parseScaleBarcode,
+  scaleLineQuantity,
+  setLinePrice,
   newId,
   parseAmount,
   parseQtyToMilli,
@@ -27,6 +31,7 @@ import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { CatalogRepository } from '../../core/db/repositories/catalog.repository';
 import { CustomerRepository } from '../../core/db/repositories/customer.repository';
+import { META_KEYS, MetaRepository } from '../../core/db/repositories/meta.repository';
 import { SaleRepository } from '../../core/db/repositories/sale.repository';
 import type { SyncEngine } from '../../core/sync/engine';
 import { PaymentPanel } from './PaymentPanel';
@@ -69,6 +74,8 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
    * qui a déjà été scanné.
    */
   const [customer, setCustomer] = useState<Customer | null>(null);
+  /** Format de la balance du rayon ; `null` = ce magasin n'en a pas. */
+  const [scale, setScale] = useState<ScaleFormat | null>(null);
 
   const choisirClient = (choisi: Customer | null): void => {
     setCustomer(choisi);
@@ -135,6 +142,19 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
     return () => clearTimeout(timer);
   }, [reload]);
 
+  useEffect(() => {
+    void new MetaRepository(db).get(META_KEYS.scaleFormat).then((brut) => {
+      if (!brut) return;
+      try {
+        setScale(JSON.parse(brut) as ScaleFormat);
+      } catch {
+        // Un réglage illisible vaut mieux ignoré qu'appliqué de travers : une
+        // lecture silencieusement fausse est le pire résultat possible.
+        setScale(null);
+      }
+    });
+  }, [db]);
+
   const visible = products;
 
   /** Couleur de la catégorie d'un article, pour le liseré des tuiles. */
@@ -152,10 +172,41 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
    * valide. On résout donc la saisie contre le code-barres avant de la traiter
    * comme une recherche par nom.
    */
+  /**
+   * Ajoute un article pesé, avec le poids ou le prix lu sur son étiquette.
+   *
+   * La quantité vient de la BALANCE, pas du caissier : c'est tout l'intérêt.
+   * Quand l'étiquette porte un prix, on force ce montant sur la ligne — la
+   * balance a déjà fait le calcul, et le refaire depuis le prix au kilo
+   * introduirait un écart d'arrondi entre l'étiquette et le ticket.
+   */
+  const addPese = (produit: Product, lecture: ReturnType<typeof parseScaleBarcode>): void => {
+    if (!lecture) return;
+    const ligne = newId();
+    setCart((current) => {
+      const avec = addProduct(current, produit, ligne, scaleLineQuantity(lecture));
+      return lecture.priceCents === null ? avec : setLinePrice(avec, ligne, lecture.priceCents);
+    });
+    setSearch('');
+    searchRef.current?.focus();
+  };
+
   const onSearchSubmit = (event: React.FormEvent): void => {
     event.preventDefault();
     const term = search.trim();
     if (term === '') return;
+
+    // L'étiquette de balance passe AVANT le code-barres ordinaire : elle en a
+    // la forme, et la traiter comme tel chercherait un article inexistant —
+    // chaque barquette portant un code différent.
+    const pesee = scale ? parseScaleBarcode(term, scale) : null;
+    if (pesee) {
+      void catalog.findByScaleCode(pesee.itemCode).then((trouve) => {
+        if (trouve) addPese(trouve, pesee);
+        else setError(`Étiquette de balance : aucun article pour le code ${pesee.itemCode}`);
+      });
+      return;
+    }
 
     if (looksLikeBarcode(term)) {
       // Le code-barres est résolu en base : le produit scanné n'est pas
