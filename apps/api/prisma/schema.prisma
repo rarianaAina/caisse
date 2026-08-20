@@ -52,6 +52,7 @@ model Company {
   customers Customer[]
   accountMovements CustomerAccountMovement[]
   suppliers Supplier[]
+  promotions Promotion[]
   receipts  PurchaseReceipt[]
 
   @@map("company")
@@ -407,6 +408,10 @@ model SaleItem {
   taxCents       Int     @default(0) @map("tax_cents")
   lineTotalCents Int     @map("line_total_cents")
   position       Int     @default(0)
+  /// Promotion appliquée, NOM compris : un ticket doit rester explicable des
+  /// mois plus tard, même si l'opération a été supprimée depuis.
+  promotionId    String? @map("promotion_id") @db.Uuid
+  promotionName  String? @map("promotion_name")
 
   sale    Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id])
@@ -575,6 +580,46 @@ model CustomerAccountMovement {
   @@index([cashSessionId])
   @@index([refType, refId])
   @@map("customer_account_movement")
+}
+
+// ─── Promotions ─────────────────────────────────────────────────────────────
+
+/// Opération commerciale : remise automatique sur un article ou un rayon.
+///
+/// Elle produit une REMISE DE LIGNE, calculée par la caisse avant son moteur de
+/// panier — lequel n'est pas modifié. Une seule s'applique par article, la plus
+/// avantageuse : les cumuler rendrait un ticket inexplicable au client qui le
+/// conteste.
+model Promotion {
+  id          String    @id @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  name        String
+  /// 'pourcentage' | 'montant' | 'quantite'
+  kind        String
+  /// Cible : un article OU une catégorie. Les deux à NULL et la promotion ne
+  /// s'applique à rien — délibérément : une remise générale accidentelle sur
+  /// tout le magasin ne se rattrape pas.
+  productId   String?   @map("product_id") @db.Uuid
+  categoryId  String?   @map("category_id") @db.Uuid
+  /// Points de base, comme la TVA : 1000 = 10 %
+  percentBp   Int       @default(0) @map("percent_bp")
+  /// Remise par UNITÉ vendue, pas par ticket
+  amountCents Int       @default(0) @map("amount_cents")
+  buyQty      Int       @default(0) @map("buy_qty")
+  payQty      Int       @default(0) @map("pay_qty")
+  /// Bornes INCLUSES : une opération qui finit le 31 vaut tout le 31
+  startsAt    String?   @map("starts_at")
+  endsAt      String?   @map("ends_at")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version     Int       @default(1)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, isActive])
+  @@map("promotion")
 }
 
 // ─── Synchronisation ────────────────────────────────────────────────────────

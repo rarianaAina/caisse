@@ -8,6 +8,7 @@ import { META_KEYS, MetaRepository } from '../../core/db/repositories/meta.repos
 import { BackofficeCard, LicenceCard } from '../admin/BackofficeCard';
 import { LicenceScreen } from '../licence/LicenceScreen';
 import { DashboardScreen } from '../admin/DashboardScreen';
+import { PromotionsScreen } from '../admin/PromotionsScreen';
 import { StaffScreen } from '../admin/StaffScreen';
 import { CashSessionPanel } from '../sale/CashSessionPanel';
 import { CatalogScreen } from '../catalog/CatalogScreen';
@@ -233,6 +234,8 @@ export function Workspace({ session }: { session: LocalSession }) {
           <StockScreen session={session} db={db} />
         ) : tab === 'purchasing' ? (
           <PurchasingScreen session={session} db={db} />
+        ) : tab === 'promotions' ? (
+          <PromotionsScreen session={session} db={db} />
         ) : tab === 'staff' ? (
           <StaffScreen session={session} db={db} />
         ) : tab === 'sync' ? (

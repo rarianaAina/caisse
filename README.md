@@ -233,7 +233,7 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 479 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
+pnpm test             # 495 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
                       #             PIN, rôles, schéma local, catalogue, stock, achats, ventes,
                       #             ardoises, ticket, ESC/POS, rapports, synchro, recherche en
                       #             volume, limitation des tentatives de connexion
@@ -328,6 +328,22 @@ changement de quantité, mais n'écrase **jamais** un prix fixé à la main.
 Un prix de gros supérieur au détail est refusé — c'est presque toujours une
 inversion de saisie, et elle ne se verrait qu'à l'inventaire.
 [ADR 0022](docs/adr/0022-tarifs-gros-detail.md).
+
+## Promotions
+
+Trois formes : un pourcentage, un montant par article, un « trois pour deux ».
+Elles visent un article ou un rayon entier, sur une période dont les bornes sont
+**incluses**.
+
+Une promotion est une **remise de ligne** calculée avant le total : le moteur de
+panier n'a pas été modifié, et l'invariant du projet — même chiffre à l'écran,
+sur le ticket et à l'API — reste entier.
+
+Une seule s'applique par article, la plus avantageuse. Une remise saisie à la
+main par le caissier l'emporte toujours : un geste commercial est une parole
+donnée. Sans cible, une promotion ne s'applique à **rien** — une remise générale
+accidentelle sur tout le magasin ne se rattrape pas.
+[ADR 0024](docs/adr/0024-promotions.md).
 
 ## Articles pesés
 
@@ -487,3 +503,4 @@ marque et non de code.
 - [ADR 0021 — les clés d'activation](docs/adr/0021-cles-d-activation.md)
 - [ADR 0022 — tarifs gros et détail](docs/adr/0022-tarifs-gros-detail.md)
 - [ADR 0023 — la balance du rayon frais](docs/adr/0023-balance.md)
+- [ADR 0024 — les promotions](docs/adr/0024-promotions.md)

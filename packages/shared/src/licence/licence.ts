@@ -35,6 +35,10 @@ export const LICENCE_FEATURES = [
   'multistore',
   /** Tableau de bord web consolidé. */
   'backoffice',
+  /** Opérations commerciales automatiques. */
+  'promotions',
+  /** Lecture des étiquettes de balance du rayon frais. */
+  'balance',
 ] as const;
 
 export type LicenceFeature = (typeof LICENCE_FEATURES)[number];
@@ -49,7 +53,15 @@ export type LicenceFeature = (typeof LICENCE_FEATURES)[number];
 export const LICENCE_SEGMENTS: Record<string, readonly LicenceFeature[]> = {
   restaurant: ['sale', 'restaurant', 'customers', 'purchasing'],
   quincaillerie: ['sale', 'purchasing', 'customers'],
-  'grande-surface': ['sale', 'purchasing', 'customers', 'multistore', 'backoffice'],
+  'grande-surface': [
+    'sale',
+    'purchasing',
+    'customers',
+    'multistore',
+    'backoffice',
+    'promotions',
+    'balance',
+  ],
   /** Tout ouvert, pour une période d'essai ou une démonstration. */
   essai: [...LICENCE_FEATURES],
 };

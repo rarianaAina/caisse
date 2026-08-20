@@ -55,6 +55,7 @@ describe('console d’administration', () => {
       'stock',
       'purchasing',
       'customers',
+      'promotions',
       'reports',
       'sync',
       'settings',

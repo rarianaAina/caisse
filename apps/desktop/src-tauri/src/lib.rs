@@ -61,6 +61,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0008_tarifs.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 9,
+            description: "promotions : remises automatiques par article ou par rayon",
+            sql: include_str!("../migrations/0009_promotions.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

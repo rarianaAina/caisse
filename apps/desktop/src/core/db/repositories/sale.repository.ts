@@ -59,6 +59,8 @@ interface ItemRow {
   tax_cents: number;
   line_total_cents: number;
   position: number;
+  promotion_id: string | null;
+  promotion_name: string | null;
 }
 
 interface PaymentRow {
@@ -112,6 +114,8 @@ const toItem = (row: ItemRow): SaleItem => ({
   taxCents: row.tax_cents,
   lineTotalCents: row.line_total_cents,
   position: row.position,
+  promotionId: row.promotion_id,
+  promotionName: row.promotion_name,
 });
 
 const toPayment = (row: PaymentRow): Payment => ({
@@ -235,6 +239,10 @@ export class SaleRepository {
         taxCents: totals?.taxCents ?? 0,
         lineTotalCents: totals?.netCents ?? 0,
         position: index,
+        // Le NOM autant que l'identifiant : un ticket doit rester explicable
+        // même si l'opération a été supprimée depuis.
+        promotionId: line.promotionId ?? null,
+        promotionName: line.promotionName ?? null,
       };
     });
 
@@ -705,8 +713,9 @@ export class SaleRepository {
     await this.db.execute(
       `INSERT INTO sale_item (id, sale_id, product_id, name_snapshot, sku_snapshot,
                               unit_price_cents, qty_milli, discount_cents, tax_rate_bp,
-                              tax_cents, line_total_cents, position)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                              tax_cents, line_total_cents, position,
+                              promotion_id, promotion_name)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         item.id,
         item.saleId,
@@ -720,6 +729,8 @@ export class SaleRepository {
         item.taxCents,
         item.lineTotalCents,
         item.position,
+        item.promotionId,
+        item.promotionName,
       ],
     );
   }

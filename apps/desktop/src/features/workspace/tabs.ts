@@ -22,6 +22,7 @@ export type Tab =
   | 'catalog'
   | 'stock'
   | 'purchasing'
+  | 'promotions'
   | 'reports'
   | 'staff'
   | 'sync'
@@ -64,6 +65,7 @@ export const ADMIN: TabSpec[] = [
   // de gestion. Exiger `sell` ici aurait suffi à faire apparaître le bouton
   // « Administration » à un caissier — pour un seul onglet, et par accident.
   { id: 'customers', label: 'Clients', needs: 'manageCatalog', feature: 'customers' },
+  { id: 'promotions', label: 'Promotions', needs: 'manageCatalog', feature: 'promotions' },
   { id: 'reports', label: 'Rapports', needs: 'viewReports' },
   { id: 'staff', label: 'Personnel', needs: 'manageUsers' },
   { id: 'sync', label: 'Synchronisation', needs: 'resolveConflict', connectedOnly: true },

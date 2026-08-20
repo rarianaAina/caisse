@@ -62,6 +62,8 @@ const item = (overrides: Partial<SaleItem> = {}): SaleItem => ({
   taxCents: 91,
   lineTotalCents: 1000,
   position: 0,
+  promotionId: null,
+  promotionName: null,
   ...overrides,
 });
 

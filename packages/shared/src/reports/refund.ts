@@ -60,6 +60,10 @@ export function buildRefund(input: RefundInput): RefundDraft {
         taxCents,
         lineTotalCents,
         position: item.position,
+        // Le remboursement rappelle l'opération d'origine : sans elle, le
+        // montant rendu paraîtrait sans rapport avec le ticket initial.
+        promotionId: item.promotionId,
+        promotionName: item.promotionName,
       } satisfies SaleItem;
     })
     .filter((item): item is SaleItem => item !== null);

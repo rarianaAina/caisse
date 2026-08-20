@@ -182,6 +182,8 @@ describe('ticket complet', () => {
         taxCents: 100,
         lineTotalCents: 1100,
         position: 0,
+        promotionId: null,
+        promotionName: null,
       },
     ],
     payments: [

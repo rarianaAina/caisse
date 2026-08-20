@@ -1,6 +1,6 @@
 import type { SyncEntity } from '@caisse/shared';
 import type { PrismaClient } from '@prisma/client';
-import { toCategory, toProduct, toStockMovement } from '../../common/mappers-catalog';
+import { toCategory, toProduct, toPromotion, toStockMovement } from '../../common/mappers-catalog';
 import { toLocalUser } from '../../common/mappers';
 import { toCashSession, toPayment, toSale, toSaleItem } from '../../common/mappers-sale';
 import {
@@ -288,6 +288,8 @@ const SALE_ITEM: ImmutableHandler = {
         taxCents: int(payload['taxCents']),
         lineTotalCents: int(payload['lineTotalCents']),
         position: int(payload['position']),
+        promotionId: strOrNull(payload['promotionId']),
+        promotionName: strOrNull(payload['promotionName']),
       },
     });
     return { ...item, version: 1, updatedAt: new Date(), deletedAt: null } as unknown as EntityRow;
@@ -609,6 +611,63 @@ const APP_USER: MutableHandler = {
   // portée, un poste de la boutique A recevrait les empreintes de PIN du
   // personnel de la boutique B, et les afficherait à son écran de session.
   scopeToDeviceStore: true,
+};
+
+/**
+ * Promotions.
+ *
+ * Le taux et le montant figurent parmi les champs à arbitrage humain : ils
+ * engagent l'argent du commerçant exactement comme un prix, et deux
+ * responsables qui les modifient le même jour doivent trancher plutôt que
+ * laisser l'horloge la plus avancée décider.
+ */
+const PROMOTION: MutableHandler = {
+  kind: 'mutable',
+  writable: [
+    'name',
+    'kind',
+    'productId',
+    'categoryId',
+    'percentBp',
+    'amountCents',
+    'buyQty',
+    'payQty',
+    'startsAt',
+    'endsAt',
+    'isActive',
+    'deletedAt',
+  ],
+  async find(tx, id) {
+    return (await tx.promotion.findUnique({ where: { id } })) as EntityRow | null;
+  },
+  async create(tx, companyId, payload) {
+    return (await tx.promotion.create({
+      data: {
+        id: str(payload['id']),
+        companyId,
+        name: str(payload['name']),
+        kind: str(payload['kind']),
+        productId: strOrNull(payload['productId']),
+        categoryId: strOrNull(payload['categoryId']),
+        percentBp: int(payload['percentBp']),
+        amountCents: int(payload['amountCents']),
+        buyQty: int(payload['buyQty']),
+        payQty: int(payload['payQty']),
+        startsAt: strOrNull(payload['startsAt']),
+        endsAt: strOrNull(payload['endsAt']),
+        isActive: bool(payload['isActive']),
+        createdAt: date(payload['createdAt']),
+        updatedAt: date(payload['updatedAt']),
+      },
+    })) as EntityRow;
+  },
+  async update(tx, id, data, updatedAt) {
+    return (await tx.promotion.update({
+      where: { id },
+      data: { ...data, updatedAt, version: { increment: 1 } },
+    })) as EntityRow;
+  },
+  toPayload: (row) => toPromotion(row as never) as unknown as Record<string, unknown>,
 };
 
 /**

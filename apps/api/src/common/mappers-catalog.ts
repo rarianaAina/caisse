@@ -4,12 +4,14 @@ import type {
   StockLevel,
   StockMovement,
   StockMovementType,
+  Promotion,
 } from '@caisse/shared';
 import type {
   Category as PrismaCategory,
   Product as PrismaProduct,
   StockLevel as PrismaStockLevel,
   StockMovement as PrismaStockMovement,
+  Promotion as PrismaPromotion,
 } from '@prisma/client';
 import type { ProductUnit } from '@caisse/shared';
 
@@ -91,5 +93,27 @@ export function toStockMovement(row: PrismaStockMovement): StockMovement {
     refId: row.refId,
     userId: row.userId,
     createdAt: iso(row.createdAt),
+  };
+}
+
+/**
+ * Promotion. Vit ici avec le catalogue : une opération vise un article ou un
+ * rayon, et n'a de sens qu'avec eux.
+ */
+export function toPromotion(row: PrismaPromotion): Promotion {
+  return {
+    id: row.id,
+    companyId: row.companyId,
+    name: row.name,
+    kind: row.kind as Promotion['kind'],
+    productId: row.productId,
+    categoryId: row.categoryId,
+    percentBp: row.percentBp,
+    amountCents: row.amountCents,
+    buyQty: row.buyQty,
+    payQty: row.payQty,
+    startsAt: row.startsAt,
+    endsAt: row.endsAt,
+    isActive: row.isActive,
   };
 }

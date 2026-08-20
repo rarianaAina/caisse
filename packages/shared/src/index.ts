@@ -16,6 +16,7 @@ export * from './stock/rules.js';
 export * from './customers/account.js';
 export * from './cart/cart.js';
 export * from './cart/pricing.js';
+export * from './cart/promotions.js';
 export * from './cart/payment.js';
 export * from './cart/receipt.js';
 export * from './dto/sale.js';

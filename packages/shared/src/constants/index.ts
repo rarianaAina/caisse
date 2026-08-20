@@ -82,6 +82,7 @@ export const SYNC_ENTITIES = [
   'supplier',
   'purchase_receipt',
   'purchase_receipt_item',
+  'promotion',
 ] as const;
 export type SyncEntity = (typeof SYNC_ENTITIES)[number];
 
@@ -121,6 +122,8 @@ export const MANUAL_CONFLICT_FIELDS: Partial<Record<SyncEntity, readonly string[
   // le modifient en même temps doivent trancher, pas laisser l'horloge décider.
   customer: ['creditLimitCents', 'deletedAt'],
   supplier: ['deletedAt'],
+  // Un taux de remise engage l'argent du commerçant, comme un prix.
+  promotion: ['percentBp', 'amountCents', 'deletedAt'],
 };
 
 export const MUTATION_OPS = ['create', 'update', 'delete'] as const;

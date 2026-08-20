@@ -47,6 +47,24 @@ export interface CartLine {
    * de négocier le prix l'écraserait en silence.
    */
   priceLocked?: boolean;
+  /**
+   * Catégorie de l'article, figée à l'ajout.
+   *
+   * Sert aux promotions visant tout un rayon. Conservée sur la ligne, comme le
+   * nom et la référence : une promotion doit s'appuyer sur ce qui était vrai
+   * au moment de la vente, pas sur un catalogue modifié depuis.
+   */
+  categoryId?: EntityId | null;
+  /** Promotion appliquée à cette ligne, quand il y en a une. */
+  promotionId?: EntityId;
+  promotionName?: string;
+  /**
+   * La remise a été saisie à la main : aucune promotion ne l'écrase.
+   *
+   * Un geste commercial du caissier l'emporte sur une opération automatique —
+   * l'effacer ferait perdre la parole donnée au client.
+   */
+  discountLocked?: boolean;
 }
 
 export interface Cart {
@@ -162,6 +180,7 @@ export function lineFromProduct(
     taxRateBp: product.taxRateBp,
     discountCents: 0,
     pricing,
+    categoryId: product.categoryId,
   };
 }
 
@@ -234,13 +253,25 @@ export function setLinePrice(cart: Cart, lineId: EntityId, unitPriceCents: Cents
 }
 
 /** La remise ne peut pas dépasser le montant de la ligne : un total négatif n'a pas de sens. */
+/**
+ * Remise de ligne saisie à la main, qui VERROUILLE la ligne.
+ *
+ * Aucune promotion automatique ne la remplacera : un geste commercial du
+ * caissier l'emporte sur une opération du magasin.
+ */
 export function setLineDiscount(cart: Cart, lineId: EntityId, discountCents: Cents): Cart {
   return {
     ...cart,
     lines: cart.lines.map((line) => {
       if (line.id !== lineId) return line;
       const gross = lineAmount(line.unitPriceCents, line.qtyMilli);
-      return { ...line, discountCents: clamp(discountCents, 0, gross) };
+      return {
+        ...line,
+        discountCents: clamp(discountCents, 0, gross),
+        discountLocked: true,
+        promotionId: undefined,
+        promotionName: undefined,
+      };
     }),
   };
 }

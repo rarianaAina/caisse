@@ -58,6 +58,8 @@ export function mapSaleItem(row: Record<string, unknown>): SaleItem {
     taxCents: num(row['tax_cents']),
     lineTotalCents: num(row['line_total_cents']),
     position: num(row['position']),
+    promotionId: strOrNull(row['promotion_id']),
+    promotionName: strOrNull(row['promotion_name']),
   };
 }
 

@@ -51,6 +51,14 @@ export interface SaleItem {
   taxCents: Cents;
   lineTotalCents: Cents;
   position: number;
+  /**
+   * Promotion appliquée, figée comme le reste.
+   *
+   * Le NOM est conservé, pas seulement l'identifiant : un ticket doit rester
+   * explicable des mois plus tard, même si l'opération a été supprimée depuis.
+   */
+  promotionId: EntityId | null;
+  promotionName: string | null;
 }
 
 export interface Payment {

@@ -14,7 +14,10 @@ import {
   formatMoney,
   formatQty,
   isFractionalUnit,
+  type Promotion,
   type ScaleFormat,
+  applyPromotions,
+  promotedTotal,
   looksLikeBarcode,
   parseScaleBarcode,
   scaleLineQuantity,
@@ -31,6 +34,7 @@ import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { CatalogRepository } from '../../core/db/repositories/catalog.repository';
 import { CustomerRepository } from '../../core/db/repositories/customer.repository';
+import { PromotionRepository } from '../../core/db/repositories/promotion.repository';
 import { META_KEYS, MetaRepository } from '../../core/db/repositories/meta.repository';
 import { SaleRepository } from '../../core/db/repositories/sale.repository';
 import type { SyncEngine } from '../../core/sync/engine';
@@ -76,6 +80,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
   const [customer, setCustomer] = useState<Customer | null>(null);
   /** Format de la balance du rayon ; `null` = ce magasin n'en a pas. */
   const [scale, setScale] = useState<ScaleFormat | null>(null);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
 
   const choisirClient = (choisi: Customer | null): void => {
     setCustomer(choisi);
@@ -87,6 +92,11 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
 
   const catalog = useMemo(
     () => new CatalogRepository(db, { companyId: session.company.id, deviceId: session.deviceId }),
+    [db, session],
+  );
+  const promoRepo = useMemo(
+    () =>
+      new PromotionRepository(db, { companyId: session.company.id, deviceId: session.deviceId }),
     [db, session],
   );
   const customers = useMemo(
@@ -116,7 +126,19 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
     [customers, db, session],
   );
 
-  const totals = computeTotals(cart);
+  /**
+   * Panier promotionné.
+   *
+   * Les remises automatiques sont calculées AVANT le total — elles ne sont
+   * qu'une remise de ligne de plus, et le moteur de panier n'a pas été touché.
+   * C'est ce qui garantit que l'écran, le ticket et l'API donnent le même
+   * chiffre, comme depuis le premier module.
+   */
+  const { cart: panierPromu, applied } = useMemo(
+    () => applyPromotions(cart, promotions),
+    [cart, promotions],
+  );
+  const totals = computeTotals(panierPromu);
 
   const reload = useCallback(async (): Promise<void> => {
     // La recherche est faite par SQLite, pas en mémoire : un catalogue de
@@ -141,6 +163,10 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
     const timer = setTimeout(() => void reload(), 120);
     return () => clearTimeout(timer);
   }, [reload]);
+
+  useEffect(() => {
+    void promoRepo.active().then(setPromotions);
+  }, [promoRepo]);
 
   useEffect(() => {
     void new MetaRepository(db).get(META_KEYS.scaleFormat).then((brut) => {
@@ -274,7 +300,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
 
   const confirmPayment = async (payments: PaymentDraft[]): Promise<void> => {
     const details = await sales.record({
-      cart,
+      cart: panierPromu,
       totals,
       payments,
       userId: session.user.id,
@@ -460,7 +486,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
         </div>
 
         <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
-          {cart.lines.map((line, index) => {
+          {panierPromu.lines.map((line, index) => {
             const lineTotals = totals.lines[index];
             return (
               <li key={line.id} className="px-4 py-3">
@@ -487,6 +513,14 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
                     ✕
                   </button>
                 </div>
+                {/* La promotion est NOMMÉE sur la ligne. Un montant qui baisse
+                    sans explication fait douter le caissier et le client ; il
+                    doit pouvoir dire pourquoi, sans chercher. */}
+                {line.promotionName && (
+                  <p className="mt-1 text-sm font-medium text-emerald-700">
+                    {line.promotionName} · −{formatMoney(line.discountCents, cart.currency)}
+                  </p>
+                )}
               </li>
             );
           })}
@@ -514,6 +548,17 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
                 <span className="tabular-nums">{formatMoney(tax.taxCents, cart.currency)}</span>
               </div>
             ))}
+          {/* Ce que les opérations du magasin ont fait gagner, en une ligne.
+              Un client à qui l'on annonce « vous avez économisé » revient ; le
+              même montant fondu dans le total ne se remarque pas. */}
+          {applied.length > 0 && (
+            <div className="flex justify-between font-medium text-emerald-700">
+              <span>Promotions</span>
+              <span className="tabular-nums">
+                −{formatMoney(promotedTotal(applied), cart.currency)}
+              </span>
+            </div>
+          )}
           {/* Le total est le seul chiffre qu'un client cherche du regard, et
               souvent depuis l'autre côté du comptoir : il est traité en
               conséquence. */}

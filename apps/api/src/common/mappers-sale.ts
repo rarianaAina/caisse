@@ -62,6 +62,8 @@ export function toSaleItem(row: PrismaSaleItem): SaleItem {
     taxCents: row.taxCents,
     lineTotalCents: row.lineTotalCents,
     position: row.position,
+    promotionId: row.promotionId,
+    promotionName: row.promotionName,
   };
 }
 
