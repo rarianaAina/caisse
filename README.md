@@ -147,7 +147,25 @@ de métier, ce qui permet d'ouvrir la salle à un quincaillier sans inventer un
 type de société.
 
 ```bash
-node scripts/licence-keypair.mjs      # une seule fois, garde la privée hors du dépôt
+node scripts/licence-keypair.mjs   # une seule fois, garde la privée hors du dépôt
+pnpm licences                      # l'interface d'émission, sur votre machine
+```
+
+`pnpm licences` ouvre une page locale pour émettre une clé et retrouver celles
+déjà vendues. Elle n'écoute que `127.0.0.1`, exige un jeton engendré à chaque
+démarrage, et s'arrête avec le terminal : la clé privée ne quitte jamais votre
+machine. Rien de tout cela ne vit sur le serveur — une page de back-office
+aurait supposé la clé privée sur une machine exposée, où une intrusion vaudrait
+émission illimitée de licences.
+
+Chaque clé émise est inscrite au registre `~/.caisse-licence/registre.jsonl`
+(nom, code d'installation, segment, échéance, clé), pour savoir ce qui arrive à
+terme et pour renvoyer sa clé à un client qui l'a perdue.
+
+Pour un usage scripté, la même émission existe en ligne de commande — mêmes
+règles, même registre :
+
+```bash
 node scripts/licence.mjs --code A1B2-C3D4-E5F6 --nom "Épicerie Rakoto" \
   --segment quincaillerie --mois 12 --caisses 2
 ```
@@ -532,3 +550,4 @@ marque et non de code.
 - [ADR 0023 — la balance du rayon frais](docs/adr/0023-balance.md)
 - [ADR 0024 — les promotions](docs/adr/0024-promotions.md)
 - [ADR 0025 — paniers mis de côté : attentes et devis](docs/adr/0025-devis-et-attentes.md)
+- [ADR 0026 — une interface locale pour émettre les licences](docs/adr/0026-outil-d-emission.md)
