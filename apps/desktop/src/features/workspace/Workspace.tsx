@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
+import { LICENCE_WARN_DAYS } from '@caisse/shared';
 import { ADMIN, COMPTOIR, type Mode, type Tab, visibles } from './tabs';
+import { LicenceBanner } from '../licence/LicenceBanner';
 import type { LocalSession } from '../../core/auth/auth.service';
 import { useSession } from '../../app/SessionProvider';
 import { META_KEYS, MetaRepository } from '../../core/db/repositories/meta.repository';
-import { BackofficeCard } from '../admin/BackofficeCard';
+import { BackofficeCard, LicenceCard } from '../admin/BackofficeCard';
+import { LicenceScreen } from '../licence/LicenceScreen';
 import { DashboardScreen } from '../admin/DashboardScreen';
 import { StaffScreen } from '../admin/StaffScreen';
 import { CashSessionPanel } from '../sale/CashSessionPanel';
@@ -49,7 +52,8 @@ const ROLE_LABELS: Record<string, string> = {
  */
 
 export function Workspace({ session }: { session: LocalSession }) {
-  const { signOut, db, sync, standalone } = useSession();
+  const { signOut, db, sync, standalone, licence, activate } = useSession();
+  const [activation, setActivation] = useState(false);
   const [mode, setMode] = useState<Mode>('comptoir');
   const [tab, setTab] = useState<Tab>('sale');
   const [restaurant, setRestaurant] = useState(false);
@@ -67,8 +71,14 @@ export function Workspace({ session }: { session: LocalSession }) {
   }, [db]);
 
   const { user, company, store, register } = session;
-  const onglets = visibles(mode === 'admin' ? ADMIN : COMPTOIR, user.role, restaurant, standalone);
-  const administre = visibles(ADMIN, user.role, restaurant, standalone).length > 0;
+  const onglets = visibles(
+    mode === 'admin' ? ADMIN : COMPTOIR,
+    user.role,
+    restaurant,
+    standalone,
+    licence,
+  );
+  const administre = visibles(ADMIN, user.role, restaurant, standalone, licence).length > 0;
 
   /**
    * Change de monde, et pose l'écran d'accueil de celui qu'on ouvre.
@@ -88,6 +98,7 @@ export function Workspace({ session }: { session: LocalSession }) {
       user.role,
       restaurant,
       standalone,
+      licence,
     );
     setTab(accueil[0]?.id ?? 'sale');
   };
@@ -183,6 +194,8 @@ export function Workspace({ session }: { session: LocalSession }) {
         </nav>
       </header>
 
+      {licence && <LicenceBanner status={licence} seuil={LICENCE_WARN_DAYS} />}
+
       {sync && <StaleBanner engine={sync} />}
 
       <main
@@ -195,6 +208,11 @@ export function Workspace({ session }: { session: LocalSession }) {
         ) : tab === 'dashboard' ? (
           <div className="space-y-5">
             <DashboardScreen session={session} db={db} onNavigate={setTab} />
+            <LicenceCard
+              status={licence}
+              companyId={company.id}
+              onOpen={() => setActivation(true)}
+            />
             <BackofficeCard db={db} standalone={standalone} />
           </div>
         ) : tab === 'sale' ? (
@@ -225,6 +243,16 @@ export function Workspace({ session }: { session: LocalSession }) {
           <PrinterSettingsScreen session={session} db={db} />
         ) : null}
       </main>
+
+      {activation && (
+        <LicenceScreen
+          companyId={company.id}
+          companyName={company.name}
+          status={licence ?? { state: 'absente', payload: null, daysLeft: null, graceLeft: null }}
+          onActivate={activate}
+          onClose={() => setActivation(false)}
+        />
+      )}
     </div>
   );
 }

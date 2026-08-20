@@ -1,17 +1,26 @@
 import { createContext, use, useCallback, useEffect, useMemo, useState } from 'react';
-import type { LocalUser, SessionResponse } from '@caisse/shared';
+import type { LicenceStatus, LocalUser, SessionResponse } from '@caisse/shared';
 import { AuthService, type LocalSession } from '../core/auth/auth.service';
 import { httpSyncTransport } from '../core/api/client';
 import { SyncEngine } from '../core/sync/engine';
 import { type SqlExecutor, getDb, isTauriRuntime } from '../core/db/client';
 import { runStartupMaintenance } from '../core/db/startup';
+import { LicenceService } from '../core/licence/licence.service';
+import { META_KEYS, MetaRepository } from '../core/db/repositories/meta.repository';
 
 type Phase =
   | { kind: 'loading' }
   /** Hors WebView Tauri : SQLite n'existe pas, l'application ne peut pas démarrer. */
   | { kind: 'no-runtime'; message: string }
   | { kind: 'enroll'; deviceId: string; serverUrl: string }
-  | { kind: 'locked'; users: LocalUser[]; storeName: string; registerName: string }
+  | {
+      kind: 'locked';
+      users: LocalUser[];
+      storeName: string;
+      registerName: string;
+      companyId: string;
+      companyName: string;
+    }
   | { kind: 'ready'; session: LocalSession };
 
 interface SessionContextValue {
@@ -24,6 +33,10 @@ interface SessionContextValue {
   sync: SyncEngine | null;
   /** Vrai si ce poste fonctionne sans serveur. */
   standalone: boolean;
+  /** Activation du poste : null tant qu'elle n'a pas été établie. */
+  licence: LicenceStatus | null;
+  /** Enregistre une clé et rafraîchit l'état. */
+  activate: (cle: string) => Promise<LicenceStatus>;
   /** Enregistre l'adresse du serveur pour ce poste, avant le rattachement. */
   setServer: (url: string) => Promise<string>;
   /** Crée l'entreprise sur ce poste, sans serveur. */
@@ -67,6 +80,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [db, setDb] = useState<SqlExecutor | null>(null);
   const [sync, setSync] = useState<SyncEngine | null>(null);
   const [standalone, setStandalone] = useState(false);
+  const [licence, setLicence] = useState<LicenceStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -81,11 +95,25 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       service.listSignableUsers(),
       service.localContext(),
     ]);
+
+    // L'activation est jugée AVANT la saisie du PIN : un poste fermé doit le
+    // dire tout de suite, pas après qu'un caissier a tapé son code.
+    if (context) {
+      const meta = new MetaRepository(service.executor);
+      setLicence(
+        await new LicenceService(service.executor).status(
+          context.company.id,
+          await meta.get(META_KEYS.enrolledAt),
+        ),
+      );
+    }
     setPhase({
       kind: 'locked',
       users,
       storeName: context?.store.name ?? 'Boutique',
       registerName: context?.register.name ?? 'Caisse',
+      companyId: context?.company.id ?? '',
+      companyName: context?.company.name ?? '',
     });
   }, []);
 
@@ -129,6 +157,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       db,
       sync,
       standalone,
+      licence,
+      activate: async (cle) => {
+        const contexte = await auth?.localContext();
+        if (!auth || !contexte) {
+          return { state: 'absente', payload: null, daysLeft: null, graceLeft: null };
+        }
+        const resultat = await new LicenceService(auth.executor).activate(cle, contexte.company.id);
+        // L'état n'est retenu que si la clé a été acceptée : une clé refusée
+        // ne doit pas remplacer un essai encore valable.
+        if (resultat.state !== 'invalide' && resultat.state !== 'autre-entreprise') {
+          setLicence(resultat);
+        }
+        return resultat;
+      },
       setServer: async (url) => (auth ? auth.setServer(url) : url),
       createStandalone: async (params) => {
         if (!auth) return;
@@ -203,7 +245,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         await showLockScreen(auth);
       },
     }),
-    [auth, busy, db, error, phase, showLockScreen, standalone, sync],
+    [auth, busy, db, error, licence, phase, showLockScreen, standalone, sync],
   );
 
   return <SessionContext value={value}>{children}</SessionContext>;

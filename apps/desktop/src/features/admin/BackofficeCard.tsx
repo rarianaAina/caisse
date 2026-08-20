@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { type LicenceStatus, installationCode } from '@caisse/shared';
 import { META_KEYS, MetaRepository } from '../../core/db/repositories/meta.repository';
 import { normalizeServerUrl } from '../../core/api/client';
 import type { SqlExecutor } from '../../core/db/client';
@@ -117,6 +118,62 @@ export function BackofficeCard({ db, standalone }: { db: SqlExecutor; standalone
       )}
 
       {message && <p className="mt-3 text-sm text-ardoise-600">{message}</p>}
+    </section>
+  );
+}
+
+/**
+ * État de l'activation, dans la console.
+ *
+ * L'écran d'activation complet ne s'ouvre qu'une fois le poste bloqué. Ici, on
+ * montre l'échéance et on permet de saisir une clé AVANT — un renouvellement
+ * doit pouvoir se faire tranquillement, pas dans l'urgence d'une caisse fermée.
+ */
+export function LicenceCard({
+  status,
+  companyId,
+  onOpen,
+}: {
+  status: LicenceStatus | null;
+  companyId: string;
+  onOpen: () => void;
+}) {
+  if (!status) return null;
+
+  const essai = status.payload?.s === 'essai';
+  const jours = status.daysLeft ?? 0;
+  const alerte = status.state === 'grace' || (status.state === 'valide' && jours <= 30);
+
+  return (
+    <section className="carte p-5">
+      <h2 className="font-semibold text-ardoise-900">Activation</h2>
+      <p className="mt-1 text-sm text-ardoise-500">
+        Code d’installation : <span className="font-mono">{installationCode(companyId)}</span> — à
+        communiquer pour obtenir ou renouveler une clé.
+      </p>
+
+      <p className={`mt-3 text-sm ${alerte ? 'font-medium text-amber-800' : 'text-ardoise-600'}`}>
+        {status.state === 'grace'
+          ? `Échue le ${status.payload?.e ?? ''} — la caisse se fermera dans ${String(status.graceLeft ?? 0)} jour(s).`
+          : essai
+            ? `Période d’essai : ${String(jours)} jour(s) restants.`
+            : `${status.payload?.n ?? ''} · ${status.payload?.s ?? ''} · valable jusqu’au ${status.payload?.e ?? ''}.`}
+      </p>
+
+      {status.payload && !essai && (
+        <p className="mt-1 text-sm text-ardoise-500">
+          {status.payload.r} caisse(s), {status.payload.b} boutique(s) · fonctions :{' '}
+          {status.payload.f.join(', ')}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={onOpen}
+        className="mt-4 rounded-lg border border-caisse-600 px-4 py-2.5 font-medium text-caisse-700 transition hover:bg-caisse-50"
+      >
+        Saisir une clé d’activation
+      </button>
     </section>
   );
 }

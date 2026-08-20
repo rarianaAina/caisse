@@ -1,5 +1,5 @@
-import type { Capability, UserRole } from '@caisse/shared';
-import { can } from '@caisse/shared';
+import type { Capability, LicenceFeature, LicenceStatus, UserRole } from '@caisse/shared';
+import { can, licenceAllows } from '@caisse/shared';
 
 /**
  * Qui voit quoi, et où.
@@ -34,14 +34,19 @@ export interface TabSpec {
   needs: Capability;
   /** Réservé aux commerces avec service en salle. */
   restaurantOnly?: boolean;
+  /**
+   * Fonction que la licence doit ouvrir. Absente, l'onglet ne dépend que du
+   * rôle — la vente, elle, n'est jamais conditionnée à un module vendu.
+   */
+  feature?: LicenceFeature;
   /** Sans objet sur une caisse sans serveur. */
   connectedOnly?: boolean;
 }
 
 export const COMPTOIR: TabSpec[] = [
   { id: 'sale', label: 'Vente', needs: 'sell' },
-  { id: 'room', label: 'Salle', needs: 'sell', restaurantOnly: true },
-  { id: 'customers', label: 'Clients', needs: 'sell' },
+  { id: 'room', label: 'Salle', needs: 'sell', restaurantOnly: true, feature: 'restaurant' },
+  { id: 'customers', label: 'Clients', needs: 'sell', feature: 'customers' },
   // Ouvrir et clôturer son tiroir est un geste de CAISSIER : `CAPABILITIES.sell`
   // le dit, et il était pourtant enfermé dans l'écran des rapports, réservé aux
   // responsables. Un caissier ne pouvait pas fermer sa propre caisse le soir.
@@ -53,27 +58,39 @@ export const ADMIN: TabSpec[] = [
   { id: 'dashboard', label: 'Tableau de bord', needs: 'viewReports' },
   { id: 'catalog', label: 'Catalogue', needs: 'manageCatalog' },
   { id: 'stock', label: 'Stock', needs: 'adjustStock' },
-  { id: 'purchasing', label: 'Achats', needs: 'adjustStock' },
+  { id: 'purchasing', label: 'Achats', needs: 'adjustStock', feature: 'purchasing' },
   // Le MÊME écran que celui du comptoir, mais pas la même porte : encaisser une
   // ardoise est un geste de caissier, fixer un plafond de crédit une décision
   // de gestion. Exiger `sell` ici aurait suffi à faire apparaître le bouton
   // « Administration » à un caissier — pour un seul onglet, et par accident.
-  { id: 'customers', label: 'Clients', needs: 'manageCatalog' },
+  { id: 'customers', label: 'Clients', needs: 'manageCatalog', feature: 'customers' },
   { id: 'reports', label: 'Rapports', needs: 'viewReports' },
   { id: 'staff', label: 'Personnel', needs: 'manageUsers' },
   { id: 'sync', label: 'Synchronisation', needs: 'resolveConflict', connectedOnly: true },
   { id: 'settings', label: 'Réglages', needs: 'manageCatalog' },
 ];
 
+/**
+ * Trois filtres, et ils ne disent pas la même chose.
+ *
+ *  - le RÔLE dit ce que cette personne a le droit de faire ;
+ *  - le PROFIL de commerce dit ce qui a du sens ici ;
+ *  - la LICENCE dit ce qui a été acheté.
+ *
+ * Sans licence connue (poste pas encore rattaché), on n'ampute rien : c'est
+ * l'écran d'activation qui tranche, pas une liste d'onglets à moitié vide.
+ */
 export const visibles = (
   specs: readonly TabSpec[],
   role: UserRole,
   restaurant: boolean,
   standalone: boolean,
+  licence?: LicenceStatus | null,
 ): TabSpec[] =>
   specs.filter(
     (spec) =>
       can(role, spec.needs) &&
       (!spec.restaurantOnly || restaurant) &&
-      (!spec.connectedOnly || !standalone),
+      (!spec.connectedOnly || !standalone) &&
+      (!spec.feature || !licence || licenceAllows(licence, spec.feature)),
   );

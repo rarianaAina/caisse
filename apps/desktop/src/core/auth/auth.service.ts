@@ -67,6 +67,17 @@ export class AuthService {
   }
 
   /**
+   * Exécuteur SQL de ce poste.
+   *
+   * Exposé en lecture pour les services qui vivent au même niveau que
+   * l'authentification — l'activation, notamment, qui doit être jugée avant la
+   * saisie du PIN, à un instant où l'état React ne porte pas encore la base.
+   */
+  get executor(): SqlExecutor {
+    return this.db;
+  }
+
+  /**
    * Identifiant du poste : généré une seule fois, puis stable pour toute la
    * durée de vie de l'installation. C'est lui qui identifie la caisse auprès
    * du serveur et qui permettra d'ignorer ses propres écritures au pull.

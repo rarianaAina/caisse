@@ -1,11 +1,23 @@
+import { licenceBlocks } from '@caisse/shared';
 import { SessionProvider, useSession } from './app/SessionProvider';
+import { LicenceScreen } from './features/licence/LicenceScreen';
 import { EnrollScreen } from './features/auth/EnrollScreen';
 import { PinScreen } from './features/auth/PinScreen';
 import { Workspace } from './features/workspace/Workspace';
 
 function Router() {
-  const { phase, error, busy, enroll, setServer, createStandalone, signInWithPin, recoverPin } =
-    useSession();
+  const {
+    phase,
+    error,
+    busy,
+    licence,
+    activate,
+    enroll,
+    setServer,
+    createStandalone,
+    signInWithPin,
+    recoverPin,
+  } = useSession();
 
   switch (phase.kind) {
     case 'loading':
@@ -40,6 +52,19 @@ function Router() {
       );
 
     case 'locked':
+      // Poste fermé : on n'atteint plus le PIN, mais TOUJOURS l'activation.
+      // C'est la porte de secours — un commerçant enfermé dehors doit pouvoir
+      // être débloqué au téléphone en trente secondes.
+      if (licence && licenceBlocks(licence)) {
+        return (
+          <LicenceScreen
+            companyId={phase.companyId}
+            companyName={phase.companyName}
+            status={licence}
+            onActivate={activate}
+          />
+        );
+      }
       return (
         <PinScreen
           users={phase.users}

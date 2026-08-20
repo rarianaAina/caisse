@@ -134,6 +134,32 @@ validées par leurs outils. **Jamais essayé** : l'obtention réelle d'un
 certificat, qui demande un domaine public — elle aura lieu au premier
 déploiement.
 
+## Activation
+
+Le logiciel s'active par une **clé signée**, vérifiée hors ligne — une licence
+qui devrait téléphoner trahirait tout le reste. L'éditeur détient une clé
+privée, l'application embarque la publique.
+
+Une clé porte un jeu de **fonctions** (salle, achats, clients, multi-boutique,
+tableau de bord), un plafond de caisses et de boutiques, et une échéance. Les
+segments vendus ne sont que des raccourcis : la clé ne transporte jamais un nom
+de métier, ce qui permet d'ouvrir la salle à un quincaillier sans inventer un
+type de société.
+
+```bash
+node scripts/licence-keypair.mjs      # une seule fois, garde la privée hors du dépôt
+node scripts/licence.mjs --code A1B2-C3D4-E5F6 --nom "Épicerie Rakoto" \
+  --segment quincaillerie --mois 12 --caisses 2
+```
+
+Le commerçant lit son **code d'installation** sur l'écran d'activation et le
+communique ; la clé est émise pour ce code et refusée ailleurs.
+
+Trente jours d'essai à la création du commerce, quinze jours de grâce après
+l'échéance, puis la caisse se ferme — mais **l'écran d'activation reste
+toujours atteignable**, pour qu'un poste bloqué se rouvre en trente secondes au
+téléphone. Détail et garde-fous : [ADR 0021](docs/adr/0021-cles-d-activation.md).
+
 ## Deux interfaces
 
 L'application de caisse en présente deux, choisies par le rôle :
@@ -207,7 +233,7 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 427 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
+pnpm test             # 448 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
                       #             PIN, rôles, schéma local, catalogue, stock, achats, ventes,
                       #             ardoises, ticket, ESC/POS, rapports, synchro, recherche en
                       #             volume, limitation des tentatives de connexion
@@ -432,3 +458,4 @@ marque et non de code.
 - [ADR 0018 — la descente des ventes](docs/adr/0018-descente-des-ventes.md)
 - [ADR 0019 — le back-office](docs/adr/0019-back-office.md)
 - [ADR 0020 — deux interfaces, et la porte entre elles](docs/adr/0020-deux-interfaces.md)
+- [ADR 0021 — les clés d'activation](docs/adr/0021-cles-d-activation.md)

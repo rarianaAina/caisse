@@ -6,6 +6,8 @@ export * from './domain/index.js';
 export * from './sync/index.js';
 export * from './crypto/pin.js';
 export * from './auth/roles.js';
+export * from './licence/licence.js';
+export * from './licence/cle-publique.js';
 export * from './dto/auth.js';
 export * from './dto/catalog.js';
 export * from './catalog/search.js';

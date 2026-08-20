@@ -52,6 +52,16 @@ export const META_KEYS = {
   lastBackupAt: 'last_backup_at',
   /** Version du schéma pour laquelle la clé de recherche a été reconstruite. */
   searchIndexBuilt: 'search_index_built',
+  /** Clé d'activation saisie sur ce poste, telle qu'elle a été transmise. */
+  licenceKey: 'licence_key',
+  /**
+   * Date la plus avancée jamais observée, en millisecondes.
+   *
+   * Sert à juger une échéance sans se laisser abuser par l'horloge du poste :
+   * reculée, elle ne prolonge rien ; propulsée en 2038 par une pile morte, elle
+   * n'empoisonne pas cette valeur (cf. `judgeClock` dans @caisse/shared).
+   */
+  dateRatchet: 'date_ratchet',
 } as const;
 
 export type MetaKey = (typeof META_KEYS)[keyof typeof META_KEYS];
