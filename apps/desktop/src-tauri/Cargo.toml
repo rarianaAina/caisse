@@ -1,6 +1,6 @@
 [package]
 name = "caisse"
-version = "0.2.1"
+version = "0.3.0"
 description = "Logiciel de caisse hors-ligne"
 authors = ["Caisse"]
 edition = "2021"
