@@ -11,6 +11,7 @@ import {
   taxFromNet,
 } from '../money/index.js';
 import type { Product } from '../domain/catalog.js';
+import { type PriceContext, type PriceRule, resolveUnitPrice } from './pricing.js';
 
 /**
  * Moteur de panier — fonctions pures, entiers uniquement.
@@ -32,6 +33,20 @@ export interface CartLine {
   taxRateBp: TaxBp;
   /** Remise appliquée à cette ligne uniquement. */
   discountCents: Cents;
+  /**
+   * Barème du produit, figé à l'ajout.
+   *
+   * Conservé sur la LIGNE et non relu dans le catalogue : c'est ce qui permet
+   * de re-tarifer quand la quantité franchit un seuil, sans que le panier ait
+   * à connaître la base. Absent pour un article libre.
+   */
+  pricing?: PriceRule;
+  /**
+   * Le caissier a fixé ce prix lui-même : plus aucune re-tarification
+   * automatique. Sans ce verrou, changer la quantité d'une ligne dont on vient
+   * de négocier le prix l'écraserait en silence.
+   */
+  priceLocked?: boolean;
 }
 
 export interface Cart {
@@ -41,6 +56,14 @@ export interface Cart {
   currency: string;
   /** Les prix du catalogue sont-ils TTC (true) ou HT (false) ? */
   pricesIncludeTax: boolean;
+  /**
+   * Client de la vente en cours, quand il est connu d'avance.
+   *
+   * Sert au TARIF : un professionnel a le prix de gros dès la première unité.
+   * D'où la nécessité de le désigner AVANT de scanner, et non au moment de
+   * payer — sinon tout le ticket serait à re-tarifer à l'encaissement.
+   */
+  customer?: PriceContext;
 }
 
 export interface LineTotals {
@@ -78,6 +101,44 @@ export function emptyCart(currency: string, pricesIncludeTax: boolean): Cart {
   return { lines: [], discountCents: 0, currency, pricesIncludeTax };
 }
 
+/** Barème d'un produit, tel qu'il est figé sur une ligne. */
+export function priceRuleOf(product: Product): PriceRule {
+  return {
+    retailCents: product.priceCents,
+    wholesaleCents: product.wholesalePriceCents,
+    wholesaleMinQtyMilli: product.wholesaleMinQtyMilli,
+  };
+}
+
+/**
+ * Applique le barème d'une ligne à sa quantité courante.
+ *
+ * Sans effet sur une ligne sans barème, ou dont le prix a été fixé à la main.
+ */
+export function repriceLine(line: CartLine, context: PriceContext): CartLine {
+  if (!line.pricing || line.priceLocked) return line;
+  const resolved = resolveUnitPrice(line.pricing, line.qtyMilli, context);
+  return resolved.unitPriceCents === line.unitPriceCents
+    ? line
+    : { ...line, unitPriceCents: resolved.unitPriceCents };
+}
+
+/**
+ * Re-tarife tout le panier.
+ *
+ * Appelé quand le CLIENT change en cours de vente : désigner un professionnel
+ * après avoir scanné trois articles doit corriger les trois, pas seulement les
+ * suivants.
+ */
+export function repriceCart(cart: Cart, customer: PriceContext | undefined): Cart {
+  const context = customer ?? {};
+  return {
+    ...cart,
+    customer,
+    lines: cart.lines.map((line) => repriceLine(line, context)),
+  };
+}
+
 export function isFractionalUnit(unit: ProductUnit): boolean {
   return FRACTIONAL_UNITS.includes(unit);
 }
@@ -87,17 +148,20 @@ export function lineFromProduct(
   lineId: EntityId,
   product: Product,
   qtyMilli: QtyMilli = QTY_SCALE,
+  context: PriceContext = {},
 ): CartLine {
+  const pricing = priceRuleOf(product);
   return {
     id: lineId,
     productId: product.id,
     name: product.name,
     sku: product.sku,
     unit: product.unit,
-    unitPriceCents: product.priceCents,
+    unitPriceCents: resolveUnitPrice(pricing, qtyMilli, context).unitPriceCents,
     qtyMilli,
     taxRateBp: product.taxRateBp,
     discountCents: 0,
+    pricing,
   };
 }
 
@@ -114,17 +178,19 @@ export function addProduct(
   newLineId: EntityId,
   qtyMilli: QtyMilli = QTY_SCALE,
 ): Cart {
+  // Une ligne dont le prix a été fixé à la main ne se fusionne pas : on ne sait
+  // pas si le geste valait pour la quantité d'alors ou pour l'article.
   const existing = cart.lines.find(
-    (line) =>
-      line.productId === product.id &&
-      line.discountCents === 0 &&
-      line.unitPriceCents === product.priceCents,
+    (line) => line.productId === product.id && line.discountCents === 0 && !line.priceLocked,
   );
 
   if (existing) {
     return updateQuantity(cart, existing.id, existing.qtyMilli + qtyMilli);
   }
-  return { ...cart, lines: [...cart.lines, lineFromProduct(newLineId, product, qtyMilli)] };
+  return {
+    ...cart,
+    lines: [...cart.lines, lineFromProduct(newLineId, product, qtyMilli, cart.customer ?? {})],
+  };
 }
 
 /** Article libre : saisie manuelle au comptoir, sans fiche produit. */
@@ -140,7 +206,11 @@ export function updateQuantity(cart: Cart, lineId: EntityId, qtyMilli: QtyMilli)
   if (qtyMilli <= 0) return removeLine(cart, lineId);
   return {
     ...cart,
-    lines: cart.lines.map((line) => (line.id === lineId ? { ...line, qtyMilli } : line)),
+    lines: cart.lines.map((line) =>
+      // La quantité change, donc le barème peut basculer : c'est ici que « à
+      // partir de 10 » prend effet, et qu'il se défait si l'on redescend.
+      line.id === lineId ? repriceLine({ ...line, qtyMilli }, cart.customer ?? {}) : line,
+    ),
   };
 }
 
@@ -148,10 +218,18 @@ export function removeLine(cart: Cart, lineId: EntityId): Cart {
   return { ...cart, lines: cart.lines.filter((line) => line.id !== lineId) };
 }
 
+/**
+ * Fixe un prix à la main, et VERROUILLE la ligne.
+ *
+ * Sans ce verrou, changer ensuite la quantité effacerait le prix négocié — et
+ * personne ne le verrait avant le ticket.
+ */
 export function setLinePrice(cart: Cart, lineId: EntityId, unitPriceCents: Cents): Cart {
   return {
     ...cart,
-    lines: cart.lines.map((line) => (line.id === lineId ? { ...line, unitPriceCents } : line)),
+    lines: cart.lines.map((line) =>
+      line.id === lineId ? { ...line, unitPriceCents, priceLocked: true } : line,
+    ),
   };
 }
 

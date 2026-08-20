@@ -1,6 +1,6 @@
 import type { ProductUnit } from '../constants/index.js';
 import type { EntityId } from '../ids/index.js';
-import type { Cents, TaxBp } from '../money/index.js';
+import type { Cents, QtyMilli, TaxBp } from '../money/index.js';
 import type { SyncMeta } from './tenant.js';
 
 export interface Category extends SyncMeta {
@@ -40,4 +40,17 @@ export interface Product extends SyncMeta {
   /** « 4×40 », « Rouge » : ce qui distingue cette déclinaison des autres. */
   variantLabel: string | null;
   supplierId: EntityId | null;
+  /**
+   * Prix de gros. `null` = cet article ne se vend qu'au détail.
+   *
+   * Un SECOND prix plutôt qu'une grille de barèmes : au comptoir on applique
+   * deux prix, pas dix, et une table de paliers aurait touché le panier, la
+   * synchronisation et chaque écran pour le même résultat (cf. pricing.ts).
+   */
+  wholesalePriceCents: Cents | null;
+  /**
+   * Quantité à partir de laquelle le prix de gros s'applique tout seul, en
+   * milli-unités. `0` = jamais automatiquement, réservé aux professionnels.
+   */
+  wholesaleMinQtyMilli: QtyMilli;
 }

@@ -238,6 +238,12 @@ model Product {
   /// tenus localement par la caisse (cf. ADR 0015), le serveur ne fait que
   /// transporter la référence pour qu'une deuxième caisse la retrouve.
   supplierId   String?  @map("supplier_id") @db.Uuid
+  /// Tarif gros. NULL = cet article ne se vend qu'au détail. Un SECOND prix
+  /// plutôt qu'une grille de barèmes : au comptoir on applique deux prix.
+  wholesalePriceCents  Int? @map("wholesale_price_cents")
+  /// Quantité déclenchant le tarif gros, en milli-unités. 0 = jamais
+  /// automatiquement — réservé aux clients professionnels.
+  wholesaleMinQtyMilli Int  @default(0) @map("wholesale_min_qty_milli")
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -522,6 +528,8 @@ model Customer {
   /// NULL = crédit illimité, 0 = aucun crédit. La distinction est commerciale :
   /// le défaut prudent est 0.
   creditLimitCents Int? @default(0) @map("credit_limit_cents")
+  /// Client professionnel : prix de gros dès la première unité.
+  wholesale        Boolean @default(false)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)

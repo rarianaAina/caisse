@@ -123,6 +123,17 @@ const PRODUCT: MutableHandler = {
     'taxRateBp',
     'trackStock',
     'isActive',
+    // Déclinaisons et fournisseur : ces trois champs descendaient déjà dans la
+    // charge utile, mais ne REMONTAIENT pas — ni écrits à la création, ni
+    // acceptés en modification. Une « Vis 4×40 » créée au comptoir arrivait
+    // donc au serveur détachée de son article parent, et la deuxième caisse la
+    // recevait orpheline. Défaut du module 16, invisible tant que personne ne
+    // créait de déclinaison sur une caisse.
+    'parentId',
+    'variantLabel',
+    'supplierId',
+    'wholesalePriceCents',
+    'wholesaleMinQtyMilli',
     'deletedAt',
   ],
   async find(tx, id) {
@@ -144,6 +155,16 @@ const PRODUCT: MutableHandler = {
         taxRateBp: int(payload['taxRateBp']),
         trackStock: bool(payload['trackStock']),
         isActive: bool(payload['isActive']),
+        parentId: strOrNull(payload['parentId']),
+        variantLabel: strOrNull(payload['variantLabel']),
+        supplierId: strOrNull(payload['supplierId']),
+        // `null` explicite : cet article ne se vend qu'au détail. Un `int()`
+        // par défaut écraserait la nuance en zéro, c'est-à-dire en « gratuit ».
+        wholesalePriceCents:
+          payload['wholesalePriceCents'] === null || payload['wholesalePriceCents'] === undefined
+            ? null
+            : int(payload['wholesalePriceCents']),
+        wholesaleMinQtyMilli: int(payload['wholesaleMinQtyMilli']),
         createdAt: date(payload['createdAt']),
         updatedAt: date(payload['updatedAt']),
       },
@@ -351,7 +372,16 @@ const CASH_SESSION: MutableHandler = {
  */
 const CUSTOMER: MutableHandler = {
   kind: 'mutable',
-  writable: ['name', 'phone', 'email', 'address', 'note', 'creditLimitCents', 'deletedAt'],
+  writable: [
+    'name',
+    'phone',
+    'email',
+    'address',
+    'note',
+    'creditLimitCents',
+    'wholesale',
+    'deletedAt',
+  ],
   async find(tx, id) {
     return (await tx.customer.findUnique({ where: { id } })) as EntityRow | null;
   },
@@ -369,6 +399,7 @@ const CUSTOMER: MutableHandler = {
         // le crédit. Un `int()` par défaut écraserait la nuance.
         creditLimitCents:
           payload['creditLimitCents'] === null ? null : int(payload['creditLimitCents']),
+        wholesale: bool(payload['wholesale'], false),
         createdAt: date(payload['createdAt']),
         updatedAt: date(payload['updatedAt']),
       },

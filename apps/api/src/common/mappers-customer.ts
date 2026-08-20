@@ -30,6 +30,7 @@ export function toCustomer(row: PrismaCustomer): Customer {
     address: row.address,
     note: row.note,
     creditLimitCents: row.creditLimitCents,
+    wholesale: row.wholesale,
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
     deletedAt: isoOrNull(row.deletedAt),

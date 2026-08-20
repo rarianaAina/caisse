@@ -5,6 +5,7 @@ import {
   PurchasingError,
   PurchasingRepository,
 } from '../src/core/db/repositories/purchasing.repository';
+import { CustomerRepository } from '../src/core/db/repositories/customer.repository';
 import { StockRepository } from '../src/core/db/repositories/stock.repository';
 import { NodeSqliteExecutor } from './helpers/sqlite-executor';
 
@@ -361,5 +362,54 @@ describe('remontée des achats', () => {
 
     await purchasing.deleteSupplier(holcim.id);
     expect((await enfilees('supplier')).map((row) => row.op)).toEqual(['create', 'delete']);
+  });
+});
+
+describe('tarifs gros et détail', () => {
+  it('se conservent, se relisent et se modifient', async () => {
+    const cree = await catalog.createProduct({
+      name: 'Ciment 50 kg',
+      unit: 'unit',
+      priceCents: 42_000,
+      costCents: 35_000,
+      taxRateBp: 0,
+      trackStock: true,
+      isActive: true,
+      wholesalePriceCents: 38_000,
+      wholesaleMinQtyMilli: 10_000,
+    });
+    expect(cree.wholesalePriceCents).toBe(38_000);
+    expect(cree.wholesaleMinQtyMilli).toBe(10_000);
+
+    const relu = await catalog.findProduct(cree.id);
+    expect(relu?.wholesalePriceCents).toBe(38_000);
+    expect(relu?.wholesaleMinQtyMilli).toBe(10_000);
+
+    // Retirer le prix de gros doit rester possible : un article peut cesser
+    // d'être vendu au carton.
+    const sans = await catalog.updateProduct(cree.id, {
+      wholesalePriceCents: null,
+      version: cree.version,
+    });
+    expect(sans.wholesalePriceCents).toBeNull();
+    expect((await catalog.findProduct(cree.id))?.wholesalePriceCents).toBeNull();
+  });
+
+  it('marque un client comme professionnel, et le relit', async () => {
+    const clients = new CustomerRepository(db, {
+      companyId: COMPANY_ID,
+      storeId: STORE_ID,
+      deviceId: DEVICE_ID,
+    });
+
+    const pro = await clients.create({ name: 'Maçonnerie Rakoto', wholesale: true });
+    expect(pro.wholesale).toBe(true);
+    expect((await clients.find(pro.id))?.wholesale).toBe(true);
+
+    // Le booléen doit survivre à un aller-retour en base : SQLite n'en a pas,
+    // et un `true` transmis tel quel y serait refusé.
+    const rendu = await clients.update(pro.id, { wholesale: false, version: pro.version });
+    expect(rendu.wholesale).toBe(false);
+    expect((await clients.find(pro.id))?.wholesale).toBe(false);
   });
 });

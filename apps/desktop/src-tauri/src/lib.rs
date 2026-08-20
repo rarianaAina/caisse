@@ -55,6 +55,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0007_synchro_resiliente.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 8,
+            description: "tarifs gros et détail",
+            sql: include_str!("../migrations/0008_tarifs.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

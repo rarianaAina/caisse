@@ -38,6 +38,8 @@ const product = (overrides: Partial<Product> = {}): Product => ({
   imagePath: null,
   parentId: null,
   variantLabel: null,
+  wholesalePriceCents: null,
+  wholesaleMinQtyMilli: 0,
   supplierId: null,
   createdAt: '2026-08-10T00:00:00.000Z',
   updatedAt: '2026-08-10T00:00:00.000Z',

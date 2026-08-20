@@ -39,6 +39,8 @@ const product = (priceCents: number, taxRateBp = 0): Product => ({
   imagePath: null,
   parentId: null,
   variantLabel: null,
+  wholesalePriceCents: null,
+  wholesaleMinQtyMilli: 0,
   supplierId: null,
   createdAt: '',
   updatedAt: '',

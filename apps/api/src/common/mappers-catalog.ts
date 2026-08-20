@@ -59,6 +59,8 @@ export function toProduct(row: PrismaProduct): Product {
     parentId: row.parentId,
     variantLabel: row.variantLabel,
     supplierId: row.supplierId,
+    wholesalePriceCents: row.wholesalePriceCents,
+    wholesaleMinQtyMilli: row.wholesaleMinQtyMilli,
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
     deletedAt: isoOrNull(row.deletedAt),

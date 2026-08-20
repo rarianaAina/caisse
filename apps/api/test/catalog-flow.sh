@@ -69,6 +69,9 @@ interroge() { # interroge <requête SQL> — renvoie une valeur brute, ou échou
   fi
 }
 
+uuid() { node -e "console.log(require('crypto').randomUUID())"; }
+now() { node -e "console.log(new Date().toISOString())"; }
+
 changelog() { # changelog <entité> — nombre d'entrées pour l'entreprise de test
   interroge "SELECT count(*) FROM change_log WHERE entity = '$1' AND company_id = '$COMPANY_ID'"
 }
@@ -217,6 +220,33 @@ check "suppression de la catégorie" 204 "$code"
 status GET /products "" "$TOKEN" > /dev/null
 check "les produits survivent à leur catégorie" 1 "$(field 'd.items.length')"
 check "et repassent sans catégorie" "" "$(field 'd.items[0].categoryId ?? ""')"
+
+echo '── Tarifs et déclinaisons remontent vraiment ───────────────────────────'
+# Sans catégorie : le contrôle de fin compte les produits d'une catégorie, et
+# une déclinaison de plus y ferait un écart sans rapport avec ce qu'il vérifie.
+# Ces champs DESCENDAIENT dans la charge utile depuis le module 16, mais ne
+# remontaient pas : ni écrits à la création, ni acceptés en modification. Une
+# « Vis 4×40 » créée au comptoir arrivait détachée de son article parent, et la
+# caisse voisine la recevait orpheline.
+DEV_CAT=$(uuid)
+status POST /devices/enroll "{\"deviceId\":\"$DEV_CAT\",\"name\":\"Caisse\",\"storeId\":\"$STORE_ID\"}" "$TOKEN" > /dev/null
+VIS=$(uuid)
+status POST /sync/push "{\"protocolVersion\":1,\"deviceId\":\"$DEV_CAT\",\"mutations\":[{
+  \"mutationId\":\"$(uuid)\",\"entity\":\"product\",\"entityId\":\"$VIS\",\"op\":\"create\",
+  \"baseVersion\":null,\"deviceId\":\"$DEV_CAT\",\"clientTs\":\"$(now)\",
+  \"payload\":{\"id\":\"$VIS\",\"name\":\"Vis 4x40\",\"unit\":\"unit\",\"priceCents\":500,
+    \"costCents\":300,\"taxRateBp\":0,\"trackStock\":true,\"isActive\":true,
+    \"parentId\":\"$PRODUCT_ID\",\"variantLabel\":\"4x40\",
+    \"wholesalePriceCents\":420,\"wholesaleMinQtyMilli\":100000,
+    \"createdAt\":\"$(now)\",\"updatedAt\":\"$(now)\"}}]}" "$TOKEN" > /dev/null
+check "la declinaison est acceptee" applied "$(field 'd.results[0].status')"
+
+status GET "/products/$VIS" "" "$TOKEN" > /dev/null
+check "son rattachement au parent survit" "$PRODUCT_ID" "$(field 'd.parentId')"
+check "son libelle de declinaison aussi" "4x40" "$(field 'd.variantLabel')"
+check "et son tarif de gros" 420 "$(field 'd.wholesalePriceCents')"
+check "avec son seuil de declenchement" 100000 "$(field 'd.wholesaleMinQtyMilli')"
+
 
 echo
 printf '\033[1m%d réussis, %d échoués\033[0m\n' "$PASS" "$FAIL"

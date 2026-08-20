@@ -6,6 +6,8 @@ import {
   PRODUCT_UNITS,
   formatMoney,
   formatAmountPlain,
+  formatQty,
+  priceRuleProblem,
   parseAmount,
   parseQtyToMilli,
 } from '@caisse/shared';
@@ -23,6 +25,10 @@ export interface ProductFormValues {
   isActive: boolean;
   /** « 4×40 », « Rouge » : ce qui distingue cet article des autres du même type. */
   variantLabel: string | null;
+  /** Prix de gros ; `null` = cet article ne se vend qu'au détail. */
+  wholesalePriceCents: number | null;
+  /** Quantité déclenchant le prix de gros ; 0 = réservé aux professionnels. */
+  wholesaleMinQtyMilli: number;
   initialQtyMilli?: number;
 }
 
@@ -71,6 +77,12 @@ export function ProductForm({
     product ? formatAmountPlain(product.priceCents, currency) : '',
   );
   const [cost, setCost] = useState(product ? formatAmountPlain(product.costCents, currency) : '');
+  const [gros, setGros] = useState(
+    product?.wholesalePriceCents ? formatAmountPlain(product.wholesalePriceCents, currency) : '',
+  );
+  const [seuilGros, setSeuilGros] = useState(
+    product?.wholesaleMinQtyMilli ? formatQty(product.wholesaleMinQtyMilli).replace(/\s/g, '') : '',
+  );
   const [taxRateBp, setTaxRateBp] = useState(product?.taxRateBp ?? 0);
   const [trackStock, setTrackStock] = useState(product?.trackStock ?? true);
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
@@ -90,6 +102,23 @@ export function ProductForm({
     if (priceCents === null) return setError('Prix de vente invalide');
     if (costCents === null) return setError('Prix d’achat invalide');
 
+    // Le barème est validé par `shared`, pas ici : la même règle doit refuser
+    // un prix incohérent que la saisie vienne de cet écran ou d'ailleurs.
+    const wholesalePriceCents = gros.trim() === '' ? null : parseAmount(gros, currency);
+    if (gros.trim() !== '' && wholesalePriceCents === null) {
+      return setError('Prix de gros invalide');
+    }
+    const wholesaleMinQtyMilli = seuilGros.trim() === '' ? 0 : parseQtyToMilli(seuilGros);
+    if (seuilGros.trim() !== '' && wholesaleMinQtyMilli === null) {
+      return setError('Quantité de déclenchement invalide');
+    }
+    const souci = priceRuleProblem({
+      retailCents: priceCents,
+      wholesaleCents: wholesalePriceCents,
+      wholesaleMinQtyMilli: wholesaleMinQtyMilli ?? 0,
+    });
+    if (souci) return setError(souci);
+
     const initialQtyMilli = initialQty ? parseQtyToMilli(initialQty) : null;
     if (initialQty && initialQtyMilli === null) return setError('Quantité initiale invalide');
 
@@ -107,6 +136,8 @@ export function ProductForm({
         trackStock,
         isActive,
         variantLabel: variantLabel.trim() || null,
+        wholesalePriceCents,
+        wholesaleMinQtyMilli: wholesaleMinQtyMilli ?? 0,
         ...(initialQtyMilli !== null && initialQtyMilli !== 0
           ? { initialQtyMilli: initialQtyMilli }
           : {}),
@@ -180,6 +211,46 @@ export function ProductForm({
             {margin !== null && (
               <p className="mt-1 text-xs text-slate-500">Marge : {formatMoney(margin, currency)}</p>
             )}
+          </div>
+
+          {/* Le tarif de gros et son déclencheur vont ENSEMBLE : un prix sans
+              seuil ne s'appliquerait qu'aux professionnels, et un seuil sans
+              prix ne s'appliquerait jamais. Les séparer inviterait à n'en
+              remplir qu'un. */}
+          <div>
+            <label className={label} htmlFor="gros">
+              Prix de gros <span className="font-normal text-slate-400">(facultatif)</span>
+            </label>
+            <input
+              id="gros"
+              inputMode="decimal"
+              value={gros}
+              onChange={(event) => setGros(event.target.value)}
+              placeholder="laisser vide : vente au détail seulement"
+              className={field}
+            />
+          </div>
+
+          <div>
+            <label className={label} htmlFor="seuil-gros">
+              À partir de
+            </label>
+            <input
+              id="seuil-gros"
+              inputMode="decimal"
+              value={seuilGros}
+              onChange={(event) => setSeuilGros(event.target.value)}
+              placeholder="0"
+              disabled={gros.trim() === ''}
+              className={`${field} disabled:bg-slate-50 disabled:text-slate-400`}
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              {gros.trim() === ''
+                ? 'Renseignez d’abord un prix de gros.'
+                : seuilGros.trim() === '' || seuilGros === '0'
+                  ? 'Réservé aux clients professionnels, quelle que soit la quantité.'
+                  : `Appliqué dès ${seuilGros} ${unit === 'unit' ? 'unité(s)' : unit} sur la même ligne.`}
+            </p>
           </div>
 
           <div>

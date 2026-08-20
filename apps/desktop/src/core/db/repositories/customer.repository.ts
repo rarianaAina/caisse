@@ -33,6 +33,7 @@ interface CustomerRow {
   address: string | null;
   note: string | null;
   credit_limit_cents: number | null;
+  wholesale: number;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -64,6 +65,7 @@ const toCustomer = (row: CustomerRow): Customer => ({
   address: row.address,
   note: row.note,
   creditLimitCents: row.credit_limit_cents,
+  wholesale: row.wholesale === 1,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
   deletedAt: row.deleted_at,
@@ -109,6 +111,8 @@ export interface CreateCustomerInput {
   note?: string | null;
   /** `null` = crédit illimité, `0` = aucun crédit. */
   creditLimitCents?: Cents | null;
+  /** Client professionnel : prix de gros dès la première unité. */
+  wholesale?: boolean;
   /** Ardoise déjà en cours au moment de l'informatisation. */
   openingBalanceCents?: Cents;
 }
@@ -120,6 +124,7 @@ export interface UpdateCustomerInput {
   address?: string | null;
   note?: string | null;
   creditLimitCents?: Cents | null;
+  wholesale?: boolean;
   version: number;
 }
 
@@ -240,6 +245,7 @@ export class CustomerRepository {
       address: input.address?.trim() || null,
       note: input.note?.trim() || null,
       creditLimitCents: input.creditLimitCents === undefined ? 0 : input.creditLimitCents,
+      wholesale: input.wholesale ?? false,
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -249,8 +255,8 @@ export class CustomerRepository {
     await this.db.transaction(async () => {
       await this.db.execute(
         `INSERT INTO customer (id, company_id, name, phone, email, address, note,
-                               credit_limit_cents, created_at, updated_at, version)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+                               credit_limit_cents, wholesale, created_at, updated_at, version)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
         [
           id,
           customer.companyId,
@@ -260,6 +266,7 @@ export class CustomerRepository {
           customer.address,
           customer.note,
           customer.creditLimitCents,
+          customer.wholesale ? 1 : 0,
           now,
           now,
         ],
@@ -309,6 +316,7 @@ export class CustomerRepository {
     if (input.address !== undefined) patch['address'] = input.address?.trim() || null;
     if (input.note !== undefined) patch['note'] = input.note?.trim() || null;
     if (input.creditLimitCents !== undefined) patch['creditLimitCents'] = input.creditLimitCents;
+    if (input.wholesale !== undefined) patch['wholesale'] = input.wholesale;
 
     const columns: Record<string, string> = {
       name: 'name',
@@ -317,6 +325,7 @@ export class CustomerRepository {
       address: 'address',
       note: 'note',
       creditLimitCents: 'credit_limit_cents',
+      wholesale: 'wholesale',
     };
 
     const assignments = Object.keys(patch).map((key) => `${columns[key] ?? key} = ?`);
@@ -332,7 +341,10 @@ export class CustomerRepository {
         await this.db.execute(
           `UPDATE customer SET ${assignments.join(', ')}, updated_at = ?, version = version + 1
             WHERE id = ?`,
-          [...Object.values(patch), now, id],
+          // SQLite ne connaît pas les booléens : `wholesale` doit descendre en
+          // 0/1. La charge de synchronisation, elle, garde le booléen — le
+          // protocole transporte du JSON, pas des entiers déguisés.
+          [...Object.values(patch).map((v) => (typeof v === 'boolean' ? (v ? 1 : 0) : v)), now, id],
         );
       }
       await this.outbox.enqueue({

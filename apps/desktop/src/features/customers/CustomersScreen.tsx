@@ -44,6 +44,7 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
   const [phone, setPhone] = useState('');
   const [limit, setLimit] = useState('');
   const [opening, setOpening] = useState('');
+  const [pro, setPro] = useState(false);
 
   const currency = session.company.currency;
   const customers = useMemo(
@@ -113,6 +114,7 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
         // Champ vide = illimité, 0 saisi = aucun crédit. La nuance est
         // commerciale et doit rester saisissable.
         creditLimitCents: plafond,
+        wholesale: pro,
         ...(repris ? { openingBalanceCents: repris } : {}),
       });
       setCreating(false);
@@ -120,6 +122,7 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
       setPhone('');
       setLimit('');
       setOpening('');
+      setPro(false);
       return `${created.name} est enregistré.`;
     });
 
@@ -229,6 +232,19 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
                 className={champ}
               />
             </label>
+            {/* Le tarif professionnel s'applique DÈS la première unité, sans
+                seuil de quantité : le maçon qui vient chercher deux sacs paie
+                le prix de gros parce qu'il est pro. */}
+            <label className="flex items-center gap-3 text-sm text-ardoise-700 sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={pro}
+                onChange={(event) => setPro(event.target.checked)}
+                className="h-4 w-4"
+              />
+              Client professionnel — prix de gros dès la première unité
+            </label>
+
             <div className="sm:col-span-2">
               <button
                 type="button"
@@ -255,6 +271,9 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
                 >
                   <p className="font-semibold text-ardoise-900">{row.customer.name}</p>
                   <p className="text-sm text-ardoise-500">
+                    {row.customer.wholesale && (
+                      <span className="mr-1 font-medium text-caisse-700">pro ·</span>
+                    )}
                     {row.customer.phone ?? 'sans téléphone'}
                     {row.ageDays !== null && ` · depuis ${String(row.ageDays)} j`}
                   </p>

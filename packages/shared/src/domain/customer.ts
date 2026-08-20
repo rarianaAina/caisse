@@ -33,6 +33,14 @@ export interface Customer extends SyncMeta {
    * commerciales opposées, et le zéro par défaut doit être la prudente.
    */
   creditLimitCents: Cents | null;
+  /**
+   * Client professionnel : il obtient le prix de gros dès la première unité,
+   * sans avoir à atteindre le seuil de quantité.
+   *
+   * C'est le cas du maçon qui vient chercher deux sacs de ciment : il paie le
+   * tarif pro parce qu'il est pro, pas parce qu'il achète beaucoup ce jour-là.
+   */
+  wholesale: boolean;
 }
 
 /**

@@ -46,6 +46,8 @@ interface ProductRow {
   image_path: string | null;
   parent_id: string | null;
   variant_label: string | null;
+  wholesale_price_cents: number | null;
+  wholesale_min_qty_milli: number;
   supplier_id: string | null;
   created_at: string;
   updated_at: string;
@@ -83,6 +85,8 @@ const toProduct = (row: ProductRow): Product => ({
   imagePath: row.image_path,
   parentId: row.parent_id,
   variantLabel: row.variant_label,
+  wholesalePriceCents: row.wholesale_price_cents,
+  wholesaleMinQtyMilli: Number(row.wholesale_min_qty_milli ?? 0),
   supplierId: row.supplier_id,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
@@ -398,6 +402,8 @@ export class CatalogRepository {
       imagePath: null,
       parentId: input.parentId ?? null,
       variantLabel: input.variantLabel ?? null,
+      wholesalePriceCents: input.wholesalePriceCents ?? null,
+      wholesaleMinQtyMilli: input.wholesaleMinQtyMilli ?? 0,
       supplierId: input.supplierId ?? null,
       createdAt: now,
       updatedAt: now,
@@ -409,9 +415,10 @@ export class CatalogRepository {
       await this.db.execute(
         `INSERT INTO product (id, company_id, category_id, sku, barcode, name, description,
                               unit, price_cents, cost_cents, tax_rate_bp, track_stock,
-                              is_active, parent_id, variant_label, supplier_id,
+                              is_active, parent_id, variant_label,
+                              wholesale_price_cents, wholesale_min_qty_milli, supplier_id,
                               created_at, updated_at, version, search_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
         [
           id,
           product.companyId,
@@ -428,6 +435,8 @@ export class CatalogRepository {
           bool(product.isActive),
           product.parentId,
           product.variantLabel,
+          product.wholesalePriceCents,
+          product.wholesaleMinQtyMilli,
           product.supplierId,
           now,
           now,
@@ -472,6 +481,11 @@ export class CatalogRepository {
       parentId: input.parentId !== undefined ? input.parentId : existing.parentId,
       variantLabel: input.variantLabel !== undefined ? input.variantLabel : existing.variantLabel,
       supplierId: input.supplierId !== undefined ? input.supplierId : existing.supplierId,
+      wholesalePriceCents:
+        input.wholesalePriceCents !== undefined
+          ? input.wholesalePriceCents
+          : existing.wholesalePriceCents,
+      wholesaleMinQtyMilli: input.wholesaleMinQtyMilli ?? existing.wholesaleMinQtyMilli,
       updatedAt: now,
       version: existing.version + 1,
     };
@@ -492,6 +506,8 @@ export class CatalogRepository {
       'parentId',
       'variantLabel',
       'supplierId',
+      'wholesalePriceCents',
+      'wholesaleMinQtyMilli',
     ] as const) {
       if (input[key] !== undefined) patch[key] = merged[key];
     }
@@ -501,7 +517,8 @@ export class CatalogRepository {
         `UPDATE product SET category_id = ?, sku = ?, barcode = ?, name = ?, description = ?,
                             unit = ?, price_cents = ?, cost_cents = ?, tax_rate_bp = ?,
                             track_stock = ?, is_active = ?, parent_id = ?, variant_label = ?,
-                            supplier_id = ?, updated_at = ?, version = version + 1,
+                            supplier_id = ?, wholesale_price_cents = ?,
+                            wholesale_min_qty_milli = ?, updated_at = ?, version = version + 1,
                             search_key = ?
          WHERE id = ?`,
         [
@@ -519,6 +536,8 @@ export class CatalogRepository {
           merged.parentId,
           merged.variantLabel,
           merged.supplierId,
+          merged.wholesalePriceCents,
+          merged.wholesaleMinQtyMilli,
           now,
           buildSearchKey(merged),
           id,

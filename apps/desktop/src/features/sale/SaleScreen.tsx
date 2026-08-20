@@ -19,6 +19,7 @@ import {
   parseAmount,
   parseQtyToMilli,
   removeLine,
+  repriceCart,
   setCartDiscount,
   updateQuantity,
 } from '@caisse/shared';
@@ -60,8 +61,21 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
   const [paying, setPaying] = useState(false);
   const [receipt, setReceipt] = useState<{ details: SaleDetails; tax: TaxLine[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** Client de la vente en cours ; renseigné seulement pour une ardoise. */
+  /**
+   * Client de la vente en cours.
+   *
+   * Il ne sert plus seulement à l'ardoise : un professionnel a le prix de gros
+   * dès la première unité, donc le désigner RE-TARIFE le panier — y compris ce
+   * qui a déjà été scanné.
+   */
   const [customer, setCustomer] = useState<Customer | null>(null);
+
+  const choisirClient = (choisi: Customer | null): void => {
+    setCustomer(choisi);
+    setCart((current) =>
+      repriceCart(current, choisi ? { wholesaleCustomer: choisi.wholesale } : undefined),
+    );
+  };
   const searchRef = useRef<HTMLInputElement>(null);
 
   const catalog = useMemo(
@@ -168,6 +182,35 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
     setCart((cartState) => updateQuantity(cartState, lineId, qtyMilli));
   };
 
+  /**
+   * Désigne un client au comptoir.
+   *
+   * Une invite plutôt qu'un panneau : c'est un geste rare, et un écran de plus
+   * sur la vente coûterait à chaque ticket ce qu'il ferait gagner à quelques-uns.
+   */
+  const chercherClient = async (): Promise<void> => {
+    const terme = window.prompt('Nom ou téléphone du client');
+    if (terme === null || terme.trim() === '') return;
+
+    const trouves = await customers.search(terme);
+    if (trouves.length === 0) {
+      setError('Aucun client trouvé. Créez-le dans l’onglet « Clients ».');
+      return;
+    }
+    if (trouves.length === 1) return choisirClient(trouves[0] ?? null);
+
+    const liste = trouves
+      .slice(0, 9)
+      .map(
+        (entry, index) =>
+          `${String(index + 1)}. ${entry.name}${entry.phone ? ` · ${entry.phone}` : ''}`,
+      )
+      .join('\n');
+    const choix = window.prompt(`Plusieurs clients correspondent :\n${liste}\n\nNuméro ?`, '1');
+    if (choix === null) return;
+    choisirClient(trouves[Number(choix) - 1] ?? null);
+  };
+
   const askDiscount = (): void => {
     const answer = window.prompt('Remise sur le ticket (en €)', '0');
     if (answer === null) return;
@@ -188,7 +231,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
     });
 
     setPaying(false);
-    setCustomer(null);
+    choisirClient(null);
     setReceipt({ details, tax: totals.taxBreakdown });
     setCart((current) => clearCart(current));
     await reload();
@@ -204,6 +247,41 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
       <section className="space-y-4">
+        {/* Le client se désigne AVANT de scanner : c'est lui qui décide du
+            tarif. L'afficher en permanence évite de vendre au détail à un
+            professionnel — erreur qu'on ne voit qu'au ticket. */}
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-ardoise-200 bg-white px-4 py-2.5">
+          <span className="text-sm text-ardoise-500">Client</span>
+          {customer ? (
+            <>
+              <span className="font-medium text-ardoise-900">{customer.name}</span>
+              {customer.wholesale && (
+                <span className="rounded-full bg-caisse-100 px-2.5 py-0.5 text-xs font-semibold text-caisse-800">
+                  tarif professionnel
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => choisirClient(null)}
+                className="ml-auto text-sm font-medium text-ardoise-500 hover:text-ardoise-800"
+              >
+                Retirer
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="text-ardoise-400">passage anonyme</span>
+              <button
+                type="button"
+                onClick={() => void chercherClient()}
+                className="ml-auto text-sm font-medium text-caisse-700 hover:underline"
+              >
+                Désigner un client
+              </button>
+            </>
+          )}
+        </div>
+
         <form onSubmit={onSearchSubmit}>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg text-ardoise-400">
@@ -420,7 +498,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
         <PaymentPanel
           searchCustomers={(term) => customers.search(term)}
           customer={customer}
-          onCustomerChange={setCustomer}
+          onCustomerChange={choisirClient}
           totalCents={totals.totalCents}
           currency={cart.currency}
           onConfirm={confirmPayment}

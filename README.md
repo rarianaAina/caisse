@@ -233,7 +233,7 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 448 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
+pnpm test             # 465 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
                       #             PIN, rôles, schéma local, catalogue, stock, achats, ventes,
                       #             ardoises, ticket, ESC/POS, rapports, synchro, recherche en
                       #             volume, limitation des tentatives de connexion
@@ -314,6 +314,20 @@ de quoi la ventilation par taux serait fausse sur un ticket mêlant plusieurs
 taux — et la somme des parts tombe toujours juste au centime près.
 
 Le lecteur de code-barres est un simple clavier : aucun pilote, aucun plugin.
+
+## Tarifs gros et détail
+
+Un article porte deux prix : le détail, et un tarif de gros facultatif. Celui-ci
+s'applique de deux façons, cumulables — la **quantité** franchit un seuil, ou le
+**client est un professionnel**, auquel cas il l'obtient dès la première unité.
+
+Le client se désigne donc **avant** de scanner : le changer re-tarife tout le
+panier, y compris ce qui est déjà saisi. Le panier rejoue le barème à chaque
+changement de quantité, mais n'écrase **jamais** un prix fixé à la main.
+
+Un prix de gros supérieur au détail est refusé — c'est presque toujours une
+inversion de saisie, et elle ne se verrait qu'à l'inventaire.
+[ADR 0022](docs/adr/0022-tarifs-gros-detail.md).
 
 ## Clients et ardoise
 
@@ -459,3 +473,4 @@ marque et non de code.
 - [ADR 0019 — le back-office](docs/adr/0019-back-office.md)
 - [ADR 0020 — deux interfaces, et la porte entre elles](docs/adr/0020-deux-interfaces.md)
 - [ADR 0021 — les clés d'activation](docs/adr/0021-cles-d-activation.md)
+- [ADR 0022 — tarifs gros et détail](docs/adr/0022-tarifs-gros-detail.md)

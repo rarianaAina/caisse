@@ -27,6 +27,7 @@ const client = (overrides: Partial<Customer> = {}): Customer => ({
   address: null,
   note: null,
   creditLimitCents: 50_000,
+  wholesale: false,
   createdAt: '2026-01-01T08:00:00.000Z',
   updatedAt: '2026-01-01T08:00:00.000Z',
   deletedAt: null,

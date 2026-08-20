@@ -48,6 +48,8 @@ export const createProductSchema = z.object({
   /** Produit dont celui-ci est une déclinaison. */
   parentId: uuidSchema.nullable().optional(),
   variantLabel: z.string().trim().max(60).nullable().optional(),
+  wholesalePriceCents: z.number().int().positive().nullable().optional(),
+  wholesaleMinQtyMilli: z.number().int().min(0).optional(),
   supplierId: uuidSchema.nullable().optional(),
   /** Stock de départ, converti en mouvement « initial » à la création. */
   initialQtyMilli: qtyMilliSchema.optional(),
