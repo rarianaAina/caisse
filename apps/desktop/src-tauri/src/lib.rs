@@ -99,6 +99,7 @@ pub fn run() {
             commands::printing::print_raw,
             commands::printing::probe_printer,
             commands::printing::list_printers,
+            commands::export::write_export,
             commands::backup::backup_database,
             commands::backup::list_backups,
             commands::waiter::start_waiter_server,

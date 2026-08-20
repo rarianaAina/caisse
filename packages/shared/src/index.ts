@@ -22,6 +22,7 @@ export * from './cart/receipt.js';
 export * from './dto/sale.js';
 export * from './reports/summary.js';
 export * from './reports/refund.js';
+export * from './reports/export.js';
 export * from './escpos/encoding.js';
 export * from './escpos/builder.js';
 export * from './escpos/receipt.js';

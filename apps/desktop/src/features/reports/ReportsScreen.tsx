@@ -14,6 +14,7 @@ import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { CashSessionRepository } from '../../core/db/repositories/cash-session.repository';
 import { CashSessionPanel } from '../sale/CashSessionPanel';
+import { ExportPanel } from '../admin/ExportPanel';
 import { HistoryRepository } from '../../core/db/repositories/history.repository';
 import type { SyncEngine } from '../../core/sync/engine';
 
@@ -208,6 +209,8 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
           tiroir — et c'est le genre d'écart qu'on ne découvre qu'un soir
           où les deux ne donnent pas le même chiffre. */}
       <CashSessionPanel session={session} db={db} />
+
+      <ExportPanel session={session} db={db} />
 
       {closedSessions.length > 0 && (
         <section className="rounded-xl border border-slate-200 bg-white p-4">

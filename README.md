@@ -233,7 +233,7 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 495 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
+pnpm test             # 509 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
                       #             PIN, rôles, schéma local, catalogue, stock, achats, ventes,
                       #             ardoises, ticket, ESC/POS, rapports, synchro, recherche en
                       #             volume, limitation des tentatives de connexion
@@ -376,6 +376,18 @@ sans débiteur n'est pas une créance.
 Un règlement d'ardoise en espèces est rattaché à la session de caisse ouverte —
 sans quoi la clôture afficherait un excédent égal, au centime près, aux ardoises
 réglées ce jour-là. Détail : [ADR 0016](docs/adr/0016-encaissement-et-ardoise.md).
+
+## Export comptable
+
+Deux fichiers CSV, depuis **Administration → Rapports** : le journal des ventes
+(une ligne par ticket) et le détail (une ligne par article). Aucun total n'est
+pré-calculé — un chiffre agrégé qui ne tombe pas juste chez le comptable est
+indéfendable, des lignes brutes se vérifient.
+
+Point-virgule, virgule décimale et préfixe UTF-8 : le fichier s'ouvre du premier
+coup dans le tableur d'un comptable, sans « Ãpicerie » ni colonnes décalées. Les
+montants sortent en unités **entières** de la devise — 15 000 Ar restent
+15 000.
 
 ## Historique et rapports
 
