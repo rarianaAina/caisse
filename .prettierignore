@@ -5,5 +5,5 @@ pnpm-lock.yaml
 dist/
 **/dist/
 node_modules/
-apps/desktop/src-tauri/target/
-apps/desktop/src-tauri/gen/
+apps/*/src-tauri/target/
+apps/*/src-tauri/gen/

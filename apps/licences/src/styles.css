@@ -1,0 +1,29 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ardoise-50: #f8fafc;
+  --color-ardoise-100: #f1f5f9;
+  --color-ardoise-200: #e2e8f0;
+  --color-ardoise-300: #cbd5e1;
+  --color-ardoise-400: #94a3b8;
+  --color-ardoise-500: #64748b;
+  --color-ardoise-600: #475569;
+  --color-ardoise-700: #334155;
+  --color-ardoise-800: #1e293b;
+  --color-ardoise-900: #0f172a;
+  --color-caisse-500: #3b82f6;
+  --color-caisse-600: #2563eb;
+  --color-caisse-700: #1d4ed8;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ardoise-100);
+  color: var(--color-ardoise-900);
+  font-family: system-ui, sans-serif;
+}

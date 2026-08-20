@@ -1,6 +1,10 @@
 # 0026 — Une interface locale pour émettre les licences
 
-Statut : accepté — 20 août 2026
+Statut : **remplacée** par [ADR 0028](0028-trousseau-portable.md) — 20 août 2026
+
+> L'outil est devenu une application de bureau et la clé privée un trousseau
+> chiffré portable. Ce qui reste valable ici : le raisonnement qui a écarté une
+> page dans le back-office, et celui qui impose un socle d'émission unique.
 
 ## Contexte
 

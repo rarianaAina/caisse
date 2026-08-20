@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Clés Caisse",
+  "version": "0.4.0",
+  "identifier": "com.caisse.licences",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1421",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Clés d'activation",
+        "width": 1024,
+        "height": 760,
+        "minWidth": 820,
+        "minHeight": 600,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi", "deb", "appimage"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
+    "copyright": "© 2026 Caisse",
+    "category": "Business",
+    "shortDescription": "Émission des clés d'activation Caisse",
+    "longDescription": "Outil de l'éditeur : émet les clés d'activation du logiciel de caisse et tient le registre de ce qui a été vendu. La clé privée de signature reste dans un trousseau chiffré par phrase de passe, que l'éditeur emporte où il veut.",
+    "publisher": "Caisse",
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper" },
+      "nsis": {
+        "languages": ["French", "English"],
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    }
+  }
+}

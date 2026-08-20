@@ -1,0 +1,29 @@
+[package]
+name = "caisse-licences"
+version = "0.4.0"
+description = "Émission des clés d'activation Caisse"
+authors = ["Caisse"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "caisse_licences_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+# Choisir où vit le trousseau : disque interne, clé USB, dossier chiffré. C'est
+# tout l'objet d'un trousseau portable — l'éditeur doit pouvoir le déplacer.
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

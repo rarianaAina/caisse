@@ -12,9 +12,10 @@ coverage/
 .env.production
 !.env.production.example
 
-# tauri / rust
-apps/desktop/src-tauri/target/
-apps/desktop/src-tauri/gen/
+# tauri / rust — le motif couvre les DEUX applications (caisse, outil
+# d'émission) : les nommer une par une, c'est oublier la prochaine.
+apps/*/src-tauri/target/
+apps/*/src-tauri/gen/
 
 # bases locales de dev
 *.db

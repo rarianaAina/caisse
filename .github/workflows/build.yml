@@ -68,10 +68,18 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/desktop/src-tauri
+          workspaces: |
+            apps/desktop/src-tauri
+            apps/licences/src-tauri
 
       - run: cargo test --lib
         working-directory: apps/desktop/src-tauri
+
+      # L'écriture du trousseau est atomique et restreinte : c'est le seul
+      # exemplaire de la clé privée de l'éditeur, un fichier tronqué serait une
+      # clé perdue.
+      - run: cargo test --lib
+        working-directory: apps/licences/src-tauri
 
   # Les cinq parcours de bout en bout — 171 vérifications — ne tournaient
   # jusqu'ici que si un développeur y pensait. Ce sont pourtant les seuls tests
@@ -225,7 +233,9 @@ jobs:
       # suivantes ; sans lui, chaque poussée recompile 400 caisses.
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: apps/desktop/src-tauri
+          workspaces: |
+            apps/desktop/src-tauri
+            apps/licences/src-tauri
 
       # WebKitGTK et les bibliothèques GTK ne sont pas préinstallées sur les
       # runners Ubuntu.
@@ -254,6 +264,12 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
+      # L'outil de l'éditeur, construit pour les mêmes plateformes. Il ne
+      # reçoit AUCUN secret de signature : il ne se met pas à jour tout seul,
+      # et rien ne doit laisser croire qu'il est distribué aux clients.
+      - name: Compilation de l'outil d'émission
+        run: pnpm --filter @caisse/licences tauri build
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
@@ -266,6 +282,10 @@ jobs:
             apps/desktop/src-tauri/target/release/bundle/deb/*.deb
             apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
             apps/desktop/src-tauri/target/release/bundle/appimage/*.sig
+            apps/licences/src-tauri/target/release/bundle/nsis/*.exe
+            apps/licences/src-tauri/target/release/bundle/msi/*.msi
+            apps/licences/src-tauri/target/release/bundle/deb/*.deb
+            apps/licences/src-tauri/target/release/bundle/appimage/*.AppImage
 
   release:
     name: Publication

@@ -19,7 +19,8 @@
     "dev:desktop": "pnpm --filter @caisse/desktop dev",
     "dev:backoffice": "pnpm --filter @caisse/backoffice dev",
     "dev:tauri": "pnpm --filter @caisse/desktop tauri:dev",
-    "licences": "node scripts/licences.mjs"
+    "licences:dev": "pnpm --filter @caisse/licences tauri:dev",
+    "licences:build": "pnpm --filter @caisse/licences tauri:build"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

@@ -3,6 +3,8 @@ export * from './ids/index.js';
 export * from './money/currency.js';
 export * from './money/index.js';
 export * from './money/denominations.js';
+export * from './licence/trousseau.js';
+export * from './licence/emission.js';
 export * from './domain/index.js';
 export * from './sync/index.js';
 export * from './crypto/pin.js';
