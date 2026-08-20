@@ -119,6 +119,13 @@ jobs:
       - run: pnpm --filter @caisse/shared build
       - run: pnpm --filter @caisse/api exec prisma generate
 
+      # Les parcours interrogent le journal des changements directement en
+      # base. Le client est présent sur les images GitHub, mais l'y garantir
+      # coûte quelques secondes et évite un échec dont la cause serait à
+      # chercher loin de son symptôme.
+      - name: Client PostgreSQL
+        run: command -v psql > /dev/null || sudo apt-get install -y postgresql-client
+
       # `migrate deploy` et non `migrate dev` : on applique les migrations
       # telles qu'elles sont versionnées, sans jamais en engendrer une nouvelle.
       # C'est exactement ce que fera la mise en production.

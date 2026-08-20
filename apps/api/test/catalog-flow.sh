@@ -43,9 +43,34 @@ PG="${PG_CONTAINER:-caisse-postgres}"
 PG_USER="${PG_USER:-caisse}"
 PG_DB="${PG_DB:-caisse}"
 
+# Deux façons d'atteindre la base, et l'ordre compte.
+#
+# En intégration continue, PostgreSQL est un SERVICE CONTAINER : son nom est
+# engendré, `docker exec caisse-postgres` n'y mène pas, et le script comptait
+# alors zéro entrée au journal — trois échecs incompréhensibles, alors que
+# l'API fonctionnait parfaitement. On interroge donc la base par le réseau dès
+# qu'une URL de connexion est fournie, ce qui est le cas en CI.
+#
+# Sur un poste de développement, `psql` n'est pas forcément installé : on
+# retombe sur le client fourni par le conteneur lui-même.
+interroge() { # interroge <requête SQL> — renvoie une valeur brute, ou échoue
+  if [ -n "${DIRECT_DATABASE_URL:-}" ] && command -v psql > /dev/null 2>&1; then
+    # `?schema=public` est une convention PRISMA que libpq ne connaît pas :
+    # psql refuse l'URL entière avec « paramètre de la requête URI invalide ».
+    # On tronque donc tout ce qui suit le point d'interrogation.
+    psql "${DIRECT_DATABASE_URL%%\?*}" -tAc "$1" | tr -d ' \n'
+  elif docker exec -i "$PG" true > /dev/null 2>&1; then
+    docker exec -i "$PG" psql -U "$PG_USER" -d "$PG_DB" -tAc "$1" | tr -d ' \n'
+  else
+    # Ni l'un ni l'autre : on le DIT. Renvoyer une chaîne vide en silence
+    # déguisait un problème d'environnement en échec de test.
+    echo "base inatteignable (ni DIRECT_DATABASE_URL + psql, ni conteneur $PG)" >&2
+    echo "INATTEIGNABLE"
+  fi
+}
+
 changelog() { # changelog <entité> — nombre d'entrées pour l'entreprise de test
-  docker exec -i "$PG" psql -U "$PG_USER" -d "$PG_DB" -tAc \
-    "SELECT count(*) FROM change_log WHERE entity = '$1' AND company_id = '$COMPANY_ID'" 2>/dev/null | tr -d ' '
+  interroge "SELECT count(*) FROM change_log WHERE entity = '$1' AND company_id = '$COMPANY_ID'"
 }
 
 echo '── Mise en place ───────────────────────────────────────────────────────'
