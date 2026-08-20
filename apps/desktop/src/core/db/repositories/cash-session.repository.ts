@@ -3,10 +3,15 @@ import {
   type CashReport,
   type CashSession,
   type CustomerAccountMovement,
+  type DenominationCount,
   type PaymentMethod,
   computeCashReport,
+  countTotal,
+  denominationProblem,
+  isEmptyCount,
   newId,
   nowIso,
+  serializeCount,
 } from '@caisse/shared';
 import type { SqlExecutor } from '../client';
 import { chunk } from '../chunk';
@@ -26,6 +31,8 @@ const mapSession = (row: Record<string, unknown>): CashSession => ({
   countedCents: row['counted_cents'] === null ? null : Number(row['counted_cents']),
   expectedCents: row['expected_cents'] === null ? null : Number(row['expected_cents']),
   differenceCents: row['difference_cents'] === null ? null : Number(row['difference_cents']),
+  openingCount: row['opening_count'] == null ? null : String(row['opening_count']),
+  closingCount: row['closing_count'] == null ? null : String(row['closing_count']),
   status: String(row['status']) as CashSession['status'],
   createdAt: String(row['created_at']),
   updatedAt: String(row['updated_at']),
@@ -75,11 +82,29 @@ export class CashSessionRepository {
     return row ? mapSession(row) : null;
   }
 
-  async open(params: { openingFloatCents: number; userId: string }): Promise<CashSession> {
+  /**
+   * Ouverture.
+   *
+   * Le billetage est FACULTATIF. Un commerçant dont le fond vaut toujours
+   * 50 000 Ar dans une boîte ne doit pas saisir huit lignes chaque matin. Mais
+   * dès qu'il est saisi, c'est LUI qui fait foi : le fond en découle, et le
+   * total éventuellement passé en paramètre est ignoré. Deux chiffres qui se
+   * contredisent dans la même écriture ne se départagent pas plus tard.
+   */
+  async open(params: {
+    openingFloatCents: number;
+    userId: string;
+    count?: DenominationCount | null;
+    currency?: string;
+  }): Promise<CashSession> {
     if (await this.current()) {
       throw new CashSessionError('Une session est déjà ouverte sur cette caisse');
     }
-    if (params.openingFloatCents < 0) {
+
+    const compte = this.verifyCount(params.count, params.currency);
+    const fond = compte ? countTotal(compte, params.currency ?? '') : params.openingFloatCents;
+
+    if (fond < 0) {
       throw new CashSessionError('Le fond de caisse ne peut pas être négatif');
     }
 
@@ -91,12 +116,14 @@ export class CashSessionRepository {
       registerId: this.context.registerId,
       openedBy: params.userId,
       openedAt: now,
-      openingFloatCents: params.openingFloatCents,
+      openingFloatCents: fond,
       closedBy: null,
       closedAt: null,
       countedCents: null,
       expectedCents: null,
       differenceCents: null,
+      openingCount: serializeCount(compte),
+      closingCount: null,
       status: 'open',
       createdAt: now,
       updatedAt: now,
@@ -107,8 +134,9 @@ export class CashSessionRepository {
     await this.db.transaction(async () => {
       await this.db.execute(
         `INSERT INTO cash_session (id, company_id, store_id, register_id, opened_by, opened_at,
-                                   opening_float_cents, status, created_at, updated_at, version)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, 1)`,
+                                   opening_float_cents, opening_count, status,
+                                   created_at, updated_at, version)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, 1)`,
         [
           session.id,
           session.companyId,
@@ -117,6 +145,7 @@ export class CashSessionRepository {
           session.openedBy,
           session.openedAt,
           session.openingFloatCents,
+          session.openingCount,
           now,
           now,
         ],
@@ -187,16 +216,26 @@ export class CashSessionRepository {
    * indispensable — une vente arrivée d'une autre caisse après la clôture
    * changerait le chiffre et ferait apparaître un écart qui n'a jamais existé.
    */
-  async close(params: { countedCents: number; userId: string }): Promise<CashSession> {
+  async close(params: {
+    countedCents: number;
+    userId: string;
+    count?: DenominationCount | null;
+    currency?: string;
+  }): Promise<CashSession> {
     const session = await this.current();
     if (!session) throw new CashSessionError('Aucune session ouverte');
+
+    const compte = this.verifyCount(params.count, params.currency);
+    // Le billetage l'emporte, comme à l'ouverture : c'est le comptage
+    // vérifiable, et c'est sur lui que l'écart sera constaté.
+    const compte_ = compte ? countTotal(compte, params.currency ?? '') : params.countedCents;
 
     const { sales, payments } = await this.movementsOf(session.id);
     const report = computeCashReport({
       openingFloatCents: session.openingFloatCents,
       sales,
       payments,
-      countedCents: params.countedCents,
+      countedCents: compte_,
       // Une ardoise réglée en espèces remplit le tiroir sans qu'aucune vente ne
       // l'explique : l'omettre ferait apparaître un excédent tous les soirs où
       // un client vient solder son compte.
@@ -212,6 +251,7 @@ export class CashSessionRepository {
       countedCents: report.countedCents,
       expectedCents: report.expectedCents,
       differenceCents: report.differenceCents,
+      closingCount: serializeCount(compte),
       status: 'closed',
       updatedAt: now,
       version: session.version + 1,
@@ -220,8 +260,8 @@ export class CashSessionRepository {
     await this.db.transaction(async () => {
       await this.db.execute(
         `UPDATE cash_session SET closed_by = ?, closed_at = ?, counted_cents = ?,
-                                 expected_cents = ?, difference_cents = ?, status = 'closed',
-                                 updated_at = ?, version = version + 1
+                                 expected_cents = ?, difference_cents = ?, closing_count = ?,
+                                 status = 'closed', updated_at = ?, version = version + 1
          WHERE id = ?`,
         [
           closed.closedBy,
@@ -229,6 +269,7 @@ export class CashSessionRepository {
           closed.countedCents,
           closed.expectedCents,
           closed.differenceCents,
+          closed.closingCount,
           now,
           session.id,
         ],
@@ -243,6 +284,7 @@ export class CashSessionRepository {
           countedCents: closed.countedCents,
           expectedCents: closed.expectedCents,
           differenceCents: closed.differenceCents,
+          closingCount: closed.closingCount,
           status: 'closed',
           updatedAt: now,
         },
@@ -252,6 +294,32 @@ export class CashSessionRepository {
     });
 
     return closed;
+  }
+
+  /**
+   * Valide un billetage, ou rend `null` s'il n'y en a pas.
+   *
+   * Vérifié ICI et pas seulement à l'écran : un comptage incohérent qui
+   * traverserait la synchronisation ferait diverger le total affiché à la
+   * caisse de celui affiché au back-office, sans que rien ne le signale.
+   */
+  private verifyCount(
+    count: DenominationCount | null | undefined,
+    currency: string | undefined,
+  ): DenominationCount | null {
+    if (count === null || count === undefined) return null;
+    if (!currency) {
+      throw new CashSessionError('Devise inconnue : impossible de totaliser le billetage.');
+    }
+
+    // On VALIDE avant de conclure à l'absence. Un comptage ne contenant que des
+    // lignes absurdes — « −2 billets de 1 000 » — compte zéro coupure, donc
+    // paraîtrait vide : il deviendrait une ouverture ordinaire au total tapé,
+    // sans que rien ne signale que la saisie n'avait aucun sens.
+    const probleme = denominationProblem(count, currency);
+    if (probleme) throw new CashSessionError(probleme);
+
+    return isEmptyCount(count) ? null : count;
   }
 
   async listClosed(limit = 20): Promise<CashSession[]> {

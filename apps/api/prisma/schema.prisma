@@ -10,6 +10,24 @@
 // Prisma : @caisse/shared reste l'unique source de vérité des unions de valeurs.
 // Les contraintes CHECK correspondantes sont posées par la migration
 // `..._hardening` (Prisma ne les modélise pas, mais ne les supprime pas non plus).
+//
+// ⚠️ LES MIGRATIONS SONT ÉCRITES À LA MAIN. N'utilisez que `prisma migrate
+//    deploy`, jamais `migrate dev` ni `db push`.
+//
+//    Ce fichier décrit le schéma ; les migrations le CONSTRUISENT, en SQL brut,
+//    avec des index et des contraintes que Prisma ne modélise pas toujours. Tout
+//    ce qui n'est pas déclaré ici, Prisma le tient pour une dérive et l'efface
+//    dans la migration qu'il engendre. C'est arrivé à `ix_product_parent`, créé
+//    par `..._variantes` et absent d'ici : une migration engendrée l'a supprimé
+//    sans que rien ne le signale. Il est désormais déclaré (cf. modèle Product).
+//
+//    Une dérive subsiste, tolérée : les clés étrangères écrites en SQL brut n'ont
+//    pas `ON UPDATE CASCADE`, que Prisma souhaiterait. Sans effet ici — les clés
+//    primaires sont des UUID, jamais modifiés.
+//
+// ⚠️ NE PASSEZ JAMAIS `DIRECT_DATABASE_URL` COMME `--shadow-database-url`.
+//    Prisma RÉINITIALISE la base fantôme : pointée sur la vraie base, elle en
+//    efface le contenu. Pour comparer sans risque, donnez une base jetable.
 // ============================================================================
 
 generator client {
@@ -261,6 +279,12 @@ model Product {
   @@unique([companyId, barcode])
   @@index([companyId, categoryId])
   @@index([companyId, name])
+  // Déclaré ici ALORS QU'il est créé en SQL brut par la migration
+  // `20260811090000_variantes`. Sans cette ligne, Prisma ne connaît pas
+  // l'index, le tient pour une dérive, et l'efface à la première migration
+  // engendrée — ce qui est arrivé. `map` reprend son nom d'origine pour ne pas
+  // en créer un second sous un autre nom.
+  @@index([parentId], map: "ix_product_parent")
   @@map("product")
 }
 
@@ -323,6 +347,10 @@ model CashSession {
   countedCents      Int?      @map("counted_cents")
   expectedCents     Int?      @map("expected_cents")
   differenceCents   Int?      @map("difference_cents")
+  /// Billetage d'ouverture, JSON { "20000": 3, "1000": 12 }. NULL = non saisi.
+  openingCount      String?   @map("opening_count")
+  /// Billetage de clôture. NULL = le total a été saisi directement.
+  closingCount      String?   @map("closing_count")
   /// 'open' | 'closed'
   status            String    @default("open")
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)

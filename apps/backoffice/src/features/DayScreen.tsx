@@ -4,9 +4,11 @@ import {
   type CashSession,
   type SalesSummary,
   type Store,
+  countLines,
   formatMoney,
   formatQty,
   formatTaxRate,
+  parseCount,
 } from '@caisse/shared';
 import { api } from '../core/api';
 import { describeError } from '../App';
@@ -22,6 +24,51 @@ import { describeError } from '../App';
  * (`summarizeSales`, dans @caisse/shared) : un commerçant qui compare les deux
  * ne doit pas trouver deux résultats.
  */
+/**
+ * Détail des coupures d'une session.
+ *
+ * POURQUOI LE GÉRANT LE VOIT. Un écart de caisse est un chiffre ; le billetage
+ * est ce qui permet de savoir, un mois plus tard, sur quoi il a été constaté.
+ * Sans lui, un écart de 10 000 Ar ne se distingue pas d'une erreur d'addition —
+ * et c'est un caissier qu'on soupçonne.
+ */
+function Billetage({
+  ouverture,
+  cloture,
+  currency,
+}: {
+  ouverture: string | null;
+  cloture: string | null;
+  currency: string;
+}) {
+  // Un billetage illisible ne doit pas empêcher d'afficher la session : son
+  // attendu et son écart valent indépendamment du détail des coupures.
+  const lignes = (brut: string | null): string | null => {
+    const compte = parseCount(brut);
+    if (compte === null) return null;
+    return countLines(compte, currency)
+      .map((ligne) => `${String(ligne.quantity)} × ${formatMoney(ligne.value, currency)}`)
+      .join(' · ');
+  };
+
+  const entrees = [
+    { titre: 'ouverture', detail: lignes(ouverture) },
+    { titre: 'clôture', detail: lignes(cloture) },
+  ].filter((entree): entree is { titre: string; detail: string } => entree.detail !== null);
+
+  if (entrees.length === 0) return null;
+
+  return (
+    <div className="w-full text-xs text-ardoise-400">
+      {entrees.map((entree) => (
+        <p key={entree.titre}>
+          <span className="text-ardoise-500">{entree.titre}</span> {entree.detail}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 export function DayScreen({ store, currency }: { store: Store; currency: string }) {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [summary, setSummary] = useState<SalesSummary | null>(null);
@@ -165,6 +212,14 @@ export function DayScreen({ store, currency }: { store: Store; currency: string 
                 attendu {entry.expectedCents === null ? '—' : money(entry.expectedCents)} · compté{' '}
                 {entry.countedCents === null ? '—' : money(entry.countedCents)}
               </span>
+              {/* La pièce justificative de l'écart. Elle n'apparaît que si le
+                  tiroir a été compté coupure par coupure — sinon la ligne
+                  n'apprendrait rien et allongerait la liste pour rien. */}
+              <Billetage
+                ouverture={entry.openingCount}
+                cloture={entry.closingCount}
+                currency={currency}
+              />
             </li>
           ))}
           {sessions.length === 0 && (

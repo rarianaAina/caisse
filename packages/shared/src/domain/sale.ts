@@ -86,6 +86,14 @@ export interface CashSession extends SyncMeta {
   countedCents: Cents | null; // comptage physique
   expectedCents: Cents | null; // fond + ventes espèces
   differenceCents: Cents | null; // écart de caisse
+  /**
+   * Billetage, en JSON — `{"20000":3,"1000":12}` — ou `null` si le total a été
+   * saisi directement. Transporté en TEXTE, jamais en objet : c'est une
+   * constatation figée qui doit traverser les deux bases et la synchronisation
+   * exactement telle qu'elle a été écrite. Se lit avec `parseCount`.
+   */
+  openingCount: string | null;
+  closingCount: string | null;
   status: CashSessionStatus;
 }
 

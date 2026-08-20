@@ -94,6 +94,8 @@ export function toCashSession(row: PrismaCashSession): CashSession {
     countedCents: row.countedCents,
     expectedCents: row.expectedCents,
     differenceCents: row.differenceCents,
+    openingCount: row.openingCount,
+    closingCount: row.closingCount,
     status: row.status as CashSessionStatus,
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),

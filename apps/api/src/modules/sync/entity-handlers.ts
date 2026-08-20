@@ -334,7 +334,17 @@ const PAYMENT: ImmutableHandler = {
  */
 const CASH_SESSION: MutableHandler = {
   kind: 'mutable',
-  writable: ['closedBy', 'closedAt', 'countedCents', 'expectedCents', 'differenceCents', 'status'],
+  writable: [
+    'closedBy',
+    'closedAt',
+    'countedCents',
+    'expectedCents',
+    'differenceCents',
+    // Le billetage de CLÔTURE seulement : celui d'ouverture est écrit à la
+    // création et ne se réécrit pas, comme le fond de caisse.
+    'closingCount',
+    'status',
+  ],
   async find(tx, id) {
     return (await tx.cashSession.findUnique({ where: { id } })) as EntityRow | null;
   },
@@ -348,6 +358,7 @@ const CASH_SESSION: MutableHandler = {
         openedBy: str(payload['openedBy']),
         openedAt: date(payload['openedAt']),
         openingFloatCents: int(payload['openingFloatCents']),
+        openingCount: strOrNull(payload['openingCount']),
         status: str(payload['status'] ?? 'open'),
         createdAt: date(payload['createdAt']),
         updatedAt: date(payload['updatedAt']),

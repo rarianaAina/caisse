@@ -435,6 +435,14 @@ caisse en retard qui remonterait ses ventes après coup ferait apparaître un
 Ouvrir une session sert à contrôler le tiroir, **pas** à autoriser la vente :
 vendre sans session ouverte reste possible.
 
+Le tiroir peut se compter **coupure par coupure**, à l'ouverture comme à la
+clôture. C'est facultatif — un fond toujours identique ne doit pas coûter huit
+lignes de saisie chaque matin — mais dès qu'une coupure est comptée, c'est le
+comptage qui fait foi et le total en découle. Un écart de caisse adossé à un
+billetage se recommence ; adossé à une addition mentale, il ne se vérifie pas,
+et c'est un caissier qu'on soupçonne. Le détail est repris dans les rapports et
+dans le back-office : [ADR 0027](docs/adr/0027-billetage.md).
+
 ## Deux rôles PostgreSQL, et pourquoi
 
 PostgreSQL laisse un **superutilisateur** et le **propriétaire d'une table**
@@ -551,3 +559,4 @@ marque et non de code.
 - [ADR 0024 — les promotions](docs/adr/0024-promotions.md)
 - [ADR 0025 — paniers mis de côté : attentes et devis](docs/adr/0025-devis-et-attentes.md)
 - [ADR 0026 — une interface locale pour émettre les licences](docs/adr/0026-outil-d-emission.md)
+- [ADR 0027 — le billetage du tiroir](docs/adr/0027-billetage.md)

@@ -5,10 +5,12 @@ import {
   type CashSession,
   type SalesSummary,
   can,
+  countLines,
   formatMoney,
   formatQty,
   formatTaxRate,
   parseAmount,
+  parseCount,
 } from '@caisse/shared';
 import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
@@ -216,20 +218,35 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <h3 className="text-sm font-medium text-slate-700">Dernières clôtures</h3>
           <ul className="mt-2 space-y-1.5 text-sm">
-            {closedSessions.map((closed) => (
-              <li key={closed.id} className="flex justify-between gap-2">
-                <span className="text-slate-500">
-                  {closed.closedAt && new Date(closed.closedAt).toLocaleString('fr-FR')}
-                </span>
-                <span
-                  className={`tabular-nums ${
-                    (closed.differenceCents ?? 0) === 0 ? 'text-emerald-700' : 'text-amber-800'
-                  }`}
-                >
-                  écart {formatMoney(closed.differenceCents ?? 0, currency)}
-                </span>
-              </li>
-            ))}
+            {closedSessions.map((closed) => {
+              // La pièce justificative de l'écart : sur QUOI il a été constaté.
+              // Absente quand le total a été saisi directement.
+              const compte = parseCount(closed.closingCount);
+              return (
+                <li key={closed.id} className="flex flex-wrap justify-between gap-x-2">
+                  <span className="text-slate-500">
+                    {closed.closedAt && new Date(closed.closedAt).toLocaleString('fr-FR')}
+                  </span>
+                  <span
+                    className={`tabular-nums ${
+                      (closed.differenceCents ?? 0) === 0 ? 'text-emerald-700' : 'text-amber-800'
+                    }`}
+                  >
+                    écart {formatMoney(closed.differenceCents ?? 0, currency)}
+                  </span>
+                  {compte && (
+                    <span className="w-full text-xs text-slate-400">
+                      {countLines(compte, currency)
+                        .map(
+                          (ligne) =>
+                            `${String(ligne.quantity)} × ${formatMoney(ligne.value, currency)}`,
+                        )
+                        .join(' · ')}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}

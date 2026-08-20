@@ -95,6 +95,7 @@ push "$DEVICE" "{\"mutationId\":\"$(uuid)\",\"entity\":\"cash_session\",\"entity
   \"op\":\"create\",\"baseVersion\":null,\"deviceId\":\"$DEVICE\",\"clientTs\":\"$TS\",
   \"payload\":{\"id\":\"$SESSION_ID\",\"storeId\":\"$STORE_ID\",\"registerId\":\"$REGISTER_ID\",
   \"openedBy\":\"$USER_ID\",\"openedAt\":\"$TS\",\"openingFloatCents\":5000,\"status\":\"open\",
+  \"openingCount\":\"{\\\"2000\\\":2,\\\"500\\\":2}\",
   \"createdAt\":\"$TS\",\"updatedAt\":\"$TS\"}}" > /dev/null
 check "session de caisse ouverte" applied "$(field 'd.results[0].status')"
 
@@ -159,12 +160,21 @@ TS=$(now)
 push "$DEVICE" "{\"mutationId\":\"$(uuid)\",\"entity\":\"cash_session\",\"entityId\":\"$SESSION_ID\",
   \"op\":\"update\",\"baseVersion\":1,\"deviceId\":\"$DEVICE\",\"clientTs\":\"$TS\",
   \"payload\":{\"status\":\"closed\",\"closedBy\":\"$USER_ID\",\"closedAt\":\"$TS\",
-  \"countedCents\":7150,\"expectedCents\":7200,\"differenceCents\":-50,\"updatedAt\":\"$TS\"}}" > /dev/null
+  \"countedCents\":7150,\"expectedCents\":7200,\"differenceCents\":-50,
+  \"closingCount\":\"{\\\"5000\\\":1,\\\"2000\\\":1,\\\"100\\\":1,\\\"50\\\":1}\",
+  \"updatedAt\":\"$TS\"}}" > /dev/null
 check "la clôture remonte" applied "$(field 'd.results[0].status')"
 
 status GET "/reports/cash-sessions?storeId=$STORE_ID" "" "$TOKEN" > /dev/null
 check "session clôturée" closed "$(field 'd[0].status')"
 check "écart de caisse conservé" -50 "$(field 'd[0].differenceCents')"
+
+# Le billetage est la PIÈCE JUSTIFICATIVE de l'écart : sans lui, un écart de
+# 50 ne se distingue pas d'une erreur d'addition, et c'est un caissier qu'on
+# soupçonne. Il doit donc survivre au voyage, octet pour octet.
+check "billetage d'ouverture conservé" '{"2000":2,"500":2}' "$(field 'd[0].openingCount')"
+check "billetage de clôture conservé" '{"5000":1,"2000":1,"100":1,"50":1}' \
+  "$(field 'd[0].closingCount')"
 
 # Une vente arrivée après la clôture ne doit pas réécrire l'écart constaté.
 SALE_4=$(uuid); sale "$SALE_4" 5000 0 cash "$SESSION_ID"

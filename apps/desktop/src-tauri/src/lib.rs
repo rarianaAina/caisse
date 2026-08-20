@@ -73,6 +73,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0010_paniers_en_attente.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 11,
+            description: "billetage : détail des coupures à l'ouverture et à la clôture",
+            sql: include_str!("../migrations/0011_billetage.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { type CashReport, type CashSession, can, formatMoney, parseAmount } from '@caisse/shared';
+import {
+  type CashReport,
+  type CashSession,
+  type DenominationCount,
+  can,
+  countTotal,
+  formatMoney,
+  isEmptyCount,
+  parseAmount,
+  supportsDenominations,
+} from '@caisse/shared';
+import { Billetage } from './Billetage';
 import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { CashSessionRepository } from '../../core/db/repositories/cash-session.repository';
@@ -25,6 +36,8 @@ export function CashSessionPanel({ session, db }: { session: LocalSession; db: S
   const [current, setCurrent] = useState<CashSession | null>(null);
   const [report, setReport] = useState<CashReport | null>(null);
   const [input, setInput] = useState('');
+  const [count, setCount] = useState<DenominationCount>({});
+  const [detaille, setDetaille] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -60,6 +73,8 @@ export function CashSessionPanel({ session, db }: { session: LocalSession; db: S
     try {
       setNotice(await action());
       setInput('');
+      setCount({});
+      setDetaille(false);
       await reload();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Opération impossible');
@@ -70,25 +85,47 @@ export function CashSessionPanel({ session, db }: { session: LocalSession; db: S
 
   const ouvrir = (): Promise<void> =>
     run(async () => {
-      const cents = input.trim() === '' ? 0 : parseAmount(input, currency);
+      const cents = compte ? countTotal(count, currency) : parseAmount(input, currency);
       if (cents === null) throw new Error('Fond de caisse invalide');
-      await sessions.open({ openingFloatCents: cents, userId: session.user.id });
-      return `Caisse ouverte avec ${formatMoney(cents, currency)} de fond.`;
+      const ouverte = await sessions.open({
+        openingFloatCents: cents,
+        userId: session.user.id,
+        count: compte ? count : null,
+        currency,
+      });
+      return `Caisse ouverte avec ${formatMoney(ouverte.openingFloatCents, currency)} de fond.`;
     });
 
   const cloturer = (): Promise<void> =>
     run(async () => {
-      const cents = parseAmount(input, currency);
+      const cents = compte ? countTotal(count, currency) : parseAmount(input, currency);
       if (cents === null) throw new Error('Montant compté invalide');
-      const closed = await sessions.close({ countedCents: cents, userId: session.user.id });
+      const closed = await sessions.close({
+        countedCents: cents,
+        userId: session.user.id,
+        count: compte ? count : null,
+        currency,
+      });
       const ecart = closed.differenceCents ?? 0;
       return ecart === 0
         ? 'Caisse clôturée, le tiroir tombe juste.'
         : `Caisse clôturée — écart de ${formatMoney(ecart, currency)}.`;
     });
 
-  const ecartPrevu =
-    input !== '' && report ? (parseAmount(input, currency) ?? 0) - report.expectedCents : null;
+  /**
+   * Le billetage l'emporte sur la saisie directe.
+   *
+   * Deux chiffres qui se contredisent dans la même écriture ne se départagent
+   * pas plus tard : dès qu'une coupure est comptée, c'est le comptage qui fait
+   * foi, et le champ « total » est neutralisé à l'écran comme au dépôt.
+   */
+  const compte = detaille && !isEmptyCount(count);
+  const saisi = compte
+    ? countTotal(count, currency)
+    : input === ''
+      ? null
+      : parseAmount(input, currency);
+  const ecartPrevu = saisi !== null && report ? saisi - report.expectedCents : null;
 
   return (
     <section className="carte p-5">
@@ -120,21 +157,40 @@ export function CashSessionPanel({ session, db }: { session: LocalSession; db: S
             ))}
           </dl>
 
+          {supportsDenominations(currency) && (
+            <label className="mt-4 flex items-center gap-2 text-sm text-ardoise-600">
+              <input
+                type="checkbox"
+                checked={detaille}
+                onChange={(event) => {
+                  setDetaille(event.target.checked);
+                  if (!event.target.checked) setCount({});
+                }}
+                className="size-4 rounded border-ardoise-300"
+              />
+              Compter les coupures
+            </label>
+          )}
+          {detaille && (
+            <Billetage count={count} currency={currency} onChange={setCount} disabled={busy} />
+          )}
+
           <div className="mt-4 flex flex-wrap items-end gap-3">
             <label className="text-sm font-medium text-ardoise-700" htmlFor="compte">
               Montant compté dans le tiroir
               <input
                 id="compte"
                 inputMode="decimal"
-                value={input}
+                disabled={compte}
+                value={compte ? String(countTotal(count, currency)) : input}
                 onChange={(event) => setInput(event.target.value)}
                 placeholder="0"
-                className="mt-1 w-48 rounded-lg border border-ardoise-300 px-3 py-2 text-right tabular-nums outline-none focus:border-caisse-500"
+                className="mt-1 w-48 rounded-lg border border-ardoise-300 px-3 py-2 text-right tabular-nums outline-none focus:border-caisse-500 disabled:bg-ardoise-100 disabled:text-ardoise-500"
               />
             </label>
             <button
               type="button"
-              disabled={busy || input === ''}
+              disabled={busy || saisi === null}
               onClick={() => void cloturer()}
               className="rounded-lg bg-caisse-600 px-5 py-2.5 font-medium text-white transition hover:bg-caisse-700 disabled:opacity-40"
             >
@@ -161,16 +217,35 @@ export function CashSessionPanel({ session, db }: { session: LocalSession; db: S
             Aucune session ouverte. La vente reste possible sans — ouvrir une session sert à
             contrôler le tiroir, pas à autoriser l’encaissement.
           </p>
+          {supportsDenominations(currency) && (
+            <label className="mt-4 flex items-center gap-2 text-sm text-ardoise-600">
+              <input
+                type="checkbox"
+                checked={detaille}
+                onChange={(event) => {
+                  setDetaille(event.target.checked);
+                  if (!event.target.checked) setCount({});
+                }}
+                className="size-4 rounded border-ardoise-300"
+              />
+              Compter les coupures
+            </label>
+          )}
+          {detaille && (
+            <Billetage count={count} currency={currency} onChange={setCount} disabled={busy} />
+          )}
+
           <div className="mt-4 flex flex-wrap items-end gap-3">
             <label className="text-sm font-medium text-ardoise-700" htmlFor="fond">
               Fond de caisse
               <input
                 id="fond"
                 inputMode="decimal"
-                value={input}
+                disabled={compte}
+                value={compte ? String(countTotal(count, currency)) : input}
                 onChange={(event) => setInput(event.target.value)}
                 placeholder="0"
-                className="mt-1 w-48 rounded-lg border border-ardoise-300 px-3 py-2 text-right tabular-nums outline-none focus:border-caisse-500"
+                className="mt-1 w-48 rounded-lg border border-ardoise-300 px-3 py-2 text-right tabular-nums outline-none focus:border-caisse-500 disabled:bg-ardoise-100 disabled:text-ardoise-500"
               />
             </label>
             <button
