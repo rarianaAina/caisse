@@ -34,6 +34,7 @@ import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { CatalogRepository } from '../../core/db/repositories/catalog.repository';
 import { CustomerRepository } from '../../core/db/repositories/customer.repository';
+import { type HeldCart, HeldCartRepository } from '../../core/db/repositories/held-cart.repository';
 import { PromotionRepository } from '../../core/db/repositories/promotion.repository';
 import { META_KEYS, MetaRepository } from '../../core/db/repositories/meta.repository';
 import { SaleRepository } from '../../core/db/repositories/sale.repository';
@@ -81,6 +82,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
   /** Format de la balance du rayon ; `null` = ce magasin n'en a pas. */
   const [scale, setScale] = useState<ScaleFormat | null>(null);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [enAttente, setEnAttente] = useState<HeldCart[]>([]);
 
   const choisirClient = (choisi: Customer | null): void => {
     setCustomer(choisi);
@@ -92,6 +94,16 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
 
   const catalog = useMemo(
     () => new CatalogRepository(db, { companyId: session.company.id, deviceId: session.deviceId }),
+    [db, session],
+  );
+  const held = useMemo(
+    () =>
+      new HeldCartRepository(db, {
+        companyId: session.company.id,
+        storeId: session.store.id,
+        registerId: session.register.id,
+        deviceId: session.deviceId,
+      }),
     [db, session],
   );
   const promoRepo = useMemo(
@@ -167,6 +179,64 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
   useEffect(() => {
     void promoRepo.active().then(setPromotions);
   }, [promoRepo]);
+
+  useEffect(() => {
+    void held.waiting().then(setEnAttente);
+  }, [held]);
+
+  /**
+   * Met le panier de côté et libère le comptoir.
+   *
+   * Le geste qui manquait : un client cherche son portefeuille, un autre attend
+   * derrière. Sans lui, le caissier doit vider le panier et tout rescanner —
+   * ou faire patienter la file.
+   */
+  const mettreDeCote = (kind: 'attente' | 'devis'): void => {
+    void (async () => {
+      const defaut =
+        kind === 'devis' ? (customer?.name ?? 'Devis') : `Client ${String(enAttente.length + 1)}`;
+      const label = window.prompt(
+        kind === 'devis' ? 'Nom du devis' : 'Comment le retrouver ?',
+        defaut,
+      );
+      if (label === null) return;
+
+      try {
+        await held.hold({
+          kind,
+          label,
+          cart: panierPromu,
+          totalCents: totals.totalCents,
+          customerId: customer?.id ?? null,
+          // Un devis engage sur une durée : un mois est l'usage, et un devis
+          // sans échéance est un prix qu'on vous opposera dans deux ans.
+          validUntil:
+            kind === 'devis'
+              ? new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10)
+              : null,
+          userId: session.user.id,
+        });
+        setCart((current) => clearCart(current));
+        choisirClient(null);
+        setEnAttente(await held.waiting());
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Mise de côté impossible');
+      }
+    })();
+  };
+
+  /** Reprend un panier mis de côté : il quitte la liste et revient au comptoir. */
+  const reprendre = (entry: HeldCart): void => {
+    void (async () => {
+      if (cart.lines.length > 0) {
+        setError('Terminez ou mettez de côté le panier en cours avant d’en reprendre un.');
+        return;
+      }
+      setCart((current) => ({ ...current, lines: entry.lines, discountCents: 0 }));
+      await held.release(entry.id);
+      setEnAttente(await held.waiting());
+    })();
+  };
 
   useEffect(() => {
     void new MetaRepository(db).get(META_KEYS.scaleFormat).then((brut) => {
@@ -358,6 +428,24 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
             </>
           )}
         </div>
+
+        {/* Les paniers en attente sont VISIBLES, pas rangés dans un menu : un
+            client qu'on a mis de côté et qu'on oublie est un client qui part. */}
+        {enAttente.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5">
+            <span className="text-sm font-medium text-amber-900">En attente</span>
+            {enAttente.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => reprendre(entry)}
+                className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 hover:border-amber-500"
+              >
+                {entry.label} · {formatMoney(entry.totalCents, cart.currency)}
+              </button>
+            ))}
+          </div>
+        )}
 
         <form onSubmit={onSearchSubmit}>
           <div className="relative">
@@ -571,6 +659,22 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
         </div>
 
         <div className="flex gap-2 border-t border-ardoise-200 p-3">
+          <button
+            type="button"
+            onClick={() => mettreDeCote('attente')}
+            disabled={cart.lines.length === 0}
+            className="rounded-lg border border-ardoise-300 px-3 py-2.5 text-sm font-medium text-ardoise-700 disabled:opacity-40"
+          >
+            Mettre de côté
+          </button>
+          <button
+            type="button"
+            onClick={() => mettreDeCote('devis')}
+            disabled={cart.lines.length === 0}
+            className="rounded-lg border border-ardoise-300 px-3 py-2.5 text-sm font-medium text-ardoise-700 disabled:opacity-40"
+          >
+            Devis
+          </button>
           <button
             type="button"
             onClick={askDiscount}

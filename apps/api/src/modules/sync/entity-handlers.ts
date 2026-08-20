@@ -671,6 +671,72 @@ const PROMOTION: MutableHandler = {
 };
 
 /**
+ * Devis.
+ *
+ * MUTABLE et non immuable, malgré son air de pièce close : un devis se
+ * supprime quand il est repris en caisse, et cette suppression doit voyager —
+ * sans quoi un devis déjà facturé resterait proposé sur les autres postes, et
+ * un caissier pressé le facturerait deux fois.
+ *
+ * Rien d'autre n'est modifiable : un devis remis au client ne se réécrit pas.
+ * On en émet un nouveau.
+ */
+const HELD_CART: MutableHandler = {
+  kind: 'mutable',
+  writable: ['deletedAt'],
+  async find(tx, id) {
+    return (await tx.heldCart.findUnique({ where: { id } })) as EntityRow | null;
+  },
+  async create(tx, companyId, payload) {
+    return (await tx.heldCart.create({
+      data: {
+        id: str(payload['id']),
+        companyId,
+        storeId: str(payload['storeId']),
+        registerId: str(payload['registerId']),
+        kind: str(payload['kind'] ?? 'devis'),
+        label: str(payload['label']),
+        customerId: strOrNull(payload['customerId']),
+        lines: str(payload['lines']),
+        currency: str(payload['currency'] ?? 'EUR'),
+        totalCents: int(payload['totalCents']),
+        note: strOrNull(payload['note']),
+        validUntil: strOrNull(payload['validUntil']),
+        createdBy: strOrNull(payload['createdBy']),
+        createdAt: date(payload['createdAt']),
+        updatedAt: date(payload['updatedAt']),
+      },
+    })) as EntityRow;
+  },
+  async update(tx, id, data, updatedAt) {
+    return (await tx.heldCart.update({
+      where: { id },
+      data: { ...data, updatedAt, version: { increment: 1 } },
+    })) as EntityRow;
+  },
+  toPayload: (row) => ({
+    id: str(row['id']),
+    companyId: str(row['companyId']),
+    storeId: str(row['storeId']),
+    registerId: str(row['registerId']),
+    kind: str(row['kind']),
+    label: str(row['label']),
+    customerId: strOrNull(row['customerId']),
+    lines: str(row['lines']),
+    currency: str(row['currency']),
+    totalCents: int(row['totalCents']),
+    note: strOrNull(row['note']),
+    validUntil: strOrNull(row['validUntil']),
+    createdBy: strOrNull(row['createdBy']),
+    createdAt: (row['createdAt'] as Date).toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+    version: row.version,
+  }),
+  storeIdOf: (row) => strOrNull(row['storeId']),
+};
+
+/**
  * Entités acceptées par le push.
  *
  * Une entité absente d'ici est rejetée : mieux vaut refuser explicitement une

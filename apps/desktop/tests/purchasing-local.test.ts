@@ -6,6 +6,8 @@ import {
   PurchasingRepository,
 } from '../src/core/db/repositories/purchasing.repository';
 import { CustomerRepository } from '../src/core/db/repositories/customer.repository';
+import { HeldCartRepository } from '../src/core/db/repositories/held-cart.repository';
+import { OutboxRepository } from '../src/core/db/repositories/outbox.repository';
 import { StockRepository } from '../src/core/db/repositories/stock.repository';
 import { NodeSqliteExecutor } from './helpers/sqlite-executor';
 
@@ -20,6 +22,7 @@ const COMPANY_ID = newId();
 const STORE_ID = newId();
 const USER_ID = newId();
 const DEVICE_ID = newId();
+const REGISTER_ID = newId();
 
 let db: NodeSqliteExecutor;
 let purchasing: PurchasingRepository;
@@ -37,6 +40,11 @@ const seed = async (): Promise<void> => {
     `INSERT INTO store (id, company_id, name, code, created_at, updated_at)
      VALUES (?, ?, 'Magasin', 'PRINCIPAL', ?, ?)`,
     [STORE_ID, COMPANY_ID, t, t],
+  );
+  await db.execute(
+    `INSERT INTO register (id, company_id, store_id, name, receipt_prefix, created_at, updated_at)
+     VALUES (?, ?, ?, 'Caisse 1', 'C1', ?, ?)`,
+    [REGISTER_ID, COMPANY_ID, STORE_ID, t, t],
   );
   await db.execute(
     `INSERT INTO app_user (id, company_id, full_name, role, created_at, updated_at)
@@ -411,5 +419,133 @@ describe('tarifs gros et détail', () => {
     const rendu = await clients.update(pro.id, { wholesale: false, version: pro.version });
     expect(rendu.wholesale).toBe(false);
     expect((await clients.find(pro.id))?.wholesale).toBe(false);
+  });
+});
+
+describe('paniers mis de côté', () => {
+  const panierDe = (lignes: number) => ({
+    lines: Array.from({ length: lignes }, (_, i) => ({
+      id: `l${String(i)}`,
+      productId: null,
+      name: `Article ${String(i)}`,
+      sku: null,
+      unit: 'unit' as const,
+      unitPriceCents: 1_000,
+      qtyMilli: 1_000,
+      taxRateBp: 0,
+      discountCents: 0,
+    })),
+    discountCents: 0,
+    currency: 'MGA',
+    pricesIncludeTax: true,
+  });
+
+  const depot = (): HeldCartRepository =>
+    new HeldCartRepository(db, {
+      companyId: COMPANY_ID,
+      storeId: STORE_ID,
+      registerId: REGISTER_ID,
+      deviceId: DEVICE_ID,
+    });
+
+  it('conserve le panier entier et le rend tel quel', async () => {
+    const held = depot();
+    const mis = await held.hold({
+      kind: 'attente',
+      label: 'Monsieur au camion bleu',
+      cart: panierDe(3),
+      totalCents: 3_000,
+      userId: USER_ID,
+    });
+
+    const relu = await held.find(mis.id);
+    expect(relu?.lines).toHaveLength(3);
+    expect(relu?.lines[0]?.name).toBe('Article 0');
+    expect(relu?.totalCents).toBe(3_000);
+  });
+
+  it('disparaît de la liste une fois repris', async () => {
+    // Le point qui compte : un devis repris et facturé qui resterait proposé
+    // serait facturé DEUX FOIS par un caissier pressé.
+    const held = depot();
+    const mis = await held.hold({
+      kind: 'attente',
+      label: 'Client 1',
+      cart: panierDe(2),
+      totalCents: 2_000,
+      userId: USER_ID,
+    });
+    expect(await held.waiting()).toHaveLength(1);
+
+    await held.release(mis.id);
+    expect(await held.waiting()).toHaveLength(0);
+    expect(await held.find(mis.id)).toBeNull();
+  });
+
+  it('sépare les attentes des devis', async () => {
+    const held = depot();
+    await held.hold({
+      kind: 'attente',
+      label: 'Attente',
+      cart: panierDe(1),
+      totalCents: 1_000,
+      userId: USER_ID,
+    });
+    await held.hold({
+      kind: 'devis',
+      label: 'Chantier Ivandry',
+      cart: panierDe(4),
+      totalCents: 4_000,
+      validUntil: '2026-09-20',
+      userId: USER_ID,
+    });
+
+    expect(await held.waiting()).toHaveLength(1);
+    const devis = await held.quotes();
+    expect(devis).toHaveLength(1);
+    expect(devis[0]?.validUntil).toBe('2026-09-20');
+  });
+
+  it('ne fait voyager que les devis', async () => {
+    const held = depot();
+    const outbox = new OutboxRepository(db);
+    await held.hold({
+      kind: 'attente',
+      label: 'Attente',
+      cart: panierDe(1),
+      totalCents: 1_000,
+      userId: USER_ID,
+    });
+
+    // Une attente de trois minutes n'a rien à faire dans un journal de
+    // synchronisation ; l'y mettre encombrerait la file pour rien.
+    let file = await outbox.pending();
+    expect(file.filter((row) => row.entity === 'held_cart')).toHaveLength(0);
+
+    await held.hold({
+      kind: 'devis',
+      label: 'Devis',
+      cart: panierDe(1),
+      totalCents: 1_000,
+      userId: USER_ID,
+    });
+    file = await outbox.pending();
+    expect(file.filter((row) => row.entity === 'held_cart')).toHaveLength(1);
+  });
+
+  it('refuse un panier vide ou sans nom', async () => {
+    const held = depot();
+    await expect(
+      held.hold({ kind: 'attente', label: 'X', cart: panierDe(0), totalCents: 0, userId: USER_ID }),
+    ).rejects.toThrow(/vide/);
+    await expect(
+      held.hold({
+        kind: 'attente',
+        label: '  ',
+        cart: panierDe(1),
+        totalCents: 0,
+        userId: USER_ID,
+      }),
+    ).rejects.toThrow(/nom/);
   });
 });

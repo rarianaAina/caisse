@@ -53,6 +53,7 @@ model Company {
   accountMovements CustomerAccountMovement[]
   suppliers Supplier[]
   promotions Promotion[]
+  heldCarts HeldCart[]
   receipts  PurchaseReceipt[]
 
   @@map("company")
@@ -620,6 +621,42 @@ model Promotion {
 
   @@index([companyId, isActive])
   @@map("promotion")
+}
+
+// ─── Devis ──────────────────────────────────────────────────────────────────
+
+/// Panier mis de côté. Seuls les DEVIS remontent ici : une attente de comptoir
+/// vit quelques minutes sur son poste et n'a rien à faire dans un journal de
+/// synchronisation.
+///
+/// Les lignes sont du JSON et non une table fille : c'est un BROUILLON, rien
+/// n'y est comptable et personne n'interroge « les lignes de tous les devis ».
+/// Une table fille aurait imposé des clés étrangères vers des produits qui
+/// peuvent disparaître — or un devis doit rester lisible même alors.
+model HeldCart {
+  id          String    @id @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  storeId     String    @map("store_id") @db.Uuid
+  registerId  String    @map("register_id") @db.Uuid
+  /// 'attente' | 'devis' — en pratique toujours 'devis' côté serveur
+  kind        String
+  label       String
+  customerId  String?   @map("customer_id") @db.Uuid
+  lines       String
+  currency    String    @db.Char(3)
+  totalCents  Int       @default(0) @map("total_cents")
+  note        String?
+  validUntil  String?   @map("valid_until")
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version     Int       @default(1)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, kind])
+  @@map("held_cart")
 }
 
 // ─── Synchronisation ────────────────────────────────────────────────────────

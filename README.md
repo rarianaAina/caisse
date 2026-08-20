@@ -233,7 +233,7 @@ ventes saisies depuis la copie.
 ## Vérifier
 
 ```bash
-pnpm test             # 509 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
+pnpm test             # 514 tests TypeScript + 26 tests Rust : devises, monnaie, panier, règlements,
                       #             PIN, rôles, schéma local, catalogue, stock, achats, ventes,
                       #             ardoises, ticket, ESC/POS, rapports, synchro, recherche en
                       #             volume, limitation des tentatives de connexion
@@ -328,6 +328,21 @@ changement de quantité, mais n'écrase **jamais** un prix fixé à la main.
 Un prix de gros supérieur au détail est refusé — c'est presque toujours une
 inversion de saisie, et elle ne se verrait qu'à l'inventaire.
 [ADR 0022](docs/adr/0022-tarifs-gros-detail.md).
+
+## Mettre un panier de côté
+
+Deux usages, un seul mécanisme. **L'attente** : un client cherche son
+portefeuille, un autre attend derrière — le panier se met de côté d'un bouton et
+se reprend d'un autre. **Le devis** : un quincaillier chiffre un chantier, le
+client revient jeudi.
+
+Ce qui les sépare est leur durée de vie. Une attente vit sur son poste et n'y
+survit pas ; un devis est un engagement daté — trente jours par défaut — qui
+remonte au serveur, parce qu'un prix promis ne doit pas dépendre d'un disque.
+
+Un devis repris **quitte la liste** : celui qui y resterait serait facturé deux
+fois par un caissier pressé.
+[ADR 0025](docs/adr/0025-devis-et-attentes.md).
 
 ## Promotions
 
@@ -516,3 +531,4 @@ marque et non de code.
 - [ADR 0022 — tarifs gros et détail](docs/adr/0022-tarifs-gros-detail.md)
 - [ADR 0023 — la balance du rayon frais](docs/adr/0023-balance.md)
 - [ADR 0024 — les promotions](docs/adr/0024-promotions.md)
+- [ADR 0025 — paniers mis de côté : attentes et devis](docs/adr/0025-devis-et-attentes.md)

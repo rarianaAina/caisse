@@ -83,6 +83,7 @@ export const SYNC_ENTITIES = [
   'purchase_receipt',
   'purchase_receipt_item',
   'promotion',
+  'held_cart',
 ] as const;
 export type SyncEntity = (typeof SYNC_ENTITIES)[number];
 
