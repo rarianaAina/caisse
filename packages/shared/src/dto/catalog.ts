@@ -44,6 +44,8 @@ export const createProductSchema = z.object({
   costCents: centsSchema.default(0),
   taxRateBp: z.number().int().min(0).max(100_000).default(0),
   trackStock: z.boolean().default(true),
+  // Permis par défaut : cf. ADR 0003-B. Le blocage se demande.
+  allowNegativeStock: z.boolean().default(true),
   isActive: z.boolean().default(true),
   /** Produit dont celui-ci est une déclinaison. */
   parentId: uuidSchema.nullable().optional(),

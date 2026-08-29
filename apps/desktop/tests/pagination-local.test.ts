@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createProductSchema, newId } from '@caisse/shared';
+import {
+  type Product,
+  addProduct,
+  computeTotals,
+  createProductSchema,
+  emptyCart,
+  newId,
+} from '@caisse/shared';
 import { CatalogRepository } from '../src/core/db/repositories/catalog.repository';
 import { CustomerRepository } from '../src/core/db/repositories/customer.repository';
+import { SaleRepository } from '../src/core/db/repositories/sale.repository';
 import { StockRepository } from '../src/core/db/repositories/stock.repository';
 import { NodeSqliteExecutor } from './helpers/sqlite-executor';
 
@@ -17,6 +25,7 @@ import { NodeSqliteExecutor } from './helpers/sqlite-executor';
  */
 
 const COMPANY_ID = newId();
+const REGISTER_ID = newId();
 const STORE_ID = newId();
 const DEVICE_ID = newId();
 const USER_ID = newId();
@@ -38,10 +47,29 @@ const seed = async (): Promise<void> => {
     [STORE_ID, COMPANY_ID, ts, ts],
   );
   await db.execute(
+    `INSERT INTO register (id, company_id, store_id, name, receipt_prefix, created_at, updated_at)
+     VALUES (?, ?, ?, 'Caisse 1', 'C1', ?, ?)`,
+    [REGISTER_ID, COMPANY_ID, STORE_ID, ts, ts],
+  );
+  await db.execute(
     `INSERT INTO app_user (id, company_id, full_name, role, created_at, updated_at)
      VALUES (?, ?, 'Naina', 'owner', ?, ?)`,
     [USER_ID, COMPANY_ID, ts, ts],
   );
+};
+
+/** Vend `qtyMilli` d'un article, réglé comptant. */
+const vendre = (ventes: SaleRepository, produit: Product, qtyMilli: number) => {
+  const panier = addProduct(emptyCart('MGA', true), produit, newId(), qtyMilli);
+  const totaux = computeTotals(panier);
+  return ventes.record({
+    cart: panier,
+    totals: totaux,
+    payments: [
+      { method: 'cash', amountCents: totaux.totalCents, tenderedCents: totaux.totalCents },
+    ],
+    userId: USER_ID,
+  });
 };
 
 beforeEach(async () => {
@@ -235,6 +263,93 @@ describe('mouvements de stock détaillés', () => {
     const filtre = await stock.movementDetails({ productId: a.id });
     expect(filtre.total).toBe(1);
     expect(filtre.rows[0]?.productName).toBe('Huile');
+  });
+});
+
+describe('vente en rupture', () => {
+  it('passe par défaut : hors ligne, deux caisses vendent le dernier article', async () => {
+    // Comportement historique (ADR 0003-B), qui ne doit pas changer tout seul.
+    const p = await catalog.createProduct(
+      createProductSchema.parse({ name: 'Farine', priceCents: 4_000 }),
+    );
+    expect(p.allowNegativeStock).toBe(true);
+
+    const ventes = new SaleRepository(db, {
+      companyId: COMPANY_ID,
+      storeId: STORE_ID,
+      registerId: REGISTER_ID,
+      deviceId: DEVICE_ID,
+      receiptPrefix: 'C1',
+    });
+    await expect(vendre(ventes, p, 3_000)).resolves.toBeTruthy();
+    expect(await stock.levelOf(p.id)).toBe(-3_000);
+  });
+
+  it('est REFUSÉE sur un article marqué sans rupture', async () => {
+    const p = await catalog.createProduct(
+      createProductSchema.parse({
+        name: 'Machine à coudre',
+        priceCents: 2_000_000,
+        allowNegativeStock: false,
+      }),
+    );
+    await stock.recordMovement({ productId: p.id, qtyMilliDelta: 1_000, type: 'initial' });
+
+    const ventes = new SaleRepository(db, {
+      companyId: COMPANY_ID,
+      storeId: STORE_ID,
+      registerId: REGISTER_ID,
+      deviceId: DEVICE_ID,
+      receiptPrefix: 'C1',
+    });
+
+    // La première passe, la seconde non.
+    await vendre(ventes, p, 1_000);
+    await expect(vendre(ventes, p, 1_000)).rejects.toThrow(/rupture/);
+
+    // Et surtout : RIEN ne doit rester d'une vente refusée — ni ticket, ni
+    // mouvement de stock, ni numéro consommé.
+    const tickets = await db.select<{ n: number }>('SELECT count(*) AS n FROM sale');
+    expect(tickets[0]?.n).toBe(1);
+    expect(await stock.levelOf(p.id)).toBe(0);
+  });
+
+  it('dit ce qui reste, pas seulement que c’est refusé', async () => {
+    const p = await catalog.createProduct(
+      createProductSchema.parse({ name: 'Tôle', priceCents: 50_000, allowNegativeStock: false }),
+    );
+    await stock.recordMovement({ productId: p.id, qtyMilliDelta: 2_000, type: 'initial' });
+
+    const ventes = new SaleRepository(db, {
+      companyId: COMPANY_ID,
+      storeId: STORE_ID,
+      registerId: REGISTER_ID,
+      deviceId: DEVICE_ID,
+      receiptPrefix: 'C1',
+    });
+    // Un caissier doit pouvoir proposer la quantité disponible au client qui
+    // est devant lui.
+    await expect(vendre(ventes, p, 5_000)).rejects.toThrow(/il n’en reste que 2/);
+  });
+
+  it('ne s’applique pas à un article dont le stock n’est pas suivi', async () => {
+    const p = await catalog.createProduct(
+      createProductSchema.parse({
+        name: 'Service',
+        priceCents: 10_000,
+        trackStock: false,
+        allowNegativeStock: false,
+      }),
+    );
+    const ventes = new SaleRepository(db, {
+      companyId: COMPANY_ID,
+      storeId: STORE_ID,
+      registerId: REGISTER_ID,
+      deviceId: DEVICE_ID,
+      receiptPrefix: 'C1',
+    });
+    // Sans suivi de stock, il n'y a aucun niveau à laisser passer sous zéro.
+    await expect(vendre(ventes, p, 9_000)).resolves.toBeTruthy();
   });
 });
 

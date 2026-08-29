@@ -8,6 +8,7 @@ import { CategoryManager } from './CategoryManager';
 import { ProductForm, type ProductFormValues } from './ProductForm';
 import { Champ } from '../../components/ui/Champ';
 import { Pagination, TAILLE_PAGE, nombreDePages } from '../../components/ui/Pagination';
+import { TransferPanel } from './TransferPanel';
 
 interface CatalogScreenProps {
   session: LocalSession;
@@ -277,6 +278,11 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
         unite="produits"
         onChange={setPage}
       />
+
+      {/* La reprise sous la liste : on la cherche à l'installation, puis
+          presque jamais. La mettre en tête ferait passer chaque jour devant un
+          bouton d'import à quiconque vient juste corriger un prix. */}
+      {editable && <TransferPanel session={session} db={db} />}
 
       {editable && (
         <CategoryManager

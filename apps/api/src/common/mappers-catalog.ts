@@ -56,6 +56,7 @@ export function toProduct(row: PrismaProduct): Product {
     costCents: row.costCents,
     taxRateBp: row.taxRateBp,
     trackStock: row.trackStock,
+    allowNegativeStock: row.allowNegativeStock,
     isActive: row.isActive,
     imagePath: row.imagePath,
     parentId: row.parentId,

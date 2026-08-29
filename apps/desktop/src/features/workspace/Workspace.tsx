@@ -23,6 +23,7 @@ import { useKitchenTickets } from '../restaurant/useKitchenTickets';
 import { StockScreen } from '../stock/StockScreen';
 import { ConflictsScreen } from '../sync/ConflictsScreen';
 import { StaleBanner, SyncBadge } from '../sync/SyncBadge';
+import { CompanyPanel } from '../settings/CompanyPanel';
 
 const ROLE_LABELS: Record<string, string> = {
   owner: 'Propriétaire',
@@ -249,7 +250,12 @@ export function Workspace({ session }: { session: LocalSession }) {
         ) : tab === 'reports' ? (
           <ReportsScreen session={session} db={db} sync={sync} />
         ) : tab === 'settings' ? (
-          <PrinterSettingsScreen session={session} db={db} />
+          <div className="space-y-5">
+            {/* L'identité du commerce en tête : c'est ce qui figure sur les
+                tickets, et c'est ce qu'on vient corriger le plus souvent. */}
+            <CompanyPanel session={session} db={db} />
+            <PrinterSettingsScreen session={session} db={db} />
+          </div>
         ) : null}
       </main>
 

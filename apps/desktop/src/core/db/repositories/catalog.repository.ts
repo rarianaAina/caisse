@@ -42,6 +42,7 @@ interface ProductRow {
   cost_cents: number;
   tax_rate_bp: number;
   track_stock: number;
+  allow_negative_stock: number;
   is_active: number;
   image_path: string | null;
   parent_id: string | null;
@@ -81,6 +82,7 @@ const toProduct = (row: ProductRow): Product => ({
   costCents: row.cost_cents,
   taxRateBp: row.tax_rate_bp,
   trackStock: row.track_stock === 1,
+  allowNegativeStock: row.allow_negative_stock !== 0,
   isActive: row.is_active === 1,
   imagePath: row.image_path,
   parentId: row.parent_id,
@@ -417,6 +419,7 @@ export class CatalogRepository {
       description: input.description ?? null,
       unit: input.unit,
       priceCents: input.priceCents,
+      allowNegativeStock: input.allowNegativeStock,
       costCents: input.costCents,
       taxRateBp: input.taxRateBp,
       trackStock: input.trackStock,
@@ -437,10 +440,10 @@ export class CatalogRepository {
       await this.db.execute(
         `INSERT INTO product (id, company_id, category_id, sku, barcode, name, description,
                               unit, price_cents, cost_cents, tax_rate_bp, track_stock,
-                              is_active, parent_id, variant_label,
+                              allow_negative_stock, is_active, parent_id, variant_label,
                               wholesale_price_cents, wholesale_min_qty_milli, supplier_id,
                               created_at, updated_at, version, search_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
         [
           id,
           product.companyId,
@@ -454,6 +457,7 @@ export class CatalogRepository {
           product.costCents,
           product.taxRateBp,
           bool(product.trackStock),
+          bool(product.allowNegativeStock),
           bool(product.isActive),
           product.parentId,
           product.variantLabel,
@@ -538,7 +542,8 @@ export class CatalogRepository {
       await this.db.execute(
         `UPDATE product SET category_id = ?, sku = ?, barcode = ?, name = ?, description = ?,
                             unit = ?, price_cents = ?, cost_cents = ?, tax_rate_bp = ?,
-                            track_stock = ?, is_active = ?, parent_id = ?, variant_label = ?,
+                            track_stock = ?, allow_negative_stock = ?, is_active = ?,
+                            parent_id = ?, variant_label = ?,
                             supplier_id = ?, wholesale_price_cents = ?,
                             wholesale_min_qty_milli = ?, updated_at = ?, version = version + 1,
                             search_key = ?
@@ -554,6 +559,7 @@ export class CatalogRepository {
           merged.costCents,
           merged.taxRateBp,
           bool(merged.trackStock),
+          bool(merged.allowNegativeStock),
           bool(merged.isActive),
           merged.parentId,
           merged.variantLabel,

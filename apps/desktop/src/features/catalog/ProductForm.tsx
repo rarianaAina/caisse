@@ -22,6 +22,7 @@ export interface ProductFormValues {
   costCents: number;
   taxRateBp: number;
   trackStock: boolean;
+  allowNegativeStock: boolean;
   isActive: boolean;
   /** « 4×40 », « Rouge » : ce qui distingue cet article des autres du même type. */
   variantLabel: string | null;
@@ -85,6 +86,7 @@ export function ProductForm({
   );
   const [taxRateBp, setTaxRateBp] = useState(product?.taxRateBp ?? 0);
   const [trackStock, setTrackStock] = useState(product?.trackStock ?? true);
+  const [allowNegative, setAllowNegative] = useState(product?.allowNegativeStock ?? true);
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
   const [variantLabel, setVariantLabel] = useState(product?.variantLabel ?? '');
   const [initialQty, setInitialQty] = useState('');
@@ -134,6 +136,7 @@ export function ProductForm({
         costCents,
         taxRateBp,
         trackStock,
+        allowNegativeStock: allowNegative,
         isActive,
         variantLabel: variantLabel.trim() || null,
         wholesalePriceCents,
@@ -380,6 +383,28 @@ export function ProductForm({
             />
             Suivre le stock
           </label>
+
+          {/* Ne se pose que si le stock est suivi : sans suivi, il n'y a
+              aucun niveau à laisser passer sous zéro. */}
+          {trackStock && (
+            <div>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={!allowNegative}
+                  onChange={(event) => setAllowNegative(!event.target.checked)}
+                  className="h-4 w-4"
+                />
+                Refuser la vente en rupture
+              </label>
+              <p className="mt-1 text-xs text-slate-500">
+                Par défaut la vente passe même sans stock : hors ligne, deux caisses peuvent vendre
+                le dernier article sans le savoir, et faire attendre un client pour un chiffre
+                théorique coûte plus cher que l’écart. À cocher pour ce qui ne se vend pas deux fois
+                — une machine, une pièce unique.
+              </p>
+            </div>
+          )}
 
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input

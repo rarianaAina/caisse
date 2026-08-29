@@ -382,6 +382,7 @@ describe('tarifs gros et détail', () => {
       costCents: 35_000,
       taxRateBp: 0,
       trackStock: true,
+      allowNegativeStock: true,
       isActive: true,
       wholesalePriceCents: 38_000,
       wholesaleMinQtyMilli: 10_000,

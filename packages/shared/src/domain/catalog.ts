@@ -23,6 +23,16 @@ export interface Product extends SyncMeta {
   unit: ProductUnit;
   priceCents: Cents; // TTC ou HT selon Company.pricesIncludeTax
   costCents: Cents; // prix d'achat, pour la marge
+  /**
+   * Vendre au-delà du stock disponible.
+   *
+   * `true` par défaut, et c'est délibéré : hors ligne, deux caisses peuvent
+   * vendre le dernier article sans savoir ce que fait l'autre, et refuser la
+   * vente ferait attendre un client réel pour préserver un chiffre théorique
+   * (ADR 0003-B). Le commerçant le passe à `false` sur les articles où la
+   * rupture doit arrêter la vente — une machine, un article unique.
+   */
+  allowNegativeStock: boolean;
   taxRateBp: TaxBp;
   trackStock: boolean; // false = service, pas de décrément de stock
   isActive: boolean;

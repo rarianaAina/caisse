@@ -35,6 +35,7 @@ const product = (priceCents: number, taxRateBp = 0): Product => ({
   costCents: 0,
   taxRateBp,
   trackStock: true,
+  allowNegativeStock: true,
   isActive: true,
   imagePath: null,
   parentId: null,

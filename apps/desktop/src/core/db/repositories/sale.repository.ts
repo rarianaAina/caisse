@@ -8,6 +8,7 @@ import {
   type SaleItem,
   buildRefund,
   changeDue,
+  formatQty,
   formatReceiptNumber,
   newId,
   nowIso,
@@ -219,6 +220,11 @@ export class SaleRepository {
       throw new SaleError('Le montant encaissé est inférieur au total');
     }
 
+    // Vérifié AVANT toute écriture, comme le crédit : une vente à moitié
+    // enregistrée puis annulée laisserait un numéro de ticket consommé et un
+    // mouvement de stock orphelin.
+    await this.assertStockSuffisant(params.cart);
+
     const saleId = newId();
     const now = nowIso();
     const soldAt = params.soldAt ?? now;
@@ -352,6 +358,51 @@ export class SaleRepository {
     });
 
     return { sale, items, payments };
+  }
+
+  /**
+   * Refuse la vente des articles marqués « pas de rupture ».
+   *
+   * PAR DÉFAUT ON NE REFUSE RIEN : hors ligne, deux caisses peuvent vendre le
+   * dernier article sans savoir ce que fait l'autre, et faire attendre un
+   * client réel pour préserver un chiffre théorique coûte plus cher que
+   * l'écart (ADR 0003-B). Le blocage ne s'applique qu'aux articles où le
+   * commerçant l'a demandé — une machine, une pièce unique, ce qui ne se vend
+   * pas deux fois.
+   *
+   * Le message dit ce qui reste, pas seulement que c'est refusé : un caissier
+   * doit pouvoir proposer la quantité disponible au client qui est devant lui.
+   */
+  private async assertStockSuffisant(cart: Cart): Promise<void> {
+    // Un panier ne porte que quelques lignes : on interroge celles qui
+    // concernent un article réel, et on s'arrête à la première en défaut.
+    for (const line of cart.lines) {
+      if (!line.productId || line.qtyMilli <= 0) continue;
+
+      const rows = await this.db.select<{
+        allow_negative_stock: number;
+        track_stock: number;
+        qty_milli: number | null;
+      }>(
+        `SELECT p.allow_negative_stock, p.track_stock, s.qty_milli
+           FROM product p
+           LEFT JOIN stock_level s ON s.product_id = p.id AND s.store_id = ?
+          WHERE p.id = ?`,
+        [this.context.storeId, line.productId],
+      );
+
+      const row = rows[0];
+      if (!row || row.track_stock !== 1 || row.allow_negative_stock !== 0) continue;
+
+      const disponible = row.qty_milli ?? 0;
+      if (line.qtyMilli > disponible) {
+        throw new SaleError(
+          disponible <= 0
+            ? `${line.name} est en rupture : sa vente en rupture a été refusée pour cet article.`
+            : `${line.name} : il n’en reste que ${formatQty(disponible)}.`,
+        );
+      }
+    }
   }
 
   /**

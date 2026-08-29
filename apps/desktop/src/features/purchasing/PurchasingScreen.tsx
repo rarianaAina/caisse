@@ -4,6 +4,7 @@ import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { PurchasingRepository } from '../../core/db/repositories/purchasing.repository';
 import { ReceiptEditor } from './ReceiptEditor';
+import { Champ } from '../../components/ui/Champ';
 
 /**
  * Achats : ce qu'il faut racheter, les réceptions, les fournisseurs.
@@ -76,8 +77,10 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
     );
   }
 
+  // « Achat au marché » plutôt qu'un tiret : une réception sans fournisseur
+  // n'est pas une saisie incomplète, c'est un cas de commerce ordinaire ici.
   const nomFournisseur = (id: string | null): string =>
-    suppliers.find((entry) => entry.id === id)?.name ?? '—';
+    id === null ? 'Achat au marché' : (suppliers.find((entry) => entry.id === id)?.name ?? '—');
 
   return (
     <div className="space-y-4">
@@ -222,19 +225,29 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
         <section className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <h3 className="font-semibold text-slate-900">Ajouter un fournisseur</h3>
-            <div className="mt-3 flex gap-2">
-              <input
-                value={supplierName}
-                onChange={(event) => setSupplierName(event.target.value)}
-                placeholder="Nom"
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2.5"
-              />
-              <input
-                value={supplierPhone}
-                onChange={(event) => setSupplierPhone(event.target.value)}
-                placeholder="Téléphone"
-                className="w-48 rounded-lg border border-slate-300 px-3 py-2.5"
-              />
+            <div className="mt-3 flex flex-wrap items-end gap-2">
+              <Champ label="Nom" className="flex-1">
+                {(id) => (
+                  <input
+                    id={id}
+                    value={supplierName}
+                    onChange={(event) => setSupplierName(event.target.value)}
+                    placeholder="Grossiste Analakely"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5"
+                  />
+                )}
+              </Champ>
+              <Champ label="Téléphone" className="w-48">
+                {(id) => (
+                  <input
+                    id={id}
+                    value={supplierPhone}
+                    onChange={(event) => setSupplierPhone(event.target.value)}
+                    placeholder="034…"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5"
+                  />
+                )}
+              </Champ>
               <button
                 type="button"
                 disabled={supplierName.trim() === ''}

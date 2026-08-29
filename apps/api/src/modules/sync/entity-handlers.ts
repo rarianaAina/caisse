@@ -80,6 +80,50 @@ const date = (value: unknown): Date => {
   return Number.isFinite(parsed) ? new Date(parsed) : new Date();
 };
 
+/**
+ * L'entreprise elle-même.
+ *
+ * SEUL LE NOM EST MODIFIABLE, et c'est une décision de sûreté, pas un oubli.
+ * La DEVISE ne doit jamais l'être : tous les montants sont stockés en unités
+ * mineures à son échelle, et la changer après la première vente
+ * réinterpréterait l'historique entier — 15 000 ariary deviendraient 150,00
+ * euros sans qu'une seule ligne ait bougé. Un commerçant qui change de devise
+ * change d'entreprise.
+ *
+ * `prices_include_tax` est logé à la même enseigne : il décide si le prix
+ * affiché contient la TVA, et le basculer après coup fausserait toutes les
+ * ventes déjà enregistrées.
+ *
+ * Il n'y a pas de `create` : une entreprise naît par l'inscription, jamais par
+ * une caisse qui pousse une mutation.
+ */
+const COMPANY: MutableHandler = {
+  kind: 'mutable',
+  writable: ['name'],
+  async find(tx, id) {
+    return (await tx.company.findUnique({ where: { id } })) as EntityRow | null;
+  },
+  create() {
+    return Promise.reject(
+      new Error('Une entreprise ne se crée pas par synchronisation : elle naît à l’inscription.'),
+    );
+  },
+  async update(tx, id, data, updatedAt) {
+    return (await tx.company.update({
+      where: { id },
+      data: { ...data, updatedAt, version: { increment: 1 } },
+    })) as EntityRow;
+  },
+  toPayload: (row) => ({
+    id: str(row['id']),
+    name: str(row['name']),
+    currency: str(row['currency']),
+    updatedAt: row['updatedAt'],
+    version: row['version'],
+  }),
+  storeIdOf: () => null,
+};
+
 const CATEGORY: MutableHandler = {
   kind: 'mutable',
   writable: ['name', 'parentId', 'color', 'position', 'deletedAt'],
@@ -755,6 +799,7 @@ const HELD_CART: MutableHandler = {
  * à moitié.
  */
 export const ENTITY_HANDLERS: Partial<Record<SyncEntity, EntityHandler>> = {
+  company: COMPANY,
   app_user: APP_USER,
   category: CATEGORY,
   product: PRODUCT,

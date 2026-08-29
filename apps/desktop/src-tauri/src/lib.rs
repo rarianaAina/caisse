@@ -79,6 +79,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0011_billetage.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 12,
+            description: "autorisation du stock négatif, article par article",
+            sql: include_str!("../migrations/0012_stock_negatif.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

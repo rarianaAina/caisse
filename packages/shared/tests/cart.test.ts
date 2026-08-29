@@ -34,6 +34,7 @@ const product = (overrides: Partial<Product> = {}): Product => ({
   costCents: 80,
   taxRateBp: 1000,
   trackStock: true,
+  allowNegativeStock: true,
   isActive: true,
   imagePath: null,
   parentId: null,

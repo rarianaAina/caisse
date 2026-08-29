@@ -35,6 +35,7 @@ const yaourt = (overrides: Partial<Product> = {}): Product => ({
   costCents: 800,
   taxRateBp: 0,
   trackStock: true,
+  allowNegativeStock: true,
   isActive: true,
   imagePath: null,
   parentId: null,

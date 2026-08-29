@@ -396,31 +396,60 @@ export class PurchasingRepository {
   }
 
   /**
-   * Met à jour le prix d'achat du produit, en moyenne pondérée.
+   * Reporte le prix payé sur la fiche de l'article, en MOYENNE PONDÉRÉE.
+   *
+   * POURQUOI PONDÉRÉE ET NON « DERNIER PRIX PAYÉ ». Un commerçant qui achète
+   * un sac de riz plus cher que d'habitude ne vend pas d'un coup tout son
+   * stock à ce prix : il lui reste l'ancien, acheté moins cher. Écraser la
+   * fiche avec le dernier prix ferait sauter la marge affichée à chaque
+   * livraison, et la ferait mentir sur tout ce qui reste en rayon. La moyenne
+   * suit ce qui est réellement en stock.
    *
    * Le stock a déjà été augmenté par le mouvement : la quantité antérieure est
    * donc le niveau actuel MOINS ce qui vient d'entrer.
+   *
+   * LA MISE À JOUR EST SYNCHRONISÉE. Elle ne l'était pas : le prix d'achat
+   * changeait sur la caisse qui recevait la marchandise et nulle part
+   * ailleurs. Les autres caisses et le back-office continuaient d'afficher
+   * l'ancien coût, donc une marge fausse — et la première modification du
+   * produit depuis une autre caisse écrasait le calcul, faute de version
+   * incrémentée.
    */
   private async updateCost(item: PurchaseReceiptItem): Promise<void> {
-    const rows = await this.db.select<{ cost_cents: number }>(
-      'SELECT cost_cents FROM product WHERE id = ?',
+    const rows = await this.db.select<{ cost_cents: number; version: number }>(
+      'SELECT cost_cents, version FROM product WHERE id = ?',
       [item.productId],
     );
-    const currentCost = rows[0]?.cost_cents ?? 0;
-    const level = await this.stock.levelOf(item.productId);
+    const existant = rows[0];
+    if (!existant) return;
 
+    const level = await this.stock.levelOf(item.productId);
     const cost = weightedAverageCost({
       currentQtyMilli: level - item.qtyMilli,
-      currentCostCents: currentCost,
+      currentCostCents: existant.cost_cents,
       incomingQtyMilli: item.qtyMilli,
       incomingCostCents: item.unitCostCents,
     });
 
-    await this.db.execute('UPDATE product SET cost_cents = ?, updated_at = ? WHERE id = ?', [
-      cost,
-      nowIso(),
-      item.productId,
-    ]);
+    // Rien à écrire si le prix ne bouge pas : une mutation par ligne de
+    // réception encombrerait la file pour un champ inchangé.
+    if (cost === existant.cost_cents) return;
+
+    const now = nowIso();
+    await this.db.transaction(async () => {
+      await this.db.execute(
+        `UPDATE product SET cost_cents = ?, updated_at = ?, version = version + 1 WHERE id = ?`,
+        [cost, now, item.productId],
+      );
+      await this.outbox.enqueue({
+        entity: 'product',
+        entityId: item.productId,
+        op: 'update',
+        payload: { costCents: cost, updatedAt: now },
+        baseVersion: existant.version,
+        deviceId: this.context.deviceId,
+      });
+    });
   }
 
   private async refreshTotal(receiptId: string): Promise<void> {

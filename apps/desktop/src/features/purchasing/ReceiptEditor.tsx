@@ -4,6 +4,7 @@ import {
   type PurchaseReceipt,
   type PurchaseReceiptItem,
   type Supplier,
+  formatAmountPlain,
   formatMoney,
   parseAmount,
 } from '@caisse/shared';
@@ -11,6 +12,7 @@ import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { CatalogRepository } from '../../core/db/repositories/catalog.repository';
 import { PurchasingRepository } from '../../core/db/repositories/purchasing.repository';
+import { Champ } from '../../components/ui/Champ';
 
 /**
  * Saisie d'un bon de réception.
@@ -37,6 +39,7 @@ export function ReceiptEditor({
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [chosen, setChosen] = useState<Product | null>(null);
+  const [listeOuverte, setListeOuverte] = useState(false);
   const [qty, setQty] = useState('1');
   const [cost, setCost] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -145,7 +148,7 @@ export function ReceiptEditor({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-slate-700" htmlFor="supplier">
-                Fournisseur
+                Fournisseur <span className="font-normal text-slate-400">— facultatif</span>
               </label>
               <select
                 id="supplier"
@@ -160,17 +163,26 @@ export function ReceiptEditor({
                 }
                 className={`mt-1 w-full ${field}`}
               >
-                <option value="">—</option>
+                <option value="">Aucun — achat au marché</option>
                 {suppliers.map((supplier) => (
                   <option key={supplier.id} value={supplier.id}>
                     {supplier.name}
                   </option>
                 ))}
               </select>
+              {/* Un achat de farine ou de sucre sur un marché n'a ni
+                  fournisseur enregistré ni bon de livraison. Le logiciel ne
+                  doit pas obliger à inventer l'un ou l'autre : une réception
+                  sans papier reste une entrée de marchandise, et le stock a
+                  besoin de la connaître. */}
+              <p className="mt-1 text-xs text-slate-500">
+                Laissez vide pour un achat au marché, sans fournisseur enregistré.
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700" htmlFor="reference">
-                N° du bon de livraison
+                N° du bon de livraison{' '}
+                <span className="font-normal text-slate-400">— facultatif</span>
               </label>
               <input
                 id="reference"
@@ -183,63 +195,104 @@ export function ReceiptEditor({
                     ]);
                   })
                 }
-                placeholder="BL-2026-114"
+                placeholder="BL-2026-114, ou rien"
                 className={`mt-1 w-full ${field}`}
               />
+              <p className="mt-1 text-xs text-slate-500">
+                Sans bon, la réception est datée et signée par vous : c’est la trace.
+              </p>
             </div>
           </div>
 
           <div className="mt-4 border-t border-slate-200 pt-4">
-            <input
-              value={chosen ? chosen.name : search}
-              onChange={(event) => {
-                setChosen(null);
-                setSearch(event.target.value);
-              }}
-              placeholder="Chercher un article…"
-              className={`w-full ${field}`}
-            />
-            {!chosen && search !== '' && (
-              <ul className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-slate-200">
+            <Champ label="Article">
+              {(id) => (
+                <input
+                  id={id}
+                  value={chosen ? chosen.name : search}
+                  onFocus={() => setListeOuverte(true)}
+                  onChange={(event) => {
+                    setChosen(null);
+                    setListeOuverte(true);
+                    setSearch(event.target.value);
+                  }}
+                  placeholder="Nom ou référence"
+                  className={`w-full ${field}`}
+                />
+              )}
+            </Champ>
+
+            {/* La liste s'ouvre AU CLIC, pas à la première frappe. Un champ qui
+                ne montre rien tant qu'on n'a pas tapé oblige à connaître le
+                catalogue par cœur — or c'est justement ce qu'on vient y
+                chercher. Elle propose les articles les plus courants tant que
+                rien n'est saisi. */}
+            {!chosen && listeOuverte && (
+              <ul className="mt-1 max-h-56 overflow-y-auto rounded-lg border border-slate-200">
                 {products.map((product) => (
                   <li key={product.id}>
                     <button
                       type="button"
                       onClick={() => {
                         setChosen(product);
+                        setListeOuverte(false);
                         // Le dernier prix d'achat connu est proposé : il change
                         // rarement d'une livraison à l'autre, et le retaper à
-                        // chaque ligne est la première source d'erreur.
-                        setCost(String(product.costCents / 100));
+                        // chaque ligne est la première source d'erreur. Mis à
+                        // l'échelle de la devise — diviser par cent affichait
+                        // 34 pour un sac de riz à 3 400 Ar.
+                        setCost(formatAmountPlain(product.costCents, session.company.currency));
                       }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                      className="flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-50"
                     >
-                      {product.name}
+                      <span>{product.name}</span>
+                      {product.costCents > 0 && (
+                        <span className="shrink-0 text-xs tabular-nums text-slate-400">
+                          dernier achat {formatMoney(product.costCents, session.company.currency)}
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}
+                {products.length === 0 && (
+                  <li className="px-3 py-2 text-sm text-slate-500">
+                    Aucun article. Créez-le dans le catalogue.
+                  </li>
+                )}
               </ul>
             )}
 
-            <div className="mt-2 flex gap-2">
-              <input
-                value={qty}
-                onChange={(event) => setQty(event.target.value)}
-                placeholder="Quantité"
-                inputMode="decimal"
-                className={`w-32 ${field}`}
-              />
-              <input
-                value={cost}
-                onChange={(event) => setCost(event.target.value)}
-                placeholder="Prix d’achat unitaire"
-                inputMode="decimal"
-                className={`flex-1 ${field}`}
-              />
+            <div className="mt-3 flex flex-wrap items-end gap-2">
+              <Champ label="Quantité" className="w-32">
+                {(id) => (
+                  <input
+                    id={id}
+                    value={qty}
+                    onChange={(event) => setQty(event.target.value)}
+                    inputMode="decimal"
+                    className={`w-full ${field}`}
+                  />
+                )}
+              </Champ>
+              <Champ
+                label="Prix d’achat unitaire"
+                className="min-w-40 flex-1"
+                suffixe={session.company.currency}
+              >
+                {(id) => (
+                  <input
+                    id={id}
+                    value={cost}
+                    onChange={(event) => setCost(event.target.value)}
+                    inputMode="decimal"
+                    className={`w-full ${field}`}
+                  />
+                )}
+              </Champ>
               <button
                 type="button"
                 onClick={() => void ajouter()}
-                className="rounded-lg bg-slate-800 px-4 font-medium text-white"
+                className="h-11 rounded-lg bg-slate-800 px-4 font-medium text-white"
               >
                 Ajouter
               </button>

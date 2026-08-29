@@ -34,6 +34,7 @@ const ciment = (overrides: Partial<Product> = {}): Product => ({
   costCents: 35_000,
   taxRateBp: 0,
   trackStock: true,
+  allowNegativeStock: true,
   isActive: true,
   imagePath: null,
   parentId: null,

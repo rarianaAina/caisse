@@ -13,6 +13,7 @@ import {
   emptyCart,
   formatMoney,
   formatQty,
+  QTY_SCALE,
   isFractionalUnit,
   type Promotion,
   type ScaleFormat,
@@ -319,6 +320,35 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
     if (visible.length === 1 && visible[0]) add(visible[0]);
   };
 
+  /**
+   * Un pas de quantité.
+   *
+   * UNE unité pour ce qui se compte, cent grammes pour ce qui se pèse : « +1 »
+   * sur un kilo de tomates ferait bondir la ligne d'un kilo entier à chaque
+   * appui, ce qui n'est jamais le geste voulu.
+   */
+  const pasDe = (unit: Product['unit']): number => (isFractionalUnit(unit) ? 100 : QTY_SCALE);
+
+  const augmenter = (lineId: string, current: number): void => {
+    const ligne = panierPromu.lines.find((entry) => entry.id === lineId);
+    if (!ligne) return;
+    setCart((cartState) => updateQuantity(cartState, lineId, current + pasDe(ligne.unit)));
+  };
+
+  const diminuer = (lineId: string, current: number): void => {
+    const ligne = panierPromu.lines.find((entry) => entry.id === lineId);
+    if (!ligne) return;
+    const suivante = current - pasDe(ligne.unit);
+    // Retirer la dernière unité retire la ligne : laisser une ligne à zéro
+    // dans le panier oblige à un second geste pour l'effacer, et fait imprimer
+    // un article que le client n'emporte pas.
+    if (suivante <= 0) {
+      setCart((cartState) => removeLine(cartState, lineId));
+      return;
+    }
+    setCart((cartState) => updateQuantity(cartState, lineId, suivante));
+  };
+
   const askQuantity = async (
     lineId: string,
     unit: Product['unit'],
@@ -612,13 +642,40 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
                   </span>
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-sm text-slate-500">
-                  <button
-                    type="button"
-                    onClick={() => void askQuantity(line.id, line.unit, line.qtyMilli)}
-                    className="rounded border border-slate-200 px-2 py-0.5 tabular-nums hover:border-caisse-600"
-                  >
-                    {formatQty(line.qtyMilli)} × {formatMoney(line.unitPriceCents, cart.currency)}
-                  </button>
+                  {/* Moins / quantité / plus. Augmenter une quantité en
+                      recliquant l'article dans la grille oblige à le
+                      retrouver — impossible dès que la recherche a changé, et
+                      pénible au-delà de trois unités. La quantité se règle
+                      désormais depuis la ligne, là où on la lit. */}
+                  <div className="flex items-center overflow-hidden rounded border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => diminuer(line.id, line.qtyMilli)}
+                      aria-label={`Retirer une unité de ${line.name}`}
+                      className="px-2.5 py-1 text-base leading-none text-slate-600 transition hover:bg-slate-100 active:bg-slate-200"
+                    >
+                      −
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void askQuantity(line.id, line.unit, line.qtyMilli)}
+                      title="Saisir la quantité"
+                      className="min-w-12 border-x border-slate-200 px-2 py-1 text-center tabular-nums transition hover:bg-slate-100"
+                    >
+                      {formatQty(line.qtyMilli)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => augmenter(line.id, line.qtyMilli)}
+                      aria-label={`Ajouter une unité de ${line.name}`}
+                      className="px-2.5 py-1 text-base leading-none text-slate-600 transition hover:bg-slate-100 active:bg-slate-200"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <span className="tabular-nums">
+                    × {formatMoney(line.unitPriceCents, cart.currency)}
+                  </span>
                   <button
                     type="button"
                     onClick={() => setCart((current) => removeLine(current, line.id))}

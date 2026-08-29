@@ -252,6 +252,8 @@ model Product {
   imagePath   String?   @map("image_path")
   /// Déclinaison : « Vis 4×40 » rattachée à « Vis à bois ». Une déclinaison
   /// reste un produit à part entière ; seul ce lien les regroupe à l'écran.
+  /// Vendre au-delà du stock. Vrai par défaut : cf. ADR 0003-B.
+  allowNegativeStock Boolean @default(true) @map("allow_negative_stock")
   parentId     String?  @map("parent_id") @db.Uuid
   variantLabel String?  @map("variant_label")
   /// Fournisseur habituel. Colonne simple et non relation : les achats sont
