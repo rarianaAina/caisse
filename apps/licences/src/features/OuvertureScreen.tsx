@@ -32,6 +32,7 @@ export function OuvertureScreen({
   const [ancienne, setAncienne] = useState(false);
   const [phrase, setPhrase] = useState('');
   const [confirmation, setConfirmation] = useState('');
+  const [compris, setCompris] = useState(false);
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -156,22 +157,35 @@ export function OuvertureScreen({
           </div>
         ) : (
           <div className="mt-6">
-            <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-              {ancienne ? (
-                <>
-                  Aucun trousseau ici, mais une <strong>clé privée en clair</strong> a été trouvée
-                  dans <span className="font-mono text-xs">~/.caisse-licence</span>. Reprenez-la :
-                  c’est elle qui ouvre les caisses déjà installées.
-                </>
-              ) : (
-                <>
-                  Aucun trousseau, aucune clé. Une clé <strong>neuve</strong> n’ouvrira{' '}
-                  <strong>aucune caisse déjà installée</strong> — elles vérifient la signature
-                  contre la clé publique gravée dans leur binaire. N’engendrez une clé que s’il
-                  s’agit de votre toute première.
-                </>
-              )}
-            </div>
+            {ancienne ? (
+              <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                Aucun trousseau ici, mais une <strong>clé privée en clair</strong> a été trouvée
+                dans <span className="font-mono text-xs">.caisse-licence</span>. Reprenez-la : c’est
+                elle qui ouvre les caisses déjà installées.
+              </div>
+            ) : (
+              /* Rien à reprendre sur CETTE machine. C'est presque toujours parce
+                 que le trousseau est resté sur une autre : engendrer une clé
+                 neuve ici produirait des licences que personne ne pourrait
+                 activer, et le défaut ne se verrait qu'au domicile du client.
+                 Le geste sûr passe donc en premier, et le geste dangereux
+                 demande à être compris avant d'être possible. */
+              <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+                <p className="font-semibold">Aucun trousseau sur cette machine.</p>
+                <p className="mt-1.5">
+                  Si vous en avez déjà un ailleurs — sur votre autre ordinateur, sur une clé USB —{' '}
+                  <strong>copiez-le ici et ouvrez-le</strong> avec le bouton « Parcourir »
+                  ci-dessus. C’est le cas de figure ordinaire.
+                </p>
+                <p className="mt-2">
+                  Engendrer une clé <strong>neuve</strong> ne se fait qu’une fois dans la vie du
+                  logiciel. Une seconde clé n’ouvrirait{' '}
+                  <strong>aucune caisse déjà installée</strong> : elles vérifient la signature
+                  contre la clé publique gravée dans leur binaire, et le défaut n’apparaîtrait qu’au
+                  moment où votre client tente d’activer son poste.
+                </p>
+              </div>
+            )}
 
             <label className="mt-4 block text-sm font-medium text-ardoise-700">
               Choisissez une phrase de passe
@@ -189,11 +203,28 @@ export function OuvertureScreen({
               contient sont perdus.
             </p>
 
+            {/* La case n'est pas une formalité : c'est le seul rempart entre
+                une méprise de trente secondes et des licences invalides chez
+                des clients qui ont payé. */}
+            {!ancienne && (
+              <label className="mt-4 flex items-start gap-2.5 rounded-lg bg-ardoise-100 p-3 text-sm text-ardoise-800">
+                <input
+                  type="checkbox"
+                  checked={compris}
+                  onChange={(event) => setCompris(event.target.checked)}
+                  className="mt-0.5 size-4"
+                />
+                Je n’ai aucun trousseau ailleurs, et c’est bien ma première clé.
+              </label>
+            )}
+
             <button
               type="button"
-              disabled={busy || phrase === '' || confirmation === ''}
+              disabled={busy || phrase === '' || confirmation === '' || (!ancienne && !compris)}
               onClick={() => void creer(ancienne)}
-              className="mt-4 w-full rounded-lg bg-caisse-600 px-5 py-2.5 font-medium text-white disabled:opacity-40"
+              className={`mt-4 w-full rounded-lg px-5 py-2.5 font-medium text-white disabled:opacity-40 ${
+                ancienne ? 'bg-caisse-600' : 'bg-rose-600'
+              }`}
             >
               {ancienne ? 'Reprendre la clé et chiffrer le trousseau' : 'Engendrer une clé neuve'}
             </button>

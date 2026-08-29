@@ -181,6 +181,23 @@ CAISSE_PHRASE='votre phrase' node scripts/licence.mjs \
 > clé publique. Sauvegardez le trousseau : il est chiffré, une copie dans un
 > dossier synchronisé est acceptable.
 
+### Émettre depuis un second ordinateur
+
+Le trousseau se fabrique **là où vit la clé privée**, puis se copie. Sur une
+machine qui n'a rien, l'application propose d'engendrer une clé neuve — et une
+clé neuve n'ouvre **aucune caisse déjà installée**, ce qui ne se découvre qu'au
+moment où le client tente d'activer son poste.
+
+```bash
+# sur la machine qui détient la clé
+CAISSE_PHRASE='votre phrase' node scripts/trousseau.mjs
+```
+
+Le script refuse d'écrire tant qu'il n'a pas prouvé son résultat : il signe une
+licence d'essai et la confronte à la clé publique embarquée dans le logiciel.
+Copiez ensuite le fichier obtenu dans `%USERPROFILE%\.caisse-licence\` sous
+Windows, ou `~/.caisse-licence/` sous Linux.
+
 Détail et garde-fous : [ADR 0028](docs/adr/0028-trousseau-portable.md).
 
 Le commerçant lit son **code d'installation** sur l'écran d'activation et le
