@@ -14,6 +14,7 @@ import { Billetage } from './Billetage';
 import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { CashSessionRepository } from '../../core/db/repositories/cash-session.repository';
+import { Bouton } from '../../components/ui/Bouton';
 
 /**
  * Le tiroir : ouverture avec un fond, clôture avec un comptage.
@@ -188,14 +189,13 @@ export function CashSessionPanel({ session, db }: { session: LocalSession; db: S
                 className="mt-1 w-48 rounded-lg border border-ardoise-300 px-3 py-2 text-right tabular-nums outline-none focus:border-caisse-500 disabled:bg-ardoise-100 disabled:text-ardoise-500"
               />
             </label>
-            <button
-              type="button"
+            <Bouton
+              variante="principal"
               disabled={busy || saisi === null}
               onClick={() => void cloturer()}
-              className="rounded-lg bg-caisse-600 px-5 py-2.5 font-medium text-white transition hover:bg-caisse-700 disabled:opacity-40"
             >
               Clôturer la caisse
-            </button>
+            </Bouton>
             {ecartPrevu !== null && (
               <span
                 className={`text-sm font-medium ${
@@ -248,14 +248,9 @@ export function CashSessionPanel({ session, db }: { session: LocalSession; db: S
                 className="mt-1 w-48 rounded-lg border border-ardoise-300 px-3 py-2 text-right tabular-nums outline-none focus:border-caisse-500 disabled:bg-ardoise-100 disabled:text-ardoise-500"
               />
             </label>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void ouvrir()}
-              className="rounded-lg bg-caisse-600 px-5 py-2.5 font-medium text-white transition hover:bg-caisse-700 disabled:opacity-40"
-            >
+            <Bouton variante="principal" disabled={busy} onClick={() => void ouvrir()}>
               Ouvrir la caisse
-            </button>
+            </Bouton>
           </div>
         </>
       )}

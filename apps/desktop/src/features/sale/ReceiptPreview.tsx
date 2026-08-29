@@ -77,7 +77,7 @@ export function ReceiptPreview({
 
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-ardoise-900/50 p-6">
-      <div className="flex w-full max-w-md flex-col rounded-2xl bg-white p-6 shadow-flottant">
+      <div className="flex w-full max-w-md flex-col flottant p-6">
         <div className="rounded-xl bg-succes-50 p-4 text-center">
           <p className="text-sm text-succes-700">Vente enregistrée</p>
           <p className="text-3xl font-semibold tabular-nums text-succes-800">

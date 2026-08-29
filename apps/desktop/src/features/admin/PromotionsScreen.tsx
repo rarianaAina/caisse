@@ -281,14 +281,13 @@ export function PromotionsScreen({ session, db }: { session: LocalSession; db: S
             </label>
 
             <div className="sm:col-span-2">
-              <button
-                type="button"
+              <Bouton
+                variante="principal"
                 onClick={() => void creer()}
                 disabled={nom.trim() === '' || cible === ''}
-                className="rounded-lg bg-caisse-600 px-4 py-2.5 font-medium text-white disabled:opacity-40"
               >
                 Mettre en place
-              </button>
+              </Bouton>
             </div>
           </div>
         </section>

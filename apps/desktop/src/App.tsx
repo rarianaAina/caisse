@@ -31,7 +31,7 @@ function Router() {
     case 'no-runtime':
       return (
         <main className="flex min-h-full items-center justify-center bg-ardoise-100 p-8">
-          <div className="max-w-md rounded-2xl bg-white p-8 text-center shadow-flottant">
+          <div className="max-w-md flottant p-8 text-center">
             <p className="text-4xl">🔌</p>
             <h1 className="mt-3 text-lg font-semibold text-ardoise-900">
               Base locale indisponible

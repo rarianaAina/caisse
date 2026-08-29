@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Category } from '@caisse/shared';
 import { useDialogues } from '../../components/ui/dialogs';
+import { Icone } from '../../components/ui/Icone';
 
 /**
  * Gestion des catégories.
@@ -189,10 +190,10 @@ export function CategoryManager({
                         if (confirme) await run(() => onDelete(category));
                       })();
                     }}
-                    className="h-8 w-8 rounded-lg text-ardoise-400 hover:bg-danger-50 hover:text-danger-600"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-ardoise-400 transition hover:bg-danger-50 hover:text-danger-600"
                     title="Supprimer"
                   >
-                    ✕
+                    <Icone nom="fermer" taille={15} />
                   </button>
                 </div>
               </li>

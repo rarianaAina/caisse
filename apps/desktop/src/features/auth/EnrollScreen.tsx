@@ -179,7 +179,7 @@ export function EnrollScreen({
 
   return (
     <main className="flex min-h-full items-center justify-center bg-ardoise-100 p-6">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-flottant">
+      <div className="w-full max-w-md flottant p-8">
         <h1 className="text-2xl font-semibold text-ardoise-900">
           {mode === 'standalone' ? 'Installer cette caisse' : 'Rattacher cette caisse'}
         </h1>

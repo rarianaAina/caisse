@@ -515,9 +515,11 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
 
         <form onSubmit={onSearchSubmit}>
           <div className="relative">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg text-ardoise-400">
-              ⌕
-            </span>
+            <Icone
+              nom="recherche"
+              taille={19}
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ardoise-400"
+            />
             <input
               ref={searchRef}
               value={search}
@@ -664,9 +666,9 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
                       type="button"
                       onClick={() => diminuer(line.id, line.qtyMilli)}
                       aria-label={`Retirer une unité de ${line.name}`}
-                      className="px-2.5 py-1 text-base leading-none text-ardoise-600 transition hover:bg-ardoise-100 active:bg-ardoise-200"
+                      className="px-2.5 py-1.5 text-ardoise-600 transition hover:bg-ardoise-100 active:bg-ardoise-200"
                     >
-                      −
+                      <Icone nom="moins" taille={15} />
                     </button>
                     <button
                       type="button"
@@ -680,9 +682,9 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
                       type="button"
                       onClick={() => augmenter(line.id, line.qtyMilli)}
                       aria-label={`Ajouter une unité de ${line.name}`}
-                      className="px-2.5 py-1 text-base leading-none text-ardoise-600 transition hover:bg-ardoise-100 active:bg-ardoise-200"
+                      className="px-2.5 py-1.5 text-ardoise-600 transition hover:bg-ardoise-100 active:bg-ardoise-200"
                     >
-                      +
+                      <Icone nom="plus" taille={15} />
                     </button>
                   </div>
                   <span className="tabular-nums">
@@ -692,9 +694,9 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
                     type="button"
                     onClick={() => setCart((current) => removeLine(current, line.id))}
                     aria-label={`Retirer ${line.name}`}
-                    className="ml-auto text-ardoise-400 hover:text-danger-600"
+                    className="ml-auto rounded p-1 text-ardoise-400 transition hover:bg-danger-50 hover:text-danger-600"
                   >
-                    ✕
+                    <Icone nom="fermer" taille={15} />
                   </button>
                 </div>
                 {/* La promotion est NOMMÉE sur la ligne. Un montant qui baisse

@@ -71,7 +71,7 @@ export function PinScreen({
   return (
     <main className="flex min-h-full items-center justify-center bg-ardoise-100 p-6">
       <div className="grid w-full max-w-4xl gap-6 md:grid-cols-2">
-        <section className="rounded-2xl bg-white p-6 shadow-flottant">
+        <section className="flottant p-6">
           {/* Le seul écran que voit un caissier avant d'ouvrir sa journée :
               c'est là que la marque a sa place, pas dans la barre d'outils. */}
           <img src={logo} alt="" className="mx-auto h-24 w-auto" />
@@ -140,7 +140,7 @@ export function PinScreen({
             }}
           />
         ) : (
-          <section className="rounded-2xl bg-white p-6 shadow-flottant">
+          <section className="flottant p-6">
             <p className="text-sm text-ardoise-500">
               Code PIN{selected ? ` de ${selected.fullName}` : ''}
             </p>
@@ -212,8 +212,8 @@ function RecoverPanel({
   };
 
   return (
-    <section className="rounded-2xl bg-white p-6 shadow-flottant">
-      <h2 className="font-semibold text-ardoise-900">Définir un code PIN</h2>
+    <section className="flottant p-6">
+      <h2 className="text-base font-semibold text-ardoise-900">Définir un code PIN</h2>
       <p className="mt-1 text-sm text-ardoise-500">
         Une connexion est nécessaire, le temps de vérifier votre mot de passe.
       </p>

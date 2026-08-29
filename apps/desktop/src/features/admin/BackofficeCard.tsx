@@ -4,6 +4,7 @@ import { type LicenceStatus, installationCode } from '@caisse/shared';
 import { META_KEYS, MetaRepository } from '../../core/db/repositories/meta.repository';
 import { normalizeServerUrl } from '../../core/api/client';
 import type { SqlExecutor } from '../../core/db/client';
+import { Bouton } from '../../components/ui/Bouton';
 
 /**
  * Porte vers le tableau de bord web.
@@ -77,13 +78,9 @@ export function BackofficeCard({ db, standalone }: { db: SqlExecutor; standalone
               className="mt-1 w-full rounded-xl border border-ardoise-300 px-3 py-2.5 outline-none focus:border-caisse-500"
             />
           </label>
-          <button
-            type="button"
-            onClick={() => void enregistrer()}
-            className="rounded-lg bg-caisse-600 px-4 py-2.5 font-medium text-white"
-          >
+          <Bouton variante="principal" onClick={() => void enregistrer()}>
             Enregistrer
-          </button>
+          </Bouton>
           {url !== '' && (
             <button
               type="button"
@@ -99,13 +96,9 @@ export function BackofficeCard({ db, standalone }: { db: SqlExecutor; standalone
         </div>
       ) : (
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void ouvrir()}
-            className="rounded-lg bg-caisse-600 px-4 py-2.5 font-medium text-white transition hover:bg-caisse-700"
-          >
+          <Bouton variante="principal" onClick={() => void ouvrir()}>
             Ouvrir le tableau de bord
-          </button>
+          </Bouton>
           <span className="font-mono text-sm text-ardoise-500">{url}</span>
           <button
             type="button"

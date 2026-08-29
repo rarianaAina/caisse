@@ -104,7 +104,7 @@ export function Dialog({
         aria-label={title}
         tabIndex={-1}
         onKeyDown={auClavier}
-        className="max-h-full w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-flottant outline-none sm:rounded-2xl"
+        className="flottant max-h-full w-full max-w-lg overflow-y-auto rounded-b-none outline-none sm:rounded-b-[1.5rem]"
       >
         <div className="flex items-start justify-between gap-4 border-b border-ardoise-200 px-6 py-4">
           <div>

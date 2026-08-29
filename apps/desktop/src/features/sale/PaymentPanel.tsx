@@ -134,7 +134,7 @@ export function PaymentPanel({
 
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-ardoise-900/50 p-6">
-      <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-flottant">
+      <div className="max-h-full w-full max-w-lg overflow-y-auto flottant p-6">
         <div className="flex items-baseline justify-between">
           <h2 className="text-lg font-semibold text-ardoise-900">Encaissement</h2>
           <span className="text-3xl font-semibold tabular-nums text-ardoise-900">

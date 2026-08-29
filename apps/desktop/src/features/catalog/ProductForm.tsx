@@ -157,10 +157,7 @@ export function ProductForm({
 
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-ardoise-900/40 p-6">
-      <form
-        onSubmit={submit}
-        className="max-h-full w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-flottant"
-      >
+      <form onSubmit={submit} className="max-h-full w-full max-w-2xl overflow-y-auto flottant p-6">
         <h2 className="text-lg font-semibold text-ardoise-900">
           {product ? 'Modifier le produit' : 'Nouveau produit'}
         </h2>

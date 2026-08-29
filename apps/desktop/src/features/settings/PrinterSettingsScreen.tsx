@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { LocalSession } from '../../core/auth/auth.service';
 import { ScalePanel } from './ScalePanel';
 import type { SqlExecutor } from '../../core/db/client';
+import { Bouton } from '../../components/ui/Bouton';
 import {
   DEFAULT_PRINTER_SETTINGS,
   type PrinterSettings,
@@ -230,14 +231,9 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
         )}
 
         <div className="mt-5 flex flex-wrap gap-3">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void save()}
-            className="rounded-lg bg-caisse-600 px-5 py-2.5 font-medium text-white transition hover:bg-caisse-700 disabled:opacity-50"
-          >
+          <Bouton variante="principal" disabled={busy} onClick={() => void save()}>
             Enregistrer
-          </button>
+          </Bouton>
           <button
             type="button"
             disabled={busy}

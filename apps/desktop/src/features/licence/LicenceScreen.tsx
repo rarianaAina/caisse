@@ -52,7 +52,7 @@ export function LicenceScreen({
 
   return (
     <main className="flex min-h-full items-center justify-center bg-ardoise-100 p-6">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-flottant">
+      <div className="w-full max-w-xl flottant p-8">
         <h1 className="text-xl font-semibold text-ardoise-900">Activation</h1>
         <p className="mt-1 text-sm text-ardoise-500">{companyName}</p>
 

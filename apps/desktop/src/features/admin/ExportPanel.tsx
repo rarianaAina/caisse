@@ -11,6 +11,7 @@ import {
 import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { HistoryRepository } from '../../core/db/repositories/history.repository';
+import { Bouton } from '../../components/ui/Bouton';
 
 /**
  * Export comptable.
@@ -111,14 +112,9 @@ export function ExportPanel({ session, db }: { session: LocalSession; db: SqlExe
             className={`${champ} block`}
           />
         </label>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void exporter('ventes')}
-          className="rounded-lg bg-caisse-600 px-4 py-2.5 font-medium text-white disabled:opacity-40"
-        >
+        <Bouton variante="principal" disabled={busy} onClick={() => void exporter('ventes')}>
           Journal des ventes
-        </button>
+        </Bouton>
         <button
           type="button"
           disabled={busy}

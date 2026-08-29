@@ -16,6 +16,7 @@ import { CustomerRepository } from '../../core/db/repositories/customer.reposito
 import { useDialogues } from '../../components/ui/dialogs';
 import { Pagination, TAILLE_PAGE, nombreDePages } from '../../components/ui/Pagination';
 import { EnTetePage } from '../../components/ui/EnTetePage';
+import { Bouton } from '../../components/ui/Bouton';
 
 /**
  * Clients et ardoises.
@@ -266,14 +267,13 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
             </label>
 
             <div className="sm:col-span-2">
-              <button
-                type="button"
+              <Bouton
+                variante="principal"
                 onClick={() => void creer()}
                 disabled={name.trim() === ''}
-                className="rounded-lg bg-caisse-600 px-4 py-2.5 font-medium text-white disabled:opacity-40"
               >
                 Enregistrer le client
-              </button>
+              </Bouton>
             </div>
           </div>
         )}
