@@ -128,8 +128,8 @@ export function CashSessionPanel({ session, db }: { session: LocalSession; db: S
   const ecartPrevu = saisi !== null && report ? saisi - report.expectedCents : null;
 
   return (
-    <section className="carte p-5">
-      <h2 className="font-semibold text-ardoise-900">Tiroir-caisse</h2>
+    <section className="carte p-6">
+      <h2 className="text-base font-semibold text-ardoise-900">Tiroir-caisse</h2>
 
       {current ? (
         <>

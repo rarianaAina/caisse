@@ -43,6 +43,9 @@ import type { SyncEngine } from '../../core/sync/engine';
 import { PaymentPanel } from './PaymentPanel';
 import { ReceiptPreview } from './ReceiptPreview';
 import { useDialogues } from '../../components/ui/dialogs';
+import { Bandeau } from '../../components/ui/Bandeau';
+import { Bouton } from '../../components/ui/Bouton';
+import { Icone } from '../../components/ui/Icone';
 
 interface SaleScreenProps {
   session: LocalSession;
@@ -454,7 +457,8 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
         {/* Le client se désigne AVANT de scanner : c'est lui qui décide du
             tarif. L'afficher en permanence évite de vendre au détail à un
             professionnel — erreur qu'on ne voit qu'au ticket. */}
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-ardoise-200 bg-white px-4 py-2.5">
+        <div className="carte flex flex-wrap items-center gap-3 px-5 py-3">
+          <Icone nom="clients" taille={17} className="text-ardoise-400" />
           <span className="text-sm text-ardoise-500">Client</span>
           {customer ? (
             <>
@@ -464,24 +468,28 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
                   tarif professionnel
                 </span>
               )}
-              <button
-                type="button"
+              <Bouton
+                variante="fantome"
+                taille="sm"
+                icone="fermer"
+                className="ml-auto"
                 onClick={() => choisirClient(null)}
-                className="ml-auto text-sm font-medium text-ardoise-500 hover:text-ardoise-800"
               >
                 Retirer
-              </button>
+              </Bouton>
             </>
           ) : (
             <>
               <span className="text-ardoise-400">passage anonyme</span>
-              <button
-                type="button"
+              <Bouton
+                variante="discret"
+                taille="sm"
+                icone="recherche"
+                className="ml-auto"
                 onClick={() => void chercherClient()}
-                className="ml-auto text-sm font-medium text-caisse-700 hover:underline"
               >
                 Désigner un client
-              </button>
+              </Bouton>
             </>
           )}
         </div>
@@ -489,7 +497,8 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
         {/* Les paniers en attente sont VISIBLES, pas rangés dans un menu : un
             client qu'on a mis de côté et qu'on oublie est un client qui part. */}
         {enAttente.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-alerte-200 bg-alerte-50 px-4 py-2.5">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-alerte-200 bg-alerte-50 px-5 py-3">
+            <Icone nom="historique" taille={17} className="text-alerte-700" />
             <span className="text-sm font-medium text-alerte-900">En attente</span>
             {enAttente.map((entry) => (
               <button
@@ -560,13 +569,9 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
           </div>
         )}
 
-        {error && (
-          <p role="alert" className="rounded-lg bg-alerte-50 p-3 text-sm text-alerte-800">
-            {error}
-          </p>
-        )}
+        {error && <Bandeau ton="alerte">{error}</Bandeau>}
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 xl:grid-cols-4">
           {visible.map((product) => (
             <button
               key={product.id}
@@ -595,11 +600,17 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
             </button>
           ))}
           {visible.length === 0 && (
-            <p className="col-span-full rounded-xl border border-dashed border-ardoise-300 p-8 text-center text-ardoise-500">
-              {search === ''
-                ? 'Aucun article actif. Ajoutez-en depuis l’onglet Catalogue.'
-                : 'Aucun article ne correspond.'}
-            </p>
+            <div className="col-span-full flex flex-col items-center gap-2 rounded-2xl border border-dashed border-ardoise-300 px-6 py-12 text-center">
+              <Icone nom="catalogue" taille={28} className="text-ardoise-300" />
+              <p className="font-medium text-ardoise-700">
+                {search === '' ? 'Catalogue vide' : 'Aucun article ne correspond'}
+              </p>
+              <p className="max-w-sm text-sm text-ardoise-500">
+                {search === ''
+                  ? 'Ajoutez vos articles depuis l’onglet Catalogue pour commencer à vendre.'
+                  : 'Vérifiez l’orthographe, ou scannez le code-barres.'}
+              </p>
+            </div>
           )}
           {total > visible.length && (
             <p className="col-span-full text-center text-sm text-ardoise-500">
@@ -611,7 +622,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
 
       <aside className="carte flex h-fit flex-col overflow-hidden">
         <div className="flex items-baseline justify-between border-b border-ardoise-200 px-4 py-3">
-          <h2 className="font-semibold text-ardoise-900">
+          <h2 className="text-base font-semibold text-ardoise-900">
             Panier
             {cart.lines.length > 0 && (
               <span className="ml-2 rounded-full bg-caisse-600 px-2 py-0.5 text-xs font-bold text-white">
@@ -620,13 +631,14 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
             )}
           </h2>
           {cart.lines.length > 0 && (
-            <button
-              type="button"
+            <Bouton
+              variante="fantome"
+              taille="sm"
+              icone="fermer"
               onClick={() => setCart((current) => clearCart(current))}
-              className="text-sm text-ardoise-500 hover:text-danger-600"
             >
               Vider
-            </button>
+            </Bouton>
           )}
         </div>
 
@@ -734,45 +746,50 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
           {/* Le total est le seul chiffre qu'un client cherche du regard, et
               souvent depuis l'autre côté du comptoir : il est traité en
               conséquence. */}
-          <div className="-mx-4 -mb-3 mt-3 flex items-baseline justify-between bg-ardoise-900 px-4 py-3 text-white">
-            <span className="font-semibold">Total</span>
-            <span className="text-3xl font-bold tracking-tight tabular-nums">
+          <div className="-mx-4 -mb-3 mt-3 flex items-baseline justify-between gap-3 bg-nuit-900 px-5 py-4 text-white">
+            <span className="text-sm font-medium text-white/70">Total</span>
+            <span className="text-[2.25rem] font-semibold leading-none tracking-tight tabular-nums">
               {formatMoney(totals.totalCents, cart.currency)}
             </span>
           </div>
         </div>
 
-        <div className="flex gap-2 border-t border-ardoise-200 p-3">
-          <button
-            type="button"
-            onClick={() => mettreDeCote('attente')}
-            disabled={cart.lines.length === 0}
-            className="rounded-lg border border-ardoise-300 px-3 py-2.5 text-sm font-medium text-ardoise-700 disabled:opacity-40"
-          >
-            Mettre de côté
-          </button>
-          <button
-            type="button"
-            onClick={() => mettreDeCote('devis')}
-            disabled={cart.lines.length === 0}
-            className="rounded-lg border border-ardoise-300 px-3 py-2.5 text-sm font-medium text-ardoise-700 disabled:opacity-40"
-          >
-            Devis
-          </button>
-          <button
-            type="button"
-            onClick={() => void askDiscount()}
-            disabled={cart.lines.length === 0}
-            className="rounded-xl border border-ardoise-300 px-4 py-3.5 text-sm font-semibold text-ardoise-700 transition hover:bg-ardoise-50 disabled:opacity-40"
-          >
-            Remise
-          </button>
+        {/* Trois gestes secondaires sur une ligne, l'encaissement seul sur la
+            suivante. Les mettre côte à côte faisait rétrécir « Encaisser » à
+            mesure qu'on ajoutait des options — or c'est le seul bouton qu'on
+            vise sans regarder, cent fois par jour. */}
+        <div className="border-t border-ardoise-200 p-3">
+          <div className="grid grid-cols-3 gap-2">
+            <Bouton
+              taille="sm"
+              disabled={cart.lines.length === 0}
+              onClick={() => mettreDeCote('attente')}
+            >
+              De côté
+            </Bouton>
+            <Bouton
+              taille="sm"
+              disabled={cart.lines.length === 0}
+              onClick={() => mettreDeCote('devis')}
+            >
+              Devis
+            </Bouton>
+            <Bouton
+              taille="sm"
+              icone="promotions"
+              disabled={cart.lines.length === 0}
+              onClick={() => void askDiscount()}
+            >
+              Remise
+            </Bouton>
+          </div>
           <button
             type="button"
             onClick={() => setPaying(true)}
             disabled={cart.lines.length === 0}
-            className="flex-1 rounded-xl bg-succes-600 py-3.5 text-base font-bold text-white shadow-souleve transition hover:bg-succes-700 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+            className="mt-2 flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-succes-600 text-base font-semibold text-white shadow-souleve transition hover:bg-succes-700 active:scale-[0.99] disabled:opacity-40 disabled:shadow-none"
           >
+            <Icone nom="coche" taille={20} />
             Encaisser
           </button>
         </div>
