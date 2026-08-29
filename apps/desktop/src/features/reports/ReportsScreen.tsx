@@ -73,7 +73,7 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
   }, [reload]);
 
   if (!canManage) {
-    return <p className="text-slate-500">Les rapports demandent un compte responsable.</p>;
+    return <p className="text-ardoise-500">Les rapports demandent un compte responsable.</p>;
   }
 
   const peakHour = summary?.byHour.reduce(
@@ -88,19 +88,19 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
           type="date"
           value={day}
           onChange={(event) => setDay(event.target.value)}
-          className="rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-caisse-600"
+          className="rounded-lg border border-ardoise-300 px-4 py-2.5 outline-none focus:border-caisse-600"
         />
         <button
           type="button"
           onClick={() => setDay(new Date().toISOString().slice(0, 10))}
-          className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="rounded-lg border border-ardoise-300 px-4 py-2.5 text-sm font-medium text-ardoise-700 hover:bg-ardoise-50"
         >
           Aujourd’hui
         </button>
       </div>
 
       {error && (
-        <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
           {error}
         </p>
       )}
@@ -112,73 +112,74 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
           ['Panier moyen', formatMoney(summary?.averageBasketCents ?? 0, currency)],
           ['Remboursé', formatMoney(summary?.refundedCents ?? 0, currency)],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-sm text-slate-500">{label}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{value}</p>
+          <div key={label} className="rounded-xl border border-ardoise-200 bg-white p-4">
+            <p className="text-sm text-ardoise-500">{label}</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-ardoise-900">{value}</p>
           </div>
         ))}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="font-medium text-slate-900">Moyens de paiement</h2>
+        <section className="rounded-xl border border-ardoise-200 bg-white p-4">
+          <h2 className="font-medium text-ardoise-900">Moyens de paiement</h2>
           <ul className="mt-3 space-y-2 text-sm">
             {summary?.byPaymentMethod.map((entry) => (
               <li key={entry.method} className="flex justify-between">
-                <span className="text-slate-600">
+                <span className="text-ardoise-600">
                   {PAYMENT_METHOD_LABELS[entry.method]} ({entry.count})
                 </span>
-                <span className="tabular-nums text-slate-900">
+                <span className="tabular-nums text-ardoise-900">
                   {formatMoney(entry.amountCents, currency)}
                 </span>
               </li>
             ))}
             {(summary?.byPaymentMethod.length ?? 0) === 0 && (
-              <li className="text-slate-500">Aucun encaissement.</li>
+              <li className="text-ardoise-500">Aucun encaissement.</li>
             )}
           </ul>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="font-medium text-slate-900">TVA collectée</h2>
+        <section className="rounded-xl border border-ardoise-200 bg-white p-4">
+          <h2 className="font-medium text-ardoise-900">TVA collectée</h2>
           <ul className="mt-3 space-y-2 text-sm">
             {summary?.byTaxRate.map((entry) => (
               <li key={entry.rateBp} className="flex justify-between">
-                <span className="text-slate-600">
+                <span className="text-ardoise-600">
                   {formatTaxRate(entry.rateBp)} sur {formatMoney(entry.baseCents, currency)}
                 </span>
-                <span className="tabular-nums text-slate-900">
+                <span className="tabular-nums text-ardoise-900">
                   {formatMoney(entry.taxCents, currency)}
                 </span>
               </li>
             ))}
-            {(summary?.byTaxRate.length ?? 0) === 0 && <li className="text-slate-500">—</li>}
+            {(summary?.byTaxRate.length ?? 0) === 0 && <li className="text-ardoise-500">—</li>}
           </ul>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="font-medium text-slate-900">Meilleures ventes</h2>
+        <section className="rounded-xl border border-ardoise-200 bg-white p-4">
+          <h2 className="font-medium text-ardoise-900">Meilleures ventes</h2>
           <ul className="mt-3 space-y-2 text-sm">
             {summary?.topProducts.map((entry) => (
               <li key={entry.productId ?? entry.name} className="flex justify-between gap-2">
-                <span className="truncate text-slate-600">
-                  {entry.name} <span className="text-slate-400">×{formatQty(entry.qtyMilli)}</span>
+                <span className="truncate text-ardoise-600">
+                  {entry.name}{' '}
+                  <span className="text-ardoise-400">×{formatQty(entry.qtyMilli)}</span>
                 </span>
-                <span className="tabular-nums text-slate-900">
+                <span className="tabular-nums text-ardoise-900">
                   {formatMoney(entry.totalCents, currency)}
                 </span>
               </li>
             ))}
-            {(summary?.topProducts.length ?? 0) === 0 && <li className="text-slate-500">—</li>}
+            {(summary?.topProducts.length ?? 0) === 0 && <li className="text-ardoise-500">—</li>}
           </ul>
         </section>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section className="rounded-xl border border-ardoise-200 bg-white p-4">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-medium text-slate-900">Répartition horaire</h2>
+          <h2 className="font-medium text-ardoise-900">Répartition horaire</h2>
           {peakHour && (
-            <span className="text-sm text-slate-500">
+            <span className="text-sm text-ardoise-500">
               Pic à {peakHour.hour}&nbsp;h — {formatMoney(peakHour.totalCents, currency)}
             </span>
           )}
@@ -199,7 +200,7 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
                       : `${hour} h : aucune vente`
                   }
                 />
-                {hour % 3 === 0 && <span className="text-[10px] text-slate-400">{hour}</span>}
+                {hour % 3 === 0 && <span className="text-[10px] text-ardoise-400">{hour}</span>}
               </div>
             );
           })}
@@ -215,8 +216,8 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
       <ExportPanel session={session} db={db} />
 
       {closedSessions.length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="text-sm font-medium text-slate-700">Dernières clôtures</h3>
+        <section className="rounded-xl border border-ardoise-200 bg-white p-4">
+          <h3 className="text-sm font-medium text-ardoise-700">Dernières clôtures</h3>
           <ul className="mt-2 space-y-1.5 text-sm">
             {closedSessions.map((closed) => {
               // La pièce justificative de l'écart : sur QUOI il a été constaté.
@@ -224,18 +225,18 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
               const compte = parseCount(closed.closingCount);
               return (
                 <li key={closed.id} className="flex flex-wrap justify-between gap-x-2">
-                  <span className="text-slate-500">
+                  <span className="text-ardoise-500">
                     {closed.closedAt && new Date(closed.closedAt).toLocaleString('fr-FR')}
                   </span>
                   <span
                     className={`tabular-nums ${
-                      (closed.differenceCents ?? 0) === 0 ? 'text-emerald-700' : 'text-amber-800'
+                      (closed.differenceCents ?? 0) === 0 ? 'text-succes-700' : 'text-alerte-800'
                     }`}
                   >
                     écart {formatMoney(closed.differenceCents ?? 0, currency)}
                   </span>
                   {compte && (
-                    <span className="w-full text-xs text-slate-400">
+                    <span className="w-full text-xs text-ardoise-400">
                       {countLines(compte, currency)
                         .map(
                           (ligne) =>

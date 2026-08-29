@@ -69,14 +69,14 @@ export function PinScreen({
   };
 
   return (
-    <main className="flex min-h-full items-center justify-center bg-slate-100 p-6">
+    <main className="flex min-h-full items-center justify-center bg-ardoise-100 p-6">
       <div className="grid w-full max-w-4xl gap-6 md:grid-cols-2">
-        <section className="rounded-2xl bg-white p-6 shadow-lg">
+        <section className="rounded-2xl bg-white p-6 shadow-flottant">
           {/* Le seul écran que voit un caissier avant d'ouvrir sa journée :
               c'est là que la marque a sa place, pas dans la barre d'outils. */}
           <img src={logo} alt="" className="mx-auto h-24 w-auto" />
-          <h1 className="mt-4 text-xl font-semibold text-slate-900">Ouvrir une session</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="mt-4 text-xl font-semibold text-ardoise-900">Ouvrir une session</h1>
+          <p className="mt-1 text-sm text-ardoise-500">
             {storeName} · {registerName}
           </p>
 
@@ -93,11 +93,11 @@ export function PinScreen({
                   className={`w-full rounded-xl border p-4 text-left transition ${
                     user.id === selectedId
                       ? 'border-caisse-600 bg-caisse-50'
-                      : 'border-slate-200 hover:border-slate-300'
+                      : 'border-ardoise-200 hover:border-ardoise-300'
                   }`}
                 >
-                  <span className="block font-medium text-slate-900">{user.fullName}</span>
-                  <span className="block text-sm text-slate-500">
+                  <span className="block font-medium text-ardoise-900">{user.fullName}</span>
+                  <span className="block text-sm text-ardoise-500">
                     {ROLE_LABELS[user.role] ?? user.role}
                   </span>
                 </button>
@@ -106,7 +106,7 @@ export function PinScreen({
           </ul>
 
           {users.length === 0 && !recovering && (
-            <p className="mt-5 rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
+            <p className="mt-5 rounded-lg bg-alerte-50 p-4 text-sm text-alerte-800">
               Aucun utilisateur n’a de code PIN sur ce poste.
             </p>
           )}
@@ -140,8 +140,8 @@ export function PinScreen({
             }}
           />
         ) : (
-          <section className="rounded-2xl bg-white p-6 shadow-lg">
-            <p className="text-sm text-slate-500">
+          <section className="rounded-2xl bg-white p-6 shadow-flottant">
+            <p className="text-sm text-ardoise-500">
               Code PIN{selected ? ` de ${selected.fullName}` : ''}
             </p>
 
@@ -150,14 +150,14 @@ export function PinScreen({
                 <span
                   key={index}
                   className={`h-3 w-3 rounded-full transition ${
-                    index < pin.length ? 'bg-caisse-600' : 'bg-slate-200'
+                    index < pin.length ? 'bg-caisse-600' : 'bg-ardoise-200'
                   }`}
                 />
               ))}
             </div>
 
             {error && (
-              <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              <p role="alert" className="mb-4 rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
                 {error}
               </p>
             )}
@@ -199,7 +199,7 @@ function RecoverPanel({
   const [localError, setLocalError] = useState<string | null>(null);
 
   const field =
-    'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-caisse-600';
+    'mt-1 w-full rounded-lg border border-ardoise-300 px-3 py-2.5 outline-none focus:border-caisse-600';
 
   const submit = (event: React.FormEvent): void => {
     event.preventDefault();
@@ -212,21 +212,21 @@ function RecoverPanel({
   };
 
   return (
-    <section className="rounded-2xl bg-white p-6 shadow-lg">
-      <h2 className="font-semibold text-slate-900">Définir un code PIN</h2>
-      <p className="mt-1 text-sm text-slate-500">
+    <section className="rounded-2xl bg-white p-6 shadow-flottant">
+      <h2 className="font-semibold text-ardoise-900">Définir un code PIN</h2>
+      <p className="mt-1 text-sm text-ardoise-500">
         Une connexion est nécessaire, le temps de vérifier votre mot de passe.
       </p>
 
       {(localError ?? error) && (
-        <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="mt-4 rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
           {localError ?? error}
         </p>
       )}
 
       <form onSubmit={submit} className="mt-4 space-y-3">
         <div>
-          <label className="block text-sm font-medium text-slate-700" htmlFor="recoverEmail">
+          <label className="block text-sm font-medium text-ardoise-700" htmlFor="recoverEmail">
             Adresse e-mail
           </label>
           <input
@@ -239,7 +239,7 @@ function RecoverPanel({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700" htmlFor="recoverPassword">
+          <label className="block text-sm font-medium text-ardoise-700" htmlFor="recoverPassword">
             Mot de passe
           </label>
           <input
@@ -252,7 +252,7 @@ function RecoverPanel({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700" htmlFor="recoverPin">
+          <label className="block text-sm font-medium text-ardoise-700" htmlFor="recoverPin">
             Nouveau code PIN ({PIN_MIN_LENGTH} à {PIN_MAX_LENGTH} chiffres)
           </label>
           <input

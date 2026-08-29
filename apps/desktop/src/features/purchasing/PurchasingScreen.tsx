@@ -85,7 +85,7 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex gap-1 rounded-lg bg-slate-200 p-1">
+        <div className="flex gap-1 rounded-lg bg-ardoise-200 p-1">
           {(
             [
               ['restock', `À commander${restock.length > 0 ? ` (${String(restock.length)})` : ''}`],
@@ -97,8 +97,8 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
               key={value}
               type="button"
               onClick={() => setOnglet(value)}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-                onglet === value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
+              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+                onglet === value ? 'bg-white text-ardoise-900 shadow-carte' : 'text-ardoise-600'
               }`}
             >
               {label}
@@ -120,18 +120,18 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
         </button>
       </div>
 
-      {error && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+      {error && <p className="rounded-lg bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}
 
       {onglet === 'restock' && (
-        <section className="rounded-xl border border-slate-200 bg-white">
+        <section className="rounded-xl border border-ardoise-200 bg-white">
           {restock.length === 0 ? (
-            <p className="p-8 text-center text-slate-500">
+            <p className="p-8 text-center text-ardoise-500">
               Rien sous le seuil. Les seuils se règlent dans l’onglet Stock — sans seuil, aucune
               alerte n’est possible.
             </p>
           ) : (
             <table className="w-full text-sm">
-              <thead className="border-b border-slate-200 text-left text-slate-500">
+              <thead className="border-b border-ardoise-200 text-left text-ardoise-500">
                 <tr>
                   <th className="p-3">Article</th>
                   <th className="p-3">Fournisseur</th>
@@ -142,23 +142,23 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
               </thead>
               <tbody>
                 {restock.map((ligne) => (
-                  <tr key={ligne.productId} className="border-b border-slate-100 last:border-0">
-                    <td className="p-3 font-medium text-slate-900">
+                  <tr key={ligne.productId} className="border-b border-ardoise-100 last:border-0">
+                    <td className="p-3 font-medium text-ardoise-900">
                       {ligne.name}
                       {ligne.sku && (
-                        <span className="ml-2 text-xs text-slate-400">{ligne.sku}</span>
+                        <span className="ml-2 text-xs text-ardoise-400">{ligne.sku}</span>
                       )}
                     </td>
-                    <td className="p-3 text-slate-600">{nomFournisseur(ligne.supplierId)}</td>
+                    <td className="p-3 text-ardoise-600">{nomFournisseur(ligne.supplierId)}</td>
                     <td
                       className={`p-3 text-right ${
-                        ligne.qtyMilli <= 0 ? 'font-semibold text-rose-600' : 'text-slate-700'
+                        ligne.qtyMilli <= 0 ? 'font-semibold text-danger-600' : 'text-ardoise-700'
                       }`}
                     >
                       {QTY(ligne.qtyMilli)}
                     </td>
-                    <td className="p-3 text-right text-slate-500">{QTY(ligne.minQtyMilli)}</td>
-                    <td className="p-3 text-right font-semibold text-slate-900">
+                    <td className="p-3 text-right text-ardoise-500">{QTY(ligne.minQtyMilli)}</td>
+                    <td className="p-3 text-right font-semibold text-ardoise-900">
                       {QTY(ligne.missingMilli)}
                     </td>
                   </tr>
@@ -170,23 +170,23 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
       )}
 
       {onglet === 'receipts' && (
-        <section className="rounded-xl border border-slate-200 bg-white">
+        <section className="rounded-xl border border-ardoise-200 bg-white">
           {receipts.length === 0 ? (
-            <p className="p-8 text-center text-slate-500">Aucune réception enregistrée.</p>
+            <p className="p-8 text-center text-ardoise-500">Aucune réception enregistrée.</p>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-ardoise-100">
               {receipts.map((receipt) => (
                 <li key={receipt.id} className="flex items-center justify-between p-3">
                   <div>
-                    <p className="font-medium text-slate-900">
+                    <p className="font-medium text-ardoise-900">
                       {receipt.reference ?? 'Sans référence'}
                       <span
                         className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
                           receipt.status === 'received'
-                            ? 'bg-emerald-100 text-emerald-800'
+                            ? 'bg-succes-100 text-succes-800'
                             : receipt.status === 'draft'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-slate-100 text-slate-600'
+                              ? 'bg-alerte-100 text-alerte-800'
+                              : 'bg-ardoise-100 text-ardoise-600'
                         }`}
                       >
                         {receipt.status === 'received'
@@ -196,20 +196,20 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
                             : 'annulée'}
                       </span>
                     </p>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-ardoise-500">
                       {nomFournisseur(receipt.supplierId)}
                       {receipt.receivedAt &&
                         ` · ${new Date(receipt.receivedAt).toLocaleDateString('fr-FR')}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-medium text-slate-900">
+                    <span className="font-medium text-ardoise-900">
                       {formatMoney(receipt.totalCents, receipt.currency)}
                     </span>
                     <button
                       type="button"
                       onClick={() => setOpenReceipt(receipt.id)}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+                      className="rounded-lg border border-ardoise-300 px-3 py-1.5 text-sm font-medium text-ardoise-700"
                     >
                       {receipt.status === 'draft' ? 'Continuer' : 'Voir'}
                     </button>
@@ -223,8 +223,8 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
 
       {onglet === 'suppliers' && (
         <section className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <h3 className="font-semibold text-slate-900">Ajouter un fournisseur</h3>
+          <div className="rounded-xl border border-ardoise-200 bg-white p-5">
+            <h3 className="font-semibold text-ardoise-900">Ajouter un fournisseur</h3>
             <div className="mt-3 flex flex-wrap items-end gap-2">
               <Champ label="Nom" className="flex-1">
                 {(id) => (
@@ -233,7 +233,7 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
                     value={supplierName}
                     onChange={(event) => setSupplierName(event.target.value)}
                     placeholder="Grossiste Analakely"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5"
+                    className="w-full rounded-lg border border-ardoise-300 px-3 py-2.5"
                   />
                 )}
               </Champ>
@@ -244,7 +244,7 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
                     value={supplierPhone}
                     onChange={(event) => setSupplierPhone(event.target.value)}
                     placeholder="034…"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5"
+                    className="w-full rounded-lg border border-ardoise-300 px-3 py-2.5"
                   />
                 )}
               </Champ>
@@ -268,21 +268,23 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white">
+          <div className="rounded-xl border border-ardoise-200 bg-white">
             {suppliers.length === 0 ? (
-              <p className="p-8 text-center text-slate-500">Aucun fournisseur.</p>
+              <p className="p-8 text-center text-ardoise-500">Aucun fournisseur.</p>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-ardoise-100">
                 {suppliers.map((supplier) => (
                   <li key={supplier.id} className="flex items-center justify-between p-3">
                     <div>
-                      <p className="font-medium text-slate-900">{supplier.name}</p>
-                      {supplier.phone && <p className="text-sm text-slate-500">{supplier.phone}</p>}
+                      <p className="font-medium text-ardoise-900">{supplier.name}</p>
+                      {supplier.phone && (
+                        <p className="text-sm text-ardoise-500">{supplier.phone}</p>
+                      )}
                     </div>
                     <button
                       type="button"
                       onClick={() => void run(() => purchasing.deleteSupplier(supplier.id))}
-                      className="text-sm text-slate-400 hover:text-rose-600"
+                      className="text-sm text-ardoise-400 hover:text-danger-600"
                     >
                       Supprimer
                     </button>

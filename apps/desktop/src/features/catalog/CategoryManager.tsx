@@ -145,7 +145,7 @@ export function CategoryManager({
                       title={entry.nom}
                       aria-label={entry.nom}
                       onClick={() => void run(() => onUpdate(category, { color: entry.valeur }))}
-                      className={`h-6 w-6 rounded-md transition ${
+                      className={`h-6 w-6 rounded-lg transition ${
                         category.color === entry.valeur
                           ? 'ring-2 ring-ardoise-900 ring-offset-1'
                           : 'hover:scale-110'
@@ -192,7 +192,7 @@ export function CategoryManager({
                         if (confirme) await run(() => onDelete(category));
                       })();
                     }}
-                    className="h-8 w-8 rounded-lg text-ardoise-400 hover:bg-rose-50 hover:text-rose-600"
+                    className="h-8 w-8 rounded-lg text-ardoise-400 hover:bg-danger-50 hover:text-danger-600"
                     title="Supprimer"
                   >
                     ✕

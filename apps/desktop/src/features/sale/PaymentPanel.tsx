@@ -133,11 +133,11 @@ export function PaymentPanel({
   });
 
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/50 p-6">
-      <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-10 flex items-center justify-center bg-ardoise-900/50 p-6">
+      <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-flottant">
         <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">Encaissement</h2>
-          <span className="text-3xl font-semibold tabular-nums text-slate-900">
+          <h2 className="text-lg font-semibold text-ardoise-900">Encaissement</h2>
+          <span className="text-3xl font-semibold tabular-nums text-ardoise-900">
             {formatMoney(totalCents, currency)}
           </span>
         </div>
@@ -150,16 +150,16 @@ export function PaymentPanel({
             {payments.map((payment, index) => (
               <li
                 key={`${payment.method}-${String(index)}`}
-                className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded-lg bg-ardoise-50 px-3 py-2 text-sm"
               >
-                <span className="text-slate-700">
+                <span className="text-ardoise-700">
                   {PAYMENT_METHOD_LABELS[payment.method]}
                   {payment.reference && (
-                    <span className="text-slate-400"> · {payment.reference}</span>
+                    <span className="text-ardoise-400"> · {payment.reference}</span>
                   )}
                 </span>
                 <span className="flex items-center gap-3">
-                  <span className="font-medium tabular-nums text-slate-900">
+                  <span className="font-medium tabular-nums text-ardoise-900">
                     {formatMoney(payment.amountCents, currency)}
                   </span>
                   <button
@@ -167,7 +167,7 @@ export function PaymentPanel({
                     disabled={busy}
                     onClick={() => setPayments((current) => removePayment(current, index))}
                     aria-label={`Retirer le règlement ${PAYMENT_METHOD_LABELS[payment.method]}`}
-                    className="rounded px-1 text-slate-400 transition hover:text-red-600 disabled:opacity-40"
+                    className="rounded px-1 text-ardoise-400 transition hover:text-danger-600 disabled:opacity-40"
                   >
                     ⨯
                   </button>
@@ -175,8 +175,8 @@ export function PaymentPanel({
               </li>
             ))}
             <li className="flex items-center justify-between px-3 pt-1 text-sm font-medium">
-              <span className="text-slate-500">Reste à payer</span>
-              <span className="tabular-nums text-slate-900">
+              <span className="text-ardoise-500">Reste à payer</span>
+              <span className="tabular-nums text-ardoise-900">
                 {formatMoney(remaining, currency)}
               </span>
             </li>
@@ -206,7 +206,7 @@ export function PaymentPanel({
           ))}
         </div>
 
-        <label className="mt-5 block text-sm font-medium text-slate-700" htmlFor="tendered">
+        <label className="mt-5 block text-sm font-medium text-ardoise-700" htmlFor="tendered">
           {tenderable ? 'Montant reçu' : 'Montant réglé'}
         </label>
         <input
@@ -218,14 +218,14 @@ export function PaymentPanel({
             setError(null);
           }}
           placeholder={formatAmountPlain(remaining, currency)}
-          className="mt-1 w-full rounded-lg border border-slate-300 px-4 py-3 text-right text-2xl tabular-nums outline-none focus:border-caisse-600"
+          className="mt-1 w-full rounded-lg border border-ardoise-300 px-4 py-3 text-right text-2xl tabular-nums outline-none focus:border-caisse-600"
           autoFocus
         />
 
-        {invalid && <p className="mt-2 text-sm text-amber-800">Montant invalide.</p>}
+        {invalid && <p className="mt-2 text-sm text-alerte-800">Montant invalide.</p>}
 
         {method === 'credit' && searchCustomers && (
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <div className="mt-4 rounded-xl border border-alerte-200 bg-alerte-50 p-3">
             {customer ? (
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -248,7 +248,7 @@ export function PaymentPanel({
               </div>
             ) : (
               <>
-                <label className="block text-sm font-medium text-amber-900" htmlFor="client">
+                <label className="block text-sm font-medium text-alerte-900" htmlFor="client">
                   À qui porter cette ardoise ?
                 </label>
                 <input
@@ -264,7 +264,7 @@ export function PaymentPanel({
                     void searchCustomers(term).then(setMatches);
                   }}
                   placeholder="Nom ou téléphone…"
-                  className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2.5 outline-none focus:border-caisse-600"
+                  className="mt-1 w-full rounded-lg border border-alerte-300 bg-white px-3 py-2.5 outline-none focus:border-caisse-600"
                 />
                 <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto">
                   {matches.map((entry) => (
@@ -283,7 +283,7 @@ export function PaymentPanel({
                     </li>
                   ))}
                   {customerTerm.trim().length >= 2 && matches.length === 0 && (
-                    <li className="px-3 py-2 text-sm text-amber-800">
+                    <li className="px-3 py-2 text-sm text-alerte-800">
                       Aucun client trouvé. Créez-le dans l’onglet « Clients ».
                     </li>
                   )}
@@ -298,16 +298,16 @@ export function PaymentPanel({
             dans l'historique le soir. */}
         {wantsReference(method) && (
           <>
-            <label className="mt-4 block text-sm font-medium text-slate-700" htmlFor="reference">
+            <label className="mt-4 block text-sm font-medium text-ardoise-700" htmlFor="reference">
               Référence de la transaction{' '}
-              <span className="font-normal text-slate-400">(facultatif)</span>
+              <span className="font-normal text-ardoise-400">(facultatif)</span>
             </label>
             <input
               id="reference"
               value={reference}
               onChange={(event) => setReference(event.target.value)}
               placeholder="N° Mvola, autorisation carte…"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-caisse-600"
+              className="mt-1 w-full rounded-lg border border-ardoise-300 px-4 py-2.5 outline-none focus:border-caisse-600"
             />
           </>
         )}
@@ -319,7 +319,7 @@ export function PaymentPanel({
                 key={amount}
                 type="button"
                 onClick={() => setInput(formatAmountPlain(amount, currency))}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-caisse-600 hover:text-caisse-700"
+                className="rounded-lg border border-ardoise-300 px-4 py-2 text-sm font-medium text-ardoise-700 transition hover:border-caisse-600 hover:text-caisse-700"
               >
                 {formatMoney(amount, currency)}
               </button>
@@ -328,15 +328,15 @@ export function PaymentPanel({
         )}
 
         <div
-          className={`mt-5 rounded-xl p-4 text-center ${covers ? 'bg-emerald-50' : 'bg-amber-50'}`}
+          className={`mt-5 rounded-xl p-4 text-center ${covers ? 'bg-succes-50' : 'bg-alerte-50'}`}
           aria-live="polite"
         >
-          <p className={`text-sm ${covers ? 'text-emerald-700' : 'text-amber-800'}`}>
+          <p className={`text-sm ${covers ? 'text-succes-700' : 'text-alerte-800'}`}>
             {covers ? 'À rendre' : 'Il manque'}
           </p>
           <p
             className={`text-4xl font-semibold tabular-nums ${
-              covers ? 'text-emerald-800' : 'text-amber-900'
+              covers ? 'text-succes-800' : 'text-alerte-900'
             }`}
           >
             {formatMoney(
@@ -347,7 +347,7 @@ export function PaymentPanel({
         </div>
 
         {error && (
-          <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          <p role="alert" className="mt-4 rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
             {error}
           </p>
         )}
@@ -382,7 +382,7 @@ export function PaymentPanel({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="flex-1 rounded-lg border border-slate-300 py-3 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+            className="flex-1 rounded-lg border border-ardoise-300 py-3 font-medium text-ardoise-700 transition hover:bg-ardoise-50 disabled:opacity-50"
           >
             Annuler
           </button>
@@ -390,7 +390,7 @@ export function PaymentPanel({
             type="button"
             onClick={() => void confirm()}
             disabled={!covers || busy}
-            className="flex-1 rounded-lg bg-emerald-600 py-3 font-medium text-white transition hover:bg-emerald-700 disabled:opacity-40"
+            className="flex-1 rounded-lg bg-succes-600 py-3 font-medium text-white transition hover:bg-succes-700 disabled:opacity-40"
           >
             {busy ? 'Enregistrement…' : 'Encaisser'}
           </button>

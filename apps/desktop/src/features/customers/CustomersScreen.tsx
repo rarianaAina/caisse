@@ -305,7 +305,7 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
 
                 <span
                   className={`font-semibold tabular-nums ${
-                    row.balanceCents > 0 ? 'text-rose-700' : 'text-ardoise-500'
+                    row.balanceCents > 0 ? 'text-danger-700' : 'text-ardoise-500'
                   }`}
                 >
                   {formatMoney(row.balanceCents, currency)}
@@ -315,7 +315,7 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
                   <button
                     type="button"
                     onClick={() => void regler(row)}
-                    className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700"
+                    className="rounded-lg border border-succes-200 bg-succes-50 px-3 py-2 text-sm font-medium text-succes-700"
                   >
                     Encaisser
                   </button>
@@ -339,7 +339,7 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
                       </span>
                       <span
                         className={`tabular-nums ${
-                          movement.amountCents > 0 ? 'text-rose-700' : 'text-emerald-700'
+                          movement.amountCents > 0 ? 'text-danger-700' : 'text-succes-700'
                         }`}
                       >
                         {formatMoney(movement.amountCents, currency)}
@@ -374,7 +374,9 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
           <p
             role="status"
             className={`mt-4 rounded-lg p-3 text-sm ${
-              message.tone === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-700'
+              message.tone === 'ok'
+                ? 'bg-succes-50 text-succes-800'
+                : 'bg-danger-50 text-danger-700'
             }`}
           >
             {message.text}

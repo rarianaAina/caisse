@@ -142,7 +142,7 @@ export function DevicesPanel({ session, db }: { session: LocalSession; db: SqlEx
                     title={
                       soiMeme ? 'On ne coupe pas le poste sur lequel on travaille.' : undefined
                     }
-                    className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm font-medium text-danger-700 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Couper ce poste
                   </button>
@@ -160,7 +160,7 @@ export function DevicesPanel({ session, db }: { session: LocalSession; db: SqlEx
         <p
           role="status"
           className={`mt-4 rounded-lg p-3 text-sm ${
-            message.tone === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-700'
+            message.tone === 'ok' ? 'bg-succes-50 text-succes-800' : 'bg-danger-50 text-danger-700'
           }`}
         >
           {message.text}

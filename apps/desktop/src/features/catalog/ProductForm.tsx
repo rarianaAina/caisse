@@ -59,8 +59,8 @@ const TAX_PRESETS = [
 ];
 
 const field =
-  'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-caisse-600';
-const label = 'block text-sm font-medium text-slate-700';
+  'mt-1 w-full rounded-lg border border-ardoise-300 px-3 py-2 text-ardoise-900 outline-none focus:border-caisse-600';
+const label = 'block text-sm font-medium text-ardoise-700';
 
 export function ProductForm({
   product,
@@ -156,17 +156,17 @@ export function ProductForm({
     priceCents !== null && costCents !== null && costCents > 0 ? priceCents - costCents : null;
 
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/40 p-6">
+    <div className="fixed inset-0 z-10 flex items-center justify-center bg-ardoise-900/40 p-6">
       <form
         onSubmit={submit}
-        className="max-h-full w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+        className="max-h-full w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-flottant"
       >
-        <h2 className="text-lg font-semibold text-slate-900">
+        <h2 className="text-lg font-semibold text-ardoise-900">
           {product ? 'Modifier le produit' : 'Nouveau produit'}
         </h2>
 
         {error && (
-          <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          <p role="alert" className="mt-3 rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
             {error}
           </p>
         )}
@@ -212,7 +212,9 @@ export function ProductForm({
               className={field}
             />
             {margin !== null && (
-              <p className="mt-1 text-xs text-slate-500">Marge : {formatMoney(margin, currency)}</p>
+              <p className="mt-1 text-xs text-ardoise-500">
+                Marge : {formatMoney(margin, currency)}
+              </p>
             )}
           </div>
 
@@ -222,7 +224,7 @@ export function ProductForm({
               remplir qu'un. */}
           <div>
             <label className={label} htmlFor="gros">
-              Prix de gros <span className="font-normal text-slate-400">(facultatif)</span>
+              Prix de gros <span className="font-normal text-ardoise-400">(facultatif)</span>
             </label>
             <input
               id="gros"
@@ -245,9 +247,9 @@ export function ProductForm({
               onChange={(event) => setSeuilGros(event.target.value)}
               placeholder="0"
               disabled={gros.trim() === ''}
-              className={`${field} disabled:bg-slate-50 disabled:text-slate-400`}
+              className={`${field} disabled:bg-ardoise-50 disabled:text-ardoise-400`}
             />
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-ardoise-500">
               {gros.trim() === ''
                 ? 'Renseignez d’abord un prix de gros.'
                 : seuilGros.trim() === '' || seuilGros === '0'
@@ -306,7 +308,7 @@ export function ProductForm({
             />
             {/* La déclinaison entre dans la recherche : l'étiquette du rayon
                 porte souvent « Vis 4x40 », et c'est ce qu'on tape. */}
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-ardoise-500">
               Ce qui distingue cet article des autres du même type. Facultatif.
             </p>
           </div>
@@ -346,7 +348,7 @@ export function ProductForm({
                   className={`rounded-lg border px-4 py-2 text-sm transition ${
                     taxRateBp === preset.bp
                       ? 'border-caisse-600 bg-caisse-50 text-caisse-700'
-                      : 'border-slate-300 text-slate-600 hover:border-slate-400'
+                      : 'border-ardoise-300 text-ardoise-600 hover:border-ardoise-400'
                   }`}
                 >
                   {preset.label}
@@ -368,13 +370,13 @@ export function ProductForm({
                 placeholder="0"
                 className={field}
               />
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-ardoise-500">
                 Enregistré comme un mouvement « stock initial », pas comme une valeur figée.
               </p>
             </div>
           )}
 
-          <label className="flex items-center gap-2 text-sm text-slate-700">
+          <label className="flex items-center gap-2 text-sm text-ardoise-700">
             <input
               type="checkbox"
               checked={trackStock}
@@ -388,7 +390,7 @@ export function ProductForm({
               aucun niveau à laisser passer sous zéro. */}
           {trackStock && (
             <div>
-              <label className="flex items-center gap-2 text-sm text-slate-700">
+              <label className="flex items-center gap-2 text-sm text-ardoise-700">
                 <input
                   type="checkbox"
                   checked={!allowNegative}
@@ -397,7 +399,7 @@ export function ProductForm({
                 />
                 Refuser la vente en rupture
               </label>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-ardoise-500">
                 Par défaut la vente passe même sans stock : hors ligne, deux caisses peuvent vendre
                 le dernier article sans le savoir, et faire attendre un client pour un chiffre
                 théorique coûte plus cher que l’écart. À cocher pour ce qui ne se vend pas deux fois
@@ -406,7 +408,7 @@ export function ProductForm({
             </div>
           )}
 
-          <label className="flex items-center gap-2 text-sm text-slate-700">
+          <label className="flex items-center gap-2 text-sm text-ardoise-700">
             <input
               type="checkbox"
               checked={isActive}
@@ -421,7 +423,7 @@ export function ProductForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-slate-300 px-5 py-2.5 font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-ardoise-300 px-5 py-2.5 font-medium text-ardoise-700 hover:bg-ardoise-50"
           >
             Annuler
           </button>

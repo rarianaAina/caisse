@@ -489,14 +489,14 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
         {/* Les paniers en attente sont VISIBLES, pas rangés dans un menu : un
             client qu'on a mis de côté et qu'on oublie est un client qui part. */}
         {enAttente.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5">
-            <span className="text-sm font-medium text-amber-900">En attente</span>
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-alerte-200 bg-alerte-50 px-4 py-2.5">
+            <span className="text-sm font-medium text-alerte-900">En attente</span>
             {enAttente.map((entry) => (
               <button
                 key={entry.id}
                 type="button"
                 onClick={() => reprendre(entry)}
-                className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 hover:border-amber-500"
+                className="rounded-lg border border-alerte-300 bg-white px-3 py-1.5 text-sm font-medium text-alerte-900 hover:border-alerte-500"
               >
                 {entry.label} · {formatMoney(entry.totalCents, cart.currency)}
               </button>
@@ -561,7 +561,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
         )}
 
         {error && (
-          <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+          <p role="alert" className="rounded-lg bg-alerte-50 p-3 text-sm text-alerte-800">
             {error}
           </p>
         )}
@@ -602,7 +602,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
             </p>
           )}
           {total > visible.length && (
-            <p className="col-span-full text-center text-sm text-slate-500">
+            <p className="col-span-full text-center text-sm text-ardoise-500">
               {visible.length} sur {total} articles — affinez la recherche
             </p>
           )}
@@ -623,36 +623,36 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
             <button
               type="button"
               onClick={() => setCart((current) => clearCart(current))}
-              className="text-sm text-slate-500 hover:text-red-600"
+              className="text-sm text-ardoise-500 hover:text-danger-600"
             >
               Vider
             </button>
           )}
         </div>
 
-        <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
+        <ul className="max-h-96 divide-y divide-ardoise-100 overflow-y-auto">
           {panierPromu.lines.map((line, index) => {
             const lineTotals = totals.lines[index];
             return (
               <li key={line.id} className="px-4 py-3">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate font-medium text-slate-900">{line.name}</span>
-                  <span className="tabular-nums text-slate-900">
+                  <span className="truncate font-medium text-ardoise-900">{line.name}</span>
+                  <span className="tabular-nums text-ardoise-900">
                     {formatMoney(lineTotals?.netCents ?? 0, cart.currency)}
                   </span>
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-sm text-slate-500">
+                <div className="mt-1 flex items-center gap-2 text-sm text-ardoise-500">
                   {/* Moins / quantité / plus. Augmenter une quantité en
                       recliquant l'article dans la grille oblige à le
                       retrouver — impossible dès que la recherche a changé, et
                       pénible au-delà de trois unités. La quantité se règle
                       désormais depuis la ligne, là où on la lit. */}
-                  <div className="flex items-center overflow-hidden rounded border border-slate-200">
+                  <div className="flex items-center overflow-hidden rounded border border-ardoise-200">
                     <button
                       type="button"
                       onClick={() => diminuer(line.id, line.qtyMilli)}
                       aria-label={`Retirer une unité de ${line.name}`}
-                      className="px-2.5 py-1 text-base leading-none text-slate-600 transition hover:bg-slate-100 active:bg-slate-200"
+                      className="px-2.5 py-1 text-base leading-none text-ardoise-600 transition hover:bg-ardoise-100 active:bg-ardoise-200"
                     >
                       −
                     </button>
@@ -660,7 +660,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
                       type="button"
                       onClick={() => void askQuantity(line.id, line.unit, line.qtyMilli)}
                       title="Saisir la quantité"
-                      className="min-w-12 border-x border-slate-200 px-2 py-1 text-center tabular-nums transition hover:bg-slate-100"
+                      className="min-w-12 border-x border-ardoise-200 px-2 py-1 text-center tabular-nums transition hover:bg-ardoise-100"
                     >
                       {formatQty(line.qtyMilli)}
                     </button>
@@ -668,7 +668,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
                       type="button"
                       onClick={() => augmenter(line.id, line.qtyMilli)}
                       aria-label={`Ajouter une unité de ${line.name}`}
-                      className="px-2.5 py-1 text-base leading-none text-slate-600 transition hover:bg-slate-100 active:bg-slate-200"
+                      className="px-2.5 py-1 text-base leading-none text-ardoise-600 transition hover:bg-ardoise-100 active:bg-ardoise-200"
                     >
                       +
                     </button>
@@ -680,7 +680,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
                     type="button"
                     onClick={() => setCart((current) => removeLine(current, line.id))}
                     aria-label={`Retirer ${line.name}`}
-                    className="ml-auto text-slate-400 hover:text-red-600"
+                    className="ml-auto text-ardoise-400 hover:text-danger-600"
                   >
                     ✕
                   </button>
@@ -689,7 +689,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
                     sans explication fait douter le caissier et le client ; il
                     doit pouvoir dire pourquoi, sans chercher. */}
                 {line.promotionName && (
-                  <p className="mt-1 text-sm font-medium text-emerald-700">
+                  <p className="mt-1 text-sm font-medium text-succes-700">
                     {line.promotionName} · −{formatMoney(line.discountCents, cart.currency)}
                   </p>
                 )}
@@ -697,15 +697,15 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
             );
           })}
           {cart.lines.length === 0 && (
-            <li className="px-4 py-10 text-center text-sm text-slate-500">
+            <li className="px-4 py-10 text-center text-sm text-ardoise-500">
               Scannez ou touchez un article pour commencer.
             </li>
           )}
         </ul>
 
-        <div className="border-t border-slate-200 px-4 py-3 text-sm">
+        <div className="border-t border-ardoise-200 px-4 py-3 text-sm">
           {totals.discountCents > 0 && (
-            <div className="flex justify-between text-slate-500">
+            <div className="flex justify-between text-ardoise-500">
               <span>Remise</span>
               <span className="tabular-nums">
                 −{formatMoney(totals.discountCents, cart.currency)}
@@ -715,7 +715,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
           {totals.taxBreakdown
             .filter((tax) => tax.taxCents > 0)
             .map((tax) => (
-              <div key={tax.rateBp} className="flex justify-between text-slate-400">
+              <div key={tax.rateBp} className="flex justify-between text-ardoise-400">
                 <span>dont TVA {(tax.rateBp / 100).toFixed(1).replace('.0', '')} %</span>
                 <span className="tabular-nums">{formatMoney(tax.taxCents, cart.currency)}</span>
               </div>
@@ -724,7 +724,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
               Un client à qui l'on annonce « vous avez économisé » revient ; le
               même montant fondu dans le total ne se remarque pas. */}
           {applied.length > 0 && (
-            <div className="flex justify-between font-medium text-emerald-700">
+            <div className="flex justify-between font-medium text-succes-700">
               <span>Promotions</span>
               <span className="tabular-nums">
                 −{formatMoney(promotedTotal(applied), cart.currency)}
@@ -771,7 +771,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
             type="button"
             onClick={() => setPaying(true)}
             disabled={cart.lines.length === 0}
-            className="flex-1 rounded-xl bg-emerald-600 py-3.5 text-base font-bold text-white shadow-souleve transition hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+            className="flex-1 rounded-xl bg-succes-600 py-3.5 text-base font-bold text-white shadow-souleve transition hover:bg-succes-700 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
           >
             Encaisser
           </button>

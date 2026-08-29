@@ -158,7 +158,7 @@ export function ScalePanel({ session, db }: { session: LocalSession; db: SqlExec
           </div>
 
           <p
-            className={`mt-3 text-sm ${longueur === 13 ? 'text-ardoise-500' : 'font-medium text-rose-700'}`}
+            className={`mt-3 text-sm ${longueur === 13 ? 'text-ardoise-500' : 'font-medium text-danger-700'}`}
           >
             {longueur === 13
               ? `Découpage complet : ${String(longueur)} chiffres.`
@@ -198,7 +198,7 @@ export function ScalePanel({ session, db }: { session: LocalSession; db: SqlExec
               />
             </label>
             {essai.trim() !== '' && (
-              <p className={`mt-2 text-sm ${lecture ? 'text-emerald-800' : 'text-rose-700'}`}>
+              <p className={`mt-2 text-sm ${lecture ? 'text-succes-800' : 'text-danger-700'}`}>
                 {lecture
                   ? `Article « ${lecture.itemCode} » — ${
                       lecture.qtyMilli !== null

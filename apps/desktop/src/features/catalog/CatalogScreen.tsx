@@ -165,7 +165,7 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
                 setPage(0);
               }}
               placeholder="Nom, référence ou code-barres"
-              className="w-full rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-caisse-600"
+              className="w-full rounded-lg border border-ardoise-300 px-4 py-2.5 outline-none focus:border-caisse-600"
             />
           )}
         </Champ>
@@ -178,7 +178,7 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
                 setCategoryFilter(event.target.value);
                 setPage(0);
               }}
-              className="rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-caisse-600"
+              className="rounded-lg border border-ardoise-300 px-4 py-2.5 outline-none focus:border-caisse-600"
             >
               <option value="">Toutes les catégories</option>
               {categories.map((category) => (
@@ -201,14 +201,14 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
       </div>
 
       {error && (
-        <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
           {error}
         </p>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-xl border border-ardoise-200 bg-white">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-slate-500">
+          <thead className="bg-ardoise-50 text-left text-ardoise-500">
             <tr>
               <th className="px-4 py-3 font-medium">Produit</th>
               <th className="px-4 py-3 font-medium">Référence</th>
@@ -217,25 +217,25 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
               {editable && <th className="px-4 py-3" />}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-ardoise-100">
             {visible.map((product) => (
               <tr key={product.id} className={product.isActive ? '' : 'opacity-50'}>
                 <td className="px-4 py-3">
-                  <span className="font-medium text-slate-900">{product.name}</span>
+                  <span className="font-medium text-ardoise-900">{product.name}</span>
                   {!product.isActive && (
-                    <span className="ml-2 text-xs text-slate-500">(inactif)</span>
+                    <span className="ml-2 text-xs text-ardoise-500">(inactif)</span>
                   )}
                   {!product.trackStock && (
-                    <span className="ml-2 text-xs text-slate-400">stock non suivi</span>
+                    <span className="ml-2 text-xs text-ardoise-400">stock non suivi</span>
                   )}
                 </td>
-                <td className="px-4 py-3 font-mono text-xs text-slate-500">
+                <td className="px-4 py-3 font-mono text-xs text-ardoise-500">
                   {product.sku ?? product.barcode ?? '—'}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-slate-900">
+                <td className="px-4 py-3 text-right tabular-nums text-ardoise-900">
                   {formatMoney(product.priceCents, session.company.currency)}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-slate-500">
+                <td className="px-4 py-3 text-right tabular-nums text-ardoise-500">
                   {formatTaxRate(product.taxRateBp)}
                 </td>
                 {editable && (
@@ -243,14 +243,14 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
                     <button
                       type="button"
                       onClick={() => setEditing(product)}
-                      className="rounded-md px-3 py-1.5 text-slate-600 hover:bg-slate-100"
+                      className="rounded-lg px-3 py-1.5 text-ardoise-600 hover:bg-ardoise-100"
                     >
                       Modifier
                     </button>
                     <button
                       type="button"
                       onClick={() => void remove(product)}
-                      className="rounded-md px-3 py-1.5 text-red-600 hover:bg-red-50"
+                      className="rounded-lg px-3 py-1.5 text-danger-600 hover:bg-danger-50"
                     >
                       Supprimer
                     </button>
@@ -260,7 +260,7 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
             ))}
             {visible.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={5} className="px-4 py-10 text-center text-ardoise-500">
                   {search === '' && categoryFilter === ''
                     ? 'Aucun produit. Créez le premier article du catalogue.'
                     : 'Aucun produit ne correspond à cette recherche.'}

@@ -91,7 +91,7 @@ export function MaintenancePanel({ session, db }: { session: LocalSession; db: S
         <p
           role="status"
           className={`mt-4 rounded-lg p-3 text-sm ${
-            message.tone === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-700'
+            message.tone === 'ok' ? 'bg-succes-50 text-succes-800' : 'bg-danger-50 text-danger-700'
           }`}
         >
           {message.text}

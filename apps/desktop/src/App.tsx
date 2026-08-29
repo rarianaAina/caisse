@@ -23,18 +23,20 @@ function Router() {
   switch (phase.kind) {
     case 'loading':
       return (
-        <main className="flex min-h-full items-center justify-center bg-slate-100">
-          <p className="text-slate-500">Ouverture de la caisse…</p>
+        <main className="flex min-h-full items-center justify-center bg-ardoise-100">
+          <p className="text-ardoise-500">Ouverture de la caisse…</p>
         </main>
       );
 
     case 'no-runtime':
       return (
-        <main className="flex min-h-full items-center justify-center bg-slate-100 p-8">
-          <div className="max-w-md rounded-2xl bg-white p-8 text-center shadow-lg">
+        <main className="flex min-h-full items-center justify-center bg-ardoise-100 p-8">
+          <div className="max-w-md rounded-2xl bg-white p-8 text-center shadow-flottant">
             <p className="text-4xl">🔌</p>
-            <h1 className="mt-3 text-lg font-semibold text-slate-900">Base locale indisponible</h1>
-            <p className="mt-2 text-sm text-slate-500">{phase.message}</p>
+            <h1 className="mt-3 text-lg font-semibold text-ardoise-900">
+              Base locale indisponible
+            </h1>
+            <p className="mt-2 text-sm text-ardoise-500">{phase.message}</p>
           </div>
         </main>
       );

@@ -28,11 +28,11 @@ interface StockScreenProps {
 }
 
 const STATUS_STYLES: Record<StockStatus, { label: string; className: string }> = {
-  ok: { label: 'En stock', className: 'bg-emerald-50 text-emerald-700' },
-  low: { label: 'Seuil bas', className: 'bg-amber-50 text-amber-700' },
-  out: { label: 'Rupture', className: 'bg-slate-100 text-slate-600' },
-  negative: { label: 'Négatif', className: 'bg-red-50 text-red-700' },
-  untracked: { label: 'Non suivi', className: 'bg-slate-50 text-slate-400' },
+  ok: { label: 'En stock', className: 'bg-succes-50 text-succes-700' },
+  low: { label: 'Seuil bas', className: 'bg-alerte-50 text-alerte-700' },
+  out: { label: 'Rupture', className: 'bg-ardoise-100 text-ardoise-600' },
+  negative: { label: 'Négatif', className: 'bg-danger-50 text-danger-700' },
+  untracked: { label: 'Non suivi', className: 'bg-ardoise-50 text-ardoise-400' },
 };
 
 const MOVEMENT_LABELS: Record<string, string> = {
@@ -178,11 +178,11 @@ export function StockScreen({ session, db }: StockScreenProps) {
                   setPage(0);
                 }}
                 placeholder="Nom ou référence"
-                className="w-full rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-caisse-600"
+                className="w-full rounded-lg border border-ardoise-300 px-4 py-2.5 outline-none focus:border-caisse-600"
               />
             )}
           </Champ>
-          <label className="flex items-center gap-2 pb-2.5 text-sm text-slate-600">
+          <label className="flex items-center gap-2 pb-2.5 text-sm text-ardoise-600">
             <input
               type="checkbox"
               checked={onlyAlerts}
@@ -191,14 +191,14 @@ export function StockScreen({ session, db }: StockScreenProps) {
             />
             Alertes uniquement
           </label>
-          <span className="pb-2.5 text-sm text-slate-500">
+          <span className="pb-2.5 text-sm text-ardoise-500">
             {alerts} produit{alerts > 1 ? 's' : ''} à surveiller sur cette page
           </span>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="overflow-hidden rounded-xl border border-ardoise-200 bg-white">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-slate-500">
+            <thead className="bg-ardoise-50 text-left text-ardoise-500">
               <tr>
                 <th className="px-4 py-3 font-medium">Produit</th>
                 <th className="px-4 py-3 text-right font-medium">Quantité</th>
@@ -207,20 +207,20 @@ export function StockScreen({ session, db }: StockScreenProps) {
                 {editable && <th className="px-4 py-3" />}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-ardoise-100">
               {visible.map((line) => (
                 <tr key={line.productId}>
-                  <td className="px-4 py-3 font-medium text-slate-900">{line.name}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-slate-900">
+                  <td className="px-4 py-3 font-medium text-ardoise-900">{line.name}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-ardoise-900">
                     {formatQty(line.qtyMilli)} {line.unit === 'unit' ? '' : line.unit}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-slate-400">
+                  <td className="px-4 py-3 text-right tabular-nums text-ardoise-400">
                     {editable ? (
                       <button
                         type="button"
                         onClick={() => void changerSeuil(line)}
                         title="Modifier le seuil d’alerte"
-                        className="rounded px-2 py-1 underline decoration-dotted underline-offset-4 transition hover:bg-slate-100 hover:text-slate-900"
+                        className="rounded px-2 py-1 underline decoration-dotted underline-offset-4 transition hover:bg-ardoise-100 hover:text-ardoise-900"
                       >
                         {line.minQtyMilli > 0 ? formatQty(line.minQtyMilli) : 'définir'}
                       </button>
@@ -246,7 +246,7 @@ export function StockScreen({ session, db }: StockScreenProps) {
                           setAmount('');
                           setError(null);
                         }}
-                        className="rounded-md px-3 py-1.5 text-caisse-700 hover:bg-caisse-50"
+                        className="rounded-lg px-3 py-1.5 text-caisse-700 hover:bg-caisse-50"
                       >
                         Ajuster
                       </button>
@@ -256,7 +256,7 @@ export function StockScreen({ session, db }: StockScreenProps) {
               ))}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                  <td colSpan={5} className="px-4 py-10 text-center text-ardoise-500">
                     Aucun produit à afficher.
                   </td>
                 </tr>
@@ -278,13 +278,13 @@ export function StockScreen({ session, db }: StockScreenProps) {
 
       <section className="space-y-5">
         {selected && editable && (
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <h3 className="font-medium text-slate-900">{selected.name}</h3>
-            <p className="mt-0.5 text-sm text-slate-500">
+          <div className="rounded-xl border border-ardoise-200 bg-white p-4">
+            <h3 className="font-medium text-ardoise-900">{selected.name}</h3>
+            <p className="mt-0.5 text-sm text-ardoise-500">
               Actuellement : {formatQty(selected.qtyMilli)}
             </p>
 
-            <div className="mt-4 flex rounded-lg bg-slate-100 p-1">
+            <div className="mt-4 flex rounded-lg bg-ardoise-100 p-1">
               {(
                 [
                   ['receive', 'Recevoir'],
@@ -296,8 +296,8 @@ export function StockScreen({ session, db }: StockScreenProps) {
                   key={value}
                   type="button"
                   onClick={() => setMode(value)}
-                  className={`flex-1 rounded-md py-2 text-sm font-medium transition ${
-                    mode === value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                  className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
+                    mode === value ? 'bg-white text-ardoise-900 shadow-carte' : 'text-ardoise-500'
                   }`}
                 >
                   {text}
@@ -305,7 +305,7 @@ export function StockScreen({ session, db }: StockScreenProps) {
               ))}
             </div>
 
-            <label className="mt-4 block text-sm font-medium text-slate-700" htmlFor="qty">
+            <label className="mt-4 block text-sm font-medium text-ardoise-700" htmlFor="qty">
               {mode === 'count' ? 'Quantité comptée' : 'Quantité'}
             </label>
             <input
@@ -317,19 +317,19 @@ export function StockScreen({ session, db }: StockScreenProps) {
                 if (event.key === 'Enter') void apply();
               }}
               placeholder="0"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-caisse-600"
+              className="mt-1 w-full rounded-lg border border-ardoise-300 px-3 py-2 outline-none focus:border-caisse-600"
               autoFocus
             />
 
             {mode === 'count' && (
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-ardoise-500">
                 Le comptage est converti en mouvement : une vente encaissée entre-temps sur une
                 autre caisse reste prise en compte.
               </p>
             )}
 
             {error && (
-              <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              <p role="alert" className="mt-3 rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
                 {error}
               </p>
             )}
@@ -338,7 +338,7 @@ export function StockScreen({ session, db }: StockScreenProps) {
               <button
                 type="button"
                 onClick={() => setSelected(null)}
-                className="flex-1 rounded-lg border border-slate-300 py-2.5 font-medium text-slate-700 hover:bg-slate-50"
+                className="flex-1 rounded-lg border border-ardoise-300 py-2.5 font-medium text-ardoise-700 hover:bg-ardoise-50"
               >
                 Annuler
               </button>
@@ -353,28 +353,28 @@ export function StockScreen({ session, db }: StockScreenProps) {
           </div>
         )}
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="font-medium text-slate-900">Derniers mouvements</h3>
+        <div className="rounded-xl border border-ardoise-200 bg-white p-4">
+          <h3 className="font-medium text-ardoise-900">Derniers mouvements</h3>
           {/* « Réception +50 » ne dit rien : de quoi, quand, par qui, pourquoi.
               Un écart constaté un mois plus tard ne se remonte qu'avec ces
               quatre éléments — sinon il ne reste qu'à soupçonner tout le monde. */}
-          <ul className="mt-3 divide-y divide-slate-100 text-sm">
+          <ul className="mt-3 divide-y divide-ardoise-100 text-sm">
             {history.map((movement) => (
               <li key={movement.id} className="py-2.5">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="truncate font-medium text-slate-900">
+                  <span className="truncate font-medium text-ardoise-900">
                     {movement.productName}
                   </span>
                   <span
                     className={`shrink-0 tabular-nums font-medium ${
-                      movement.qtyMilliDelta > 0 ? 'text-emerald-700' : 'text-red-700'
+                      movement.qtyMilliDelta > 0 ? 'text-succes-700' : 'text-danger-700'
                     }`}
                   >
                     {movement.qtyMilliDelta > 0 ? '+' : ''}
                     {formatQty(movement.qtyMilliDelta)}
                   </span>
                 </div>
-                <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-slate-500">
+                <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-ardoise-500">
                   <span>{MOVEMENT_LABELS[movement.type] ?? movement.type}</span>
                   <span aria-hidden="true">·</span>
                   <span>{quand(movement.createdAt)}</span>
@@ -389,11 +389,11 @@ export function StockScreen({ session, db }: StockScreenProps) {
                     un — perte, inventaire. L'afficher vide ajouterait une ligne
                     grise à chaque réception. */}
                 {movement.reason && (
-                  <p className="mt-0.5 text-xs italic text-slate-500">{movement.reason}</p>
+                  <p className="mt-0.5 text-xs italic text-ardoise-500">{movement.reason}</p>
                 )}
               </li>
             ))}
-            {history.length === 0 && <li className="py-2 text-slate-500">Aucun mouvement.</li>}
+            {history.length === 0 && <li className="py-2 text-ardoise-500">Aucun mouvement.</li>}
           </ul>
         </div>
       </section>

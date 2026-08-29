@@ -65,9 +65,9 @@ export function CompanyPanel({ session, db }: { session: LocalSession; db: SqlEx
   };
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="font-semibold text-slate-900">Identité de l’entreprise</h2>
-      <p className="mt-1 text-sm text-slate-500">
+    <section className="rounded-xl border border-ardoise-200 bg-white p-5">
+      <h2 className="font-semibold text-ardoise-900">Identité de l’entreprise</h2>
+      <p className="mt-1 text-sm text-ardoise-500">
         Ce nom figure en tête des tickets remis à vos clients.
       </p>
 
@@ -79,7 +79,7 @@ export function CompanyPanel({ session, db }: { session: LocalSession; db: SqlEx
               value={name}
               onChange={(event) => setName(event.target.value)}
               maxLength={120}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-caisse-600"
+              className="w-full rounded-lg border border-ardoise-300 px-3 py-2.5 outline-none focus:border-caisse-600"
             />
           )}
         </Champ>
@@ -93,21 +93,21 @@ export function CompanyPanel({ session, db }: { session: LocalSession; db: SqlEx
         </button>
       </div>
 
-      <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-2 border-t border-slate-200 pt-4 text-sm">
+      <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-2 border-t border-ardoise-200 pt-4 text-sm">
         <div>
-          <dt className="text-slate-500">Devise</dt>
-          <dd className="font-medium text-slate-900">
+          <dt className="text-ardoise-500">Devise</dt>
+          <dd className="font-medium text-ardoise-900">
             {session.company.currency} — {formatMoney(150_000, session.company.currency)}
           </dd>
         </div>
         <div>
-          <dt className="text-slate-500">Prix affichés</dt>
-          <dd className="font-medium text-slate-900">
+          <dt className="text-ardoise-500">Prix affichés</dt>
+          <dd className="font-medium text-ardoise-900">
             {session.company.pricesIncludeTax ? 'TVA comprise' : 'hors taxes'}
           </dd>
         </div>
       </dl>
-      <p className="mt-2 text-xs text-slate-500">
+      <p className="mt-2 text-xs text-ardoise-500">
         Ces deux réglages ne se modifient plus. Les montants déjà enregistrés sont stockés à
         l’échelle de la devise : en changer réinterpréterait tout l’historique des ventes.
       </p>
@@ -116,7 +116,7 @@ export function CompanyPanel({ session, db }: { session: LocalSession; db: SqlEx
         <p
           role="status"
           className={`mt-4 rounded-lg p-3 text-sm ${
-            message.tone === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-700'
+            message.tone === 'ok' ? 'bg-succes-50 text-succes-800' : 'bg-danger-50 text-danger-700'
           }`}
         >
           {message.text}

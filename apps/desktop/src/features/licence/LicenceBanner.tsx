@@ -16,7 +16,7 @@ export function LicenceBanner({ status, seuil }: { status: LicenceStatus; seuil:
   if (status.state === 'grace') {
     const jours = status.graceLeft ?? 0;
     return (
-      <div className="border-b border-rose-200 bg-rose-50 px-6 py-2.5 text-sm text-rose-900">
+      <div className="border-b border-danger-200 bg-danger-50 px-6 py-2.5 text-sm text-danger-900">
         <b>Licence échue.</b> La caisse se fermera dans {jours} jour{jours > 1 ? 's' : ''}.
         Contactez votre fournisseur — vos données sont intactes et le resteront.
       </div>
@@ -30,7 +30,7 @@ export function LicenceBanner({ status, seuil }: { status: LicenceStatus; seuil:
 
   const essai = status.payload?.s === 'essai';
   return (
-    <div className="border-b border-amber-200 bg-amber-50 px-6 py-2.5 text-sm text-amber-900">
+    <div className="border-b border-alerte-200 bg-alerte-50 px-6 py-2.5 text-sm text-alerte-900">
       {essai ? 'Période d’essai : ' : 'Licence : '}
       il reste{' '}
       <b>

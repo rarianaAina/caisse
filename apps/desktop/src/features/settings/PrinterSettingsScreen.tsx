@@ -134,16 +134,16 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
   };
 
   const field =
-    'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-caisse-600';
-  const label = 'block text-sm font-medium text-slate-700';
+    'mt-1 w-full rounded-lg border border-ardoise-300 px-3 py-2.5 outline-none focus:border-caisse-600';
+  const label = 'block text-sm font-medium text-ardoise-700';
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <BusinessProfilePanel db={db} />
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="font-semibold text-slate-900">Imprimante ticket</h2>
-        <p className="mt-1 text-sm text-slate-500">
+      <section className="rounded-xl border border-ardoise-200 bg-white p-5">
+        <h2 className="font-semibold text-ardoise-900">Imprimante ticket</h2>
+        <p className="mt-1 text-sm text-ardoise-500">
           Réglage propre à ce poste. Actuellement : {describeTarget(settings.target)}.
         </p>
 
@@ -163,7 +163,7 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-slate-500">{KIND_HINTS[kind]}</p>
+          <p className="mt-1 text-xs text-ardoise-500">{KIND_HINTS[kind]}</p>
         </div>
 
         {kind === 'network' && (
@@ -226,7 +226,9 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
           <p
             role="alert"
             className={`mt-4 rounded-lg p-3 text-sm ${
-              message.tone === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
+              message.tone === 'ok'
+                ? 'bg-succes-50 text-succes-800'
+                : 'bg-danger-50 text-danger-700'
             }`}
           >
             {message.text}
@@ -246,7 +248,7 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
             type="button"
             disabled={busy}
             onClick={() => void probe()}
-            className="rounded-lg border border-slate-300 px-5 py-2.5 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-lg border border-ardoise-300 px-5 py-2.5 font-medium text-ardoise-700 transition hover:bg-ardoise-50 disabled:opacity-50"
           >
             Tester la connexion
           </button>
@@ -254,15 +256,15 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
             type="button"
             disabled={busy}
             onClick={() => void test()}
-            className="rounded-lg border border-slate-300 px-5 py-2.5 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-lg border border-ardoise-300 px-5 py-2.5 font-medium text-ardoise-700 transition hover:bg-ardoise-50 disabled:opacity-50"
           >
             Imprimer un ticket d’essai
           </button>
         </div>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="font-semibold text-slate-900">Mise en page</h2>
+      <section className="rounded-xl border border-ardoise-200 bg-white p-5">
+        <h2 className="font-semibold text-ardoise-900">Mise en page</h2>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
@@ -303,7 +305,7 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
               ['barcode', 'Imprimer le numéro de ticket en code-barres'],
             ] as const
           ).map(([key, text]) => (
-            <label key={key} className="flex items-center gap-2 text-sm text-slate-700">
+            <label key={key} className="flex items-center gap-2 text-sm text-ardoise-700">
               <input
                 type="checkbox"
                 checked={settings[key]}

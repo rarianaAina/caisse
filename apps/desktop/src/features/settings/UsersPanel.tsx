@@ -202,8 +202,8 @@ export function UsersPanel({ session, db }: { session: LocalSession; db: SqlExec
               onClick={() => void basculer(user)}
               className={`rounded-lg px-3 py-2 text-sm font-medium ${
                 user.isActive
-                  ? 'border border-rose-200 bg-rose-50 text-rose-700'
-                  : 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                  ? 'border border-danger-200 bg-danger-50 text-danger-700'
+                  : 'border border-succes-200 bg-succes-50 text-succes-700'
               }`}
             >
               {user.isActive ? 'Désactiver' : 'Réactiver'}
@@ -307,7 +307,7 @@ export function UsersPanel({ session, db }: { session: LocalSession; db: SqlExec
 
       {message && (
         <p
-          className={`mt-3 text-sm ${message.tone === 'ok' ? 'text-emerald-700' : 'text-rose-700'}`}
+          className={`mt-3 text-sm ${message.tone === 'ok' ? 'text-succes-700' : 'text-danger-700'}`}
         >
           {message.text}
         </p>

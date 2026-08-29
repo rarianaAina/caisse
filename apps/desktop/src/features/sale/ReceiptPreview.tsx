@@ -76,28 +76,28 @@ export function ReceiptPreview({
   const cash = details.payments.find((payment) => payment.method === 'cash');
 
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/50 p-6">
-      <div className="flex w-full max-w-md flex-col rounded-2xl bg-white p-6 shadow-xl">
-        <div className="rounded-xl bg-emerald-50 p-4 text-center">
-          <p className="text-sm text-emerald-700">Vente enregistrée</p>
-          <p className="text-3xl font-semibold tabular-nums text-emerald-800">
+    <div className="fixed inset-0 z-10 flex items-center justify-center bg-ardoise-900/50 p-6">
+      <div className="flex w-full max-w-md flex-col rounded-2xl bg-white p-6 shadow-flottant">
+        <div className="rounded-xl bg-succes-50 p-4 text-center">
+          <p className="text-sm text-succes-700">Vente enregistrée</p>
+          <p className="text-3xl font-semibold tabular-nums text-succes-800">
             {formatMoney(details.sale.totalCents, details.sale.currency)}
           </p>
           {cash?.changeCents !== null &&
             cash?.changeCents !== undefined &&
             cash.changeCents > 0 && (
-              <p className="mt-1 text-emerald-700">
+              <p className="mt-1 text-succes-700">
                 À rendre : {formatMoney(cash.changeCents, details.sale.currency)}
               </p>
             )}
         </div>
 
-        <pre className="mt-5 max-h-80 overflow-y-auto rounded-lg bg-slate-50 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-slate-800">
+        <pre className="mt-5 max-h-80 overflow-y-auto rounded-lg bg-ardoise-50 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-ardoise-800">
           {lines.join('\n')}
         </pre>
 
         {status && (
-          <p className="mt-3 rounded-lg bg-slate-50 p-3 text-center text-sm text-slate-600">
+          <p className="mt-3 rounded-lg bg-ardoise-50 p-3 text-center text-sm text-ardoise-600">
             {status}
           </p>
         )}
@@ -107,7 +107,7 @@ export function ReceiptPreview({
             type="button"
             onClick={() => void print()}
             disabled={printing}
-            className="flex-1 rounded-lg border border-slate-300 py-3 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+            className="flex-1 rounded-lg border border-ardoise-300 py-3 font-medium text-ardoise-700 transition hover:bg-ardoise-50 disabled:opacity-50"
           >
             {printing ? 'Impression…' : 'Imprimer'}
           </button>

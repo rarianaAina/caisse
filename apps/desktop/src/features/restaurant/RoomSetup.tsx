@@ -64,8 +64,8 @@ export function RoomSetup({
   };
 
   const field =
-    'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-caisse-600';
-  const label = 'block text-sm font-medium text-slate-700';
+    'mt-1 w-full rounded-lg border border-ardoise-300 px-3 py-2.5 outline-none focus:border-caisse-600';
+  const label = 'block text-sm font-medium text-ardoise-700';
 
   const tablesOf = (id: string | null): DiningTable[] =>
     tables.filter((table) => table.roomId === id);
@@ -73,21 +73,21 @@ export function RoomSetup({
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">Configurer la salle</h2>
+        <h2 className="text-lg font-semibold text-ardoise-900">Configurer la salle</h2>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+          className="rounded-lg border border-ardoise-300 px-4 py-2 text-sm font-medium text-ardoise-700"
         >
           Retour à la salle
         </button>
       </div>
 
-      {error && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+      {error && <p className="rounded-lg bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5">
-        <h3 className="font-semibold text-slate-900">Salles</h3>
-        <p className="mt-1 text-sm text-slate-500">
+      <section className="rounded-xl border border-ardoise-200 bg-white p-5">
+        <h3 className="font-semibold text-ardoise-900">Salles</h3>
+        <p className="mt-1 text-sm text-ardoise-500">
           « Salle », « Terrasse », « Étage »… Facultatif : sans salle, les tables sont simplement
           listées ensemble.
         </p>
@@ -117,7 +117,7 @@ export function RoomSetup({
             {rooms.map((room) => (
               <li
                 key={room.id}
-                className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
+                className="rounded-full bg-ardoise-100 px-3 py-1 text-sm text-ardoise-700"
               >
                 {room.name} · {tablesOf(room.id).length} tables
               </li>
@@ -126,8 +126,8 @@ export function RoomSetup({
         )}
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5">
-        <h3 className="font-semibold text-slate-900">Créer des tables</h3>
+      <section className="rounded-xl border border-ardoise-200 bg-white p-5">
+        <h3 className="font-semibold text-ardoise-900">Créer des tables</h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-4">
           <div>
             <label className={label} htmlFor="prefix">
@@ -206,19 +206,19 @@ export function RoomSetup({
         </button>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5">
-        <h3 className="font-semibold text-slate-900">Tables ({tables.length})</h3>
+      <section className="rounded-xl border border-ardoise-200 bg-white p-5">
+        <h3 className="font-semibold text-ardoise-900">Tables ({tables.length})</h3>
         <ul className="mt-3 flex flex-wrap gap-2">
           {tables.map((table) => (
             <li
               key={table.id}
-              className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
+              className="flex items-center gap-2 rounded-lg border border-ardoise-200 px-3 py-1.5 text-sm"
             >
-              <span className="text-slate-800">{table.name}</span>
+              <span className="text-ardoise-800">{table.name}</span>
               <button
                 type="button"
                 onClick={() => void run(() => orders.deleteTable(table.id))}
-                className="text-slate-400 hover:text-rose-600"
+                className="text-ardoise-400 hover:text-danger-600"
                 title="Supprimer"
               >
                 ×

@@ -12,11 +12,54 @@
         que sur la couleur et l'ombre, jamais sur la position d'un bouton.
 
    Les couleurs sont en OKLCH : à luminosité égale, les teintes le sont
-   vraiment, ce qu'aucune palette en hexadécimal ne garantit.
+   vraiment, ce qu'aucune palette en hexadécimal ne garantit. Les cinq familles
+   partagent la MÊME échelle de luminosité — un `succes-600` et un `caisse-600`
+   pèsent donc pareil à l'œil, et l'on peut les échanger sans redessiner.
    ============================================================================ */
 
+/* ─── Police ───────────────────────────────────────────────────────────────
+   IBM Plex Sans, EMBARQUÉE dans le binaire. Une caisse travaille hors ligne :
+   une police servie par un CDN s'afficherait chez le client en Times, ou pas
+   du tout. Elle est choisie pour ses chiffres sans ambiguïté — le 1 a un
+   empattement, le 0 est ovale, le 7 est barré — parce qu'un prix mal lu au
+   comptoir se paie en monnaie rendue.
+
+   Sous-ensemble latin : il couvre tout le français employé ici. Les flèches et
+   les traits (→ − ─) n'y sont pas et retombent sur la police du système ; le
+   lot d'icônes les remplacera. */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/polices/ibm-plex-sans-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../assets/polices/ibm-plex-sans-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../assets/polices/ibm-plex-sans-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/polices/ibm-plex-sans-700.woff2') format('woff2');
+}
+
 @theme {
-  /* Bleu de marque : celui des actions principales. */
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* ─── Bleu de marque : les actions principales, et rien d'autre ──────── */
   --color-caisse-50: oklch(0.97 0.02 250);
   --color-caisse-100: oklch(0.94 0.04 250);
   --color-caisse-200: oklch(0.88 0.07 250);
@@ -28,8 +71,11 @@
   --color-caisse-800: oklch(0.37 0.12 250);
   --color-caisse-900: oklch(0.29 0.09 250);
 
-  /* Encre et surfaces : un gris légèrement bleuté, plus doux qu'un gris pur
-     sous un éclairage de magasin. */
+  /* ─── Encre et surfaces ─────────────────────────────────────────────────
+     Un gris légèrement bleuté, plus doux qu'un gris pur sous un éclairage de
+     magasin. C'est LE gris du logiciel : `slate` n'a plus cours ici. Deux gris
+     presque identiques sont pires que deux gris différents — l'œil perçoit un
+     décalage qu'il ne sait pas nommer. */
   --color-ardoise-50: oklch(0.985 0.002 250);
   --color-ardoise-100: oklch(0.965 0.004 250);
   --color-ardoise-200: oklch(0.925 0.006 250);
@@ -40,6 +86,47 @@
   --color-ardoise-700: oklch(0.37 0.014 250);
   --color-ardoise-800: oklch(0.27 0.012 250);
   --color-ardoise-900: oklch(0.19 0.01 250);
+
+  /* ─── États ─────────────────────────────────────────────────────────────
+     Nommés par ce qu'ils SIGNIFIENT, pas par leur teinte. Un écran qui écrit
+     « rose » pour une erreur et « emerald » pour un succès oblige chaque
+     développeur à se souvenir de la convention ; il finit toujours par exister
+     un écran qui met du rouge là où l'autre met du rose.
+
+     Contrastes vérifiés : texte -700 sur fond -50 au-dessus de 6,5:1, blanc
+     sur -600 au-dessus de 4,9:1. */
+  --color-succes-50: oklch(0.97 0.02 155);
+  --color-succes-100: oklch(0.94 0.045 155);
+  --color-succes-200: oklch(0.88 0.08 155);
+  --color-succes-300: oklch(0.79 0.12 155);
+  --color-succes-400: oklch(0.69 0.14 155);
+  --color-succes-500: oklch(0.6 0.14 155);
+  --color-succes-600: oklch(0.53 0.13 155);
+  --color-succes-700: oklch(0.45 0.11 155);
+  --color-succes-800: oklch(0.37 0.09 155);
+  --color-succes-900: oklch(0.29 0.07 155);
+
+  --color-alerte-50: oklch(0.97 0.025 75);
+  --color-alerte-100: oklch(0.94 0.05 75);
+  --color-alerte-200: oklch(0.88 0.09 75);
+  --color-alerte-300: oklch(0.79 0.13 75);
+  --color-alerte-400: oklch(0.69 0.15 75);
+  --color-alerte-500: oklch(0.6 0.15 75);
+  --color-alerte-600: oklch(0.53 0.14 75);
+  --color-alerte-700: oklch(0.45 0.12 75);
+  --color-alerte-800: oklch(0.37 0.09 75);
+  --color-alerte-900: oklch(0.29 0.07 75);
+
+  --color-danger-50: oklch(0.97 0.02 25);
+  --color-danger-100: oklch(0.94 0.04 25);
+  --color-danger-200: oklch(0.88 0.075 25);
+  --color-danger-300: oklch(0.79 0.12 25);
+  --color-danger-400: oklch(0.69 0.16 25);
+  --color-danger-500: oklch(0.6 0.18 25);
+  --color-danger-600: oklch(0.53 0.18 25);
+  --color-danger-700: oklch(0.45 0.16 25);
+  --color-danger-800: oklch(0.37 0.13 25);
+  --color-danger-900: oklch(0.29 0.1 25);
 
   /* Ombres douces : elles séparent les plans sans dessiner de traits. */
   --shadow-carte: 0 1px 2px oklch(0.2 0.02 250 / 0.06), 0 1px 3px oklch(0.2 0.02 250 / 0.04);
@@ -60,6 +147,7 @@ body {
   overscroll-behavior: none;
   background: var(--color-ardoise-100);
   color: var(--color-ardoise-900);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -88,6 +176,17 @@ table th {
    Déclarés une fois pour que tous les écrans se ressemblent : sans cela,
    chaque écran réinvente ses arrondis et ses ombres, et l'ensemble paraît
    assemblé à la hâte. */
+
+/* ─── Trois niveaux de surface, et pas un de plus ───────────────────────────
+   Chaque niveau a son arrondi ET son ombre ; les mélanger fait qu'un écran
+   paraît plus « haut » qu'un autre sans raison.
+
+     contrôle   rounded-lg   0.5rem     bouton, champ, petite pastille
+     carte      .carte       0.875rem   panneau posé sur le fond
+     flottant   .flottant    1rem       fenêtre modale, par-dessus tout
+
+   Les valeurs sont celles de Tailwind : on ne redéfinit pas une échelle qui
+   marche, on choisit simplement où s'arrêter. */
 
 @layer components {
   .carte {
@@ -119,6 +218,15 @@ table th {
   .tuile:active {
     background: var(--color-caisse-50);
     box-shadow: none;
+  }
+
+  /* Surface flottante : fenêtre modale, panneau plein écran. Elle porte
+     l'ombre la plus marquée du système parce qu'elle doit se détacher de tout
+     ce qui reste visible derrière elle. */
+  .flottant {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: var(--shadow-flottant);
   }
 
   .pastille {

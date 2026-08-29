@@ -37,17 +37,19 @@ export function UpdatePanel({ currentVersion }: { currentVersion: string }) {
   };
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="font-semibold text-slate-900">Mise à jour</h2>
-      <p className="mt-1 text-sm text-slate-500">Version installée : {currentVersion}</p>
+    <section className="rounded-xl border border-ardoise-200 bg-white p-5">
+      <h2 className="font-semibold text-ardoise-900">Mise à jour</h2>
+      <p className="mt-1 text-sm text-ardoise-500">Version installée : {currentVersion}</p>
 
       {state.kind === 'available' && (
         <div className="mt-4 rounded-lg bg-caisse-50 p-4">
-          <p className="font-medium text-slate-900">Version {state.update.version} disponible</p>
+          <p className="font-medium text-ardoise-900">Version {state.update.version} disponible</p>
           {state.update.notes && (
-            <p className="mt-1 whitespace-pre-line text-sm text-slate-600">{state.update.notes}</p>
+            <p className="mt-1 whitespace-pre-line text-sm text-ardoise-600">
+              {state.update.notes}
+            </p>
           )}
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-ardoise-500">
             L’installation ferme la caisse quelques instants. À faire hors service, jamais pendant
             une vente.
           </p>
@@ -63,31 +65,31 @@ export function UpdatePanel({ currentVersion }: { currentVersion: string }) {
 
       {state.kind === 'downloading' && (
         <div className="mt-4">
-          <p className="text-sm text-slate-600">Téléchargement… {state.percent} %</p>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+          <p className="text-sm text-ardoise-600">Téléchargement… {state.percent} %</p>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-ardoise-200">
             <div className="h-full bg-caisse-600" style={{ width: `${String(state.percent)}%` }} />
           </div>
         </div>
       )}
 
       {state.kind === 'ready' && (
-        <p className="mt-4 text-sm text-emerald-700">Installée. La caisse va redémarrer.</p>
+        <p className="mt-4 text-sm text-succes-700">Installée. La caisse va redémarrer.</p>
       )}
       {state.kind === 'none' && (
-        <p className="mt-4 text-sm text-slate-600">La caisse est à jour.</p>
+        <p className="mt-4 text-sm text-ardoise-600">La caisse est à jour.</p>
       )}
-      {state.kind === 'error' && <p className="mt-4 text-sm text-rose-700">{state.message}</p>}
+      {state.kind === 'error' && <p className="mt-4 text-sm text-danger-700">{state.message}</p>}
 
       {(state.kind === 'idle' || state.kind === 'none' || state.kind === 'error') && (
         <button
           type="button"
           onClick={() => void look()}
-          className="mt-4 rounded-lg border border-slate-300 px-4 py-2.5 font-medium text-slate-700"
+          className="mt-4 rounded-lg border border-ardoise-300 px-4 py-2.5 font-medium text-ardoise-700"
         >
           Rechercher une mise à jour
         </button>
       )}
-      {state.kind === 'checking' && <p className="mt-4 text-sm text-slate-500">Recherche…</p>}
+      {state.kind === 'checking' && <p className="mt-4 text-sm text-ardoise-500">Recherche…</p>}
     </section>
   );
 }

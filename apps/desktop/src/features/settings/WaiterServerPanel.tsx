@@ -49,9 +49,9 @@ export function WaiterServerPanel() {
   };
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="font-semibold text-slate-900">Serveurs sur téléphone</h2>
-      <p className="mt-1 text-sm text-slate-500">
+    <section className="rounded-xl border border-ardoise-200 bg-white p-5">
+      <h2 className="font-semibold text-ardoise-900">Serveurs sur téléphone</h2>
+      <p className="mt-1 text-sm text-ardoise-500">
         Les serveurs prennent les commandes depuis leur téléphone, sur le Wi-Fi du restaurant. Ils
         n’installent rien : ils ouvrent une adresse dans leur navigateur. Aucune connexion Internet
         n’est nécessaire.
@@ -62,15 +62,15 @@ export function WaiterServerPanel() {
         onClick={() => void toggle()}
         disabled={busy}
         className={`mt-4 rounded-lg px-4 py-2.5 font-medium text-white disabled:opacity-50 ${
-          status.running ? 'bg-rose-600' : 'bg-caisse-600'
+          status.running ? 'bg-danger-600' : 'bg-caisse-600'
         }`}
       >
         {status.running ? 'Arrêter le service' : 'Démarrer le service'}
       </button>
 
       {status.running && (
-        <div className="mt-4 rounded-lg bg-slate-50 p-4">
-          <p className="text-sm font-medium text-slate-700">À taper sur les téléphones :</p>
+        <div className="mt-4 rounded-lg bg-ardoise-50 p-4">
+          <p className="text-sm font-medium text-ardoise-700">À taper sur les téléphones :</p>
           <ul className="mt-1 space-y-1">
             {status.urls.length > 0 ? (
               status.urls.map((url) => (
@@ -79,26 +79,26 @@ export function WaiterServerPanel() {
                 </li>
               ))
             ) : (
-              <li className="text-sm text-slate-500">
+              <li className="text-sm text-ardoise-500">
                 Adresse introuvable — vérifiez que la caisse est bien sur le Wi-Fi.
               </li>
             )}
           </ul>
-          <p className="mt-3 text-xs text-slate-500">
+          <p className="mt-3 text-xs text-ardoise-500">
             Chaque serveur se connecte avec son propre code PIN, le même que sur la caisse. Cinq
             codes faux et le compte attend un quart d’heure.
           </p>
         </div>
       )}
 
-      {error && <p className="mt-3 text-sm text-rose-700">{error}</p>}
+      {error && <p className="mt-3 text-sm text-danger-700">{error}</p>}
 
-      <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
+      <p className="mt-4 rounded-lg bg-alerte-50 p-3 text-xs text-alerte-900">
         ⚠️ La page est accessible à tout appareil connecté au même Wi-Fi. Si le réseau est partagé
         avec les clients du restaurant, prévoyez un réseau distinct pour le service — le code PIN
         protège l’accès, mais un réseau séparé évite la question.
       </p>
-      <p className="mt-2 text-xs text-slate-500">
+      <p className="mt-2 text-xs text-ardoise-500">
         La caisse doit rester allumée pendant le service : c’est elle qui tient les commandes.
       </p>
     </section>

@@ -52,7 +52,7 @@ export function LicenceScreen({
 
   return (
     <main className="flex min-h-full items-center justify-center bg-ardoise-100 p-6">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-lg">
+      <div className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-flottant">
         <h1 className="text-xl font-semibold text-ardoise-900">Activation</h1>
         <p className="mt-1 text-sm text-ardoise-500">{companyName}</p>
 
@@ -97,7 +97,7 @@ export function LicenceScreen({
         </p>
 
         {refus && (
-          <p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+          <p role="alert" className="mt-4 rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
             {refus}
           </p>
         )}
@@ -130,9 +130,9 @@ export function LicenceScreen({
 function Etat({ status }: { status: LicenceStatus }) {
   const { ton, titre, detail } = decrire(status);
   const couleurs: Record<string, string> = {
-    ok: 'bg-emerald-50 text-emerald-800',
-    alerte: 'bg-amber-50 text-amber-900',
-    bloque: 'bg-rose-50 text-rose-800',
+    ok: 'bg-succes-50 text-succes-800',
+    alerte: 'bg-alerte-50 text-alerte-900',
+    bloque: 'bg-danger-50 text-danger-800',
   };
 
   return (

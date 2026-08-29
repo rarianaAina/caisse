@@ -38,7 +38,7 @@ export function SyncBadge({
         type="button"
         onClick={onOpenConflicts}
         title="Des changements reçus du serveur n’ont pas pu être appliqués. La caisse réessaie à chaque cycle."
-        className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-900 transition hover:bg-amber-200"
+        className="rounded-full bg-alerte-100 px-3 py-1.5 text-xs font-medium text-alerte-900 transition hover:bg-alerte-200"
       >
         {snapshot.deferred} changement{snapshot.deferred > 1 ? 's' : ''} en attente d’application
       </button>
@@ -50,7 +50,7 @@ export function SyncBadge({
       <button
         type="button"
         onClick={onOpenConflicts}
-        className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-100"
+        className="rounded-full bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-700 transition hover:bg-danger-100"
       >
         {snapshot.conflicts} conflit{snapshot.conflicts > 1 ? 's' : ''} à trancher
       </button>
@@ -77,11 +77,11 @@ function describe(
   syncing: boolean,
 ): { className: string; label: string } {
   if (syncing || snapshot.state === 'syncing') {
-    return { className: 'bg-slate-100 text-slate-600', label: 'Synchronisation…' };
+    return { className: 'bg-ardoise-100 text-ardoise-600', label: 'Synchronisation…' };
   }
   if (snapshot.state === 'offline') {
     return {
-      className: stale ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-600',
+      className: stale ? 'bg-alerte-100 text-alerte-900' : 'bg-ardoise-100 text-ardoise-600',
       // « Hors-ligne » était trompeur : un commerçant comprend « pas
       // d'Internet » et va vérifier son Wi-Fi, alors que l'état signifie
       // exactement « le SERVEUR n'a pas répondu ». Les deux n'ont rien à voir :
@@ -94,12 +94,12 @@ function describe(
     };
   }
   if (snapshot.state === 'error') {
-    return { className: 'bg-amber-50 text-amber-800', label: 'Synchronisation en échec' };
+    return { className: 'bg-alerte-50 text-alerte-800', label: 'Synchronisation en échec' };
   }
   if (snapshot.pending > 0) {
-    return { className: 'bg-amber-50 text-amber-800', label: `${snapshot.pending} en attente` };
+    return { className: 'bg-alerte-50 text-alerte-800', label: `${snapshot.pending} en attente` };
   }
-  return { className: 'bg-emerald-50 text-emerald-700', label: 'À jour' };
+  return { className: 'bg-succes-50 text-succes-700', label: 'À jour' };
 }
 
 /** Bandeau d'avertissement, au-delà d'une journée sans synchronisation. */
@@ -110,7 +110,7 @@ export function StaleBanner({ engine }: { engine: SyncEngine }) {
   if (!isStale(snapshot) || snapshot.pending === 0) return null;
 
   return (
-    <div className="border-b border-amber-200 bg-amber-50 px-6 py-2.5 text-sm text-amber-900">
+    <div className="border-b border-alerte-200 bg-alerte-50 px-6 py-2.5 text-sm text-alerte-900">
       Cette caisse n’a rien transmis depuis plus de 24 h — {snapshot.pending} modification
       {snapshot.pending > 1 ? 's' : ''} en attente. <b>La vente reste possible.</b> Le serveur{' '}
       {/* L'adresse est nommée : sans elle, le commerçant ne peut rien vérifier

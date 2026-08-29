@@ -58,9 +58,9 @@ export function BackupPanel({ db }: { db: SqlExecutor }) {
   };
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="font-semibold text-slate-900">Sauvegarde de la base</h2>
-      <p className="mt-1 text-sm text-slate-500">
+    <section className="rounded-xl border border-ardoise-200 bg-white p-5">
+      <h2 className="font-semibold text-ardoise-900">Sauvegarde de la base</h2>
+      <p className="mt-1 text-sm text-ardoise-500">
         Une copie est faite automatiquement au premier démarrage de chaque journée, et les sept
         dernières sont conservées.{' '}
         {lastAt ? `Dernière : ${formatDate(lastAt)}.` : 'Aucune sauvegarde pour l’instant.'}
@@ -77,14 +77,14 @@ export function BackupPanel({ db }: { db: SqlExecutor }) {
 
       {message && (
         <p
-          className={`mt-3 text-sm ${message.tone === 'ok' ? 'text-emerald-700' : 'text-rose-700'}`}
+          className={`mt-3 text-sm ${message.tone === 'ok' ? 'text-succes-700' : 'text-danger-700'}`}
         >
           {message.text}
         </p>
       )}
 
       {backups.length > 0 && (
-        <ul className="mt-4 space-y-1 text-xs text-slate-500">
+        <ul className="mt-4 space-y-1 text-xs text-ardoise-500">
           {backups.map((backup) => (
             <li key={backup.path} className="flex justify-between gap-4">
               {/* Le chemin complet est affiché parce que c'est ce dont on a

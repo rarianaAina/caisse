@@ -124,7 +124,7 @@ export function DashboardScreen({
       </div>
 
       {error && (
-        <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+        <p role="alert" className="rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
           {error}
         </p>
       )}
@@ -198,7 +198,7 @@ export function DashboardScreen({
             <h2 className="font-semibold text-ardoise-900">
               À racheter
               {ruptures.length > 0 && (
-                <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                <span className="ml-2 rounded-full bg-alerte-100 px-2 py-0.5 text-xs font-medium text-alerte-900">
                   {ruptures.length}
                 </span>
               )}
@@ -215,7 +215,7 @@ export function DashboardScreen({
             {ruptures.slice(0, 6).map((line) => (
               <li key={line.productId} className="flex justify-between gap-3">
                 <span className="truncate text-ardoise-600">{line.name}</span>
-                <span className="shrink-0 tabular-nums text-amber-800">
+                <span className="shrink-0 tabular-nums text-alerte-800">
                   il manque {formatQty(line.missingMilli)}
                 </span>
               </li>
@@ -231,7 +231,7 @@ export function DashboardScreen({
             <h2 className="font-semibold text-ardoise-900">
               Ardoises ouvertes
               {ardoises.length > 0 && (
-                <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                <span className="ml-2 rounded-full bg-alerte-100 px-2 py-0.5 text-xs font-medium text-alerte-900">
                   {money(du)}
                 </span>
               )}
@@ -253,7 +253,7 @@ export function DashboardScreen({
                     <span className="text-ardoise-400"> · {entry.ageDays} j</span>
                   )}
                 </span>
-                <span className="shrink-0 font-medium tabular-nums text-rose-700">
+                <span className="shrink-0 font-medium tabular-nums text-danger-700">
                   {money(entry.balanceCents)}
                 </span>
               </li>

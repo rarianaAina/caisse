@@ -117,16 +117,16 @@ export function ReceiptEditor({
     });
 
   const field =
-    'rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-caisse-600';
+    'rounded-lg border border-ardoise-300 px-3 py-2.5 outline-none focus:border-caisse-600';
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">
+          <h2 className="text-lg font-semibold text-ardoise-900">
             Réception {receipt?.reference ?? ''}
           </h2>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-ardoise-500">
             {brouillon
               ? 'Brouillon : le stock n’a pas encore bougé.'
               : 'Validée : le stock est entré, ce bon n’est plus modifiable.'}
@@ -135,20 +135,20 @@ export function ReceiptEditor({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+          className="rounded-lg border border-ardoise-300 px-4 py-2 text-sm font-medium text-ardoise-700"
         >
           Retour
         </button>
       </div>
 
-      {error && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+      {error && <p className="rounded-lg bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}
 
       {brouillon && (
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
+        <section className="rounded-xl border border-ardoise-200 bg-white p-5">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-slate-700" htmlFor="supplier">
-                Fournisseur <span className="font-normal text-slate-400">— facultatif</span>
+              <label className="block text-sm font-medium text-ardoise-700" htmlFor="supplier">
+                Fournisseur <span className="font-normal text-ardoise-400">— facultatif</span>
               </label>
               <select
                 id="supplier"
@@ -175,14 +175,14 @@ export function ReceiptEditor({
                   doit pas obliger à inventer l'un ou l'autre : une réception
                   sans papier reste une entrée de marchandise, et le stock a
                   besoin de la connaître. */}
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-ardoise-500">
                 Laissez vide pour un achat au marché, sans fournisseur enregistré.
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700" htmlFor="reference">
+              <label className="block text-sm font-medium text-ardoise-700" htmlFor="reference">
                 N° du bon de livraison{' '}
-                <span className="font-normal text-slate-400">— facultatif</span>
+                <span className="font-normal text-ardoise-400">— facultatif</span>
               </label>
               <input
                 id="reference"
@@ -198,13 +198,13 @@ export function ReceiptEditor({
                 placeholder="BL-2026-114, ou rien"
                 className={`mt-1 w-full ${field}`}
               />
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-ardoise-500">
                 Sans bon, la réception est datée et signée par vous : c’est la trace.
               </p>
             </div>
           </div>
 
-          <div className="mt-4 border-t border-slate-200 pt-4">
+          <div className="mt-4 border-t border-ardoise-200 pt-4">
             <Champ label="Article">
               {(id) => (
                 <input
@@ -228,7 +228,7 @@ export function ReceiptEditor({
                 chercher. Elle propose les articles les plus courants tant que
                 rien n'est saisi. */}
             {!chosen && listeOuverte && (
-              <ul className="mt-1 max-h-56 overflow-y-auto rounded-lg border border-slate-200">
+              <ul className="mt-1 max-h-56 overflow-y-auto rounded-lg border border-ardoise-200">
                 {products.map((product) => (
                   <li key={product.id}>
                     <button
@@ -243,11 +243,11 @@ export function ReceiptEditor({
                         // 34 pour un sac de riz à 3 400 Ar.
                         setCost(formatAmountPlain(product.costCents, session.company.currency));
                       }}
-                      className="flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-50"
+                      className="flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-ardoise-50"
                     >
                       <span>{product.name}</span>
                       {product.costCents > 0 && (
-                        <span className="shrink-0 text-xs tabular-nums text-slate-400">
+                        <span className="shrink-0 text-xs tabular-nums text-ardoise-400">
                           dernier achat {formatMoney(product.costCents, session.company.currency)}
                         </span>
                       )}
@@ -255,7 +255,7 @@ export function ReceiptEditor({
                   </li>
                 ))}
                 {products.length === 0 && (
-                  <li className="px-3 py-2 text-sm text-slate-500">
+                  <li className="px-3 py-2 text-sm text-ardoise-500">
                     Aucun article. Créez-le dans le catalogue.
                   </li>
                 )}
@@ -292,7 +292,7 @@ export function ReceiptEditor({
               <button
                 type="button"
                 onClick={() => void ajouter()}
-                className="h-11 rounded-lg bg-slate-800 px-4 font-medium text-white"
+                className="h-11 rounded-lg bg-ardoise-800 px-4 font-medium text-white"
               >
                 Ajouter
               </button>
@@ -301,12 +301,12 @@ export function ReceiptEditor({
         </section>
       )}
 
-      <section className="rounded-xl border border-slate-200 bg-white">
+      <section className="rounded-xl border border-ardoise-200 bg-white">
         {items.length === 0 ? (
-          <p className="p-8 text-center text-slate-500">Aucune ligne.</p>
+          <p className="p-8 text-center text-ardoise-500">Aucune ligne.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="border-b border-slate-200 text-left text-slate-500">
+            <thead className="border-b border-ardoise-200 text-left text-ardoise-500">
               <tr>
                 <th className="p-3">Article</th>
                 <th className="p-3 text-right">Quantité</th>
@@ -317,8 +317,8 @@ export function ReceiptEditor({
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.id} className="border-b border-slate-100 last:border-0">
-                  <td className="p-3 text-slate-900">{nomProduit(item.productId)}</td>
+                <tr key={item.id} className="border-b border-ardoise-100 last:border-0">
+                  <td className="p-3 text-ardoise-900">{nomProduit(item.productId)}</td>
                   <td className="p-3 text-right">{item.qtyMilli / 1000}</td>
                   <td className="p-3 text-right">
                     {formatMoney(item.unitCostCents, session.company.currency)}
@@ -331,7 +331,7 @@ export function ReceiptEditor({
                       <button
                         type="button"
                         onClick={() => void run(() => purchasing.removeLine(receiptId, item.id))}
-                        className="text-slate-400 hover:text-rose-600"
+                        className="text-ardoise-400 hover:text-danger-600"
                       >
                         ×
                       </button>
@@ -344,10 +344,10 @@ export function ReceiptEditor({
         )}
       </section>
 
-      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5">
+      <div className="flex items-center justify-between rounded-xl border border-ardoise-200 bg-white p-5">
         <div>
-          <p className="text-sm text-slate-600">Total du bon</p>
-          <p className="text-2xl font-semibold text-slate-900">
+          <p className="text-sm text-ardoise-600">Total du bon</p>
+          <p className="text-2xl font-semibold text-ardoise-900">
             {formatMoney(receipt?.totalCents ?? 0, session.company.currency)}
           </p>
         </div>
@@ -368,7 +368,7 @@ export function ReceiptEditor({
       </div>
 
       {brouillon && (
-        <p className="text-center text-xs text-slate-500">
+        <p className="text-center text-xs text-ardoise-500">
           La validation fait entrer le stock et met à jour le prix d’achat moyen. Elle est
           définitive : une erreur se corrige ensuite par un ajustement de stock, qui laisse une
           trace.

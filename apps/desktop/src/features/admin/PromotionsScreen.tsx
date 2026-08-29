@@ -292,7 +292,7 @@ export function PromotionsScreen({ session, db }: { session: LocalSession; db: S
               <li
                 key={promotion.id}
                 className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 ${
-                  encours ? 'border-emerald-200 bg-emerald-50' : 'border-ardoise-200 bg-white'
+                  encours ? 'border-succes-200 bg-succes-50' : 'border-ardoise-200 bg-white'
                 }`}
               >
                 <div className="min-w-44 flex-1">
@@ -310,7 +310,7 @@ export function PromotionsScreen({ session, db }: { session: LocalSession; db: S
 
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    encours ? 'bg-emerald-600 text-white' : 'bg-ardoise-200 text-ardoise-600'
+                    encours ? 'bg-succes-600 text-white' : 'bg-ardoise-200 text-ardoise-600'
                   }`}
                 >
                   {encours ? 'en cours' : promotion.isActive ? 'hors période' : 'suspendue'}
@@ -336,7 +336,7 @@ export function PromotionsScreen({ session, db }: { session: LocalSession; db: S
                       return 'Opération supprimée.';
                     })
                   }
-                  className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700"
+                  className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm font-medium text-danger-700"
                 >
                   Supprimer
                 </button>
@@ -352,7 +352,9 @@ export function PromotionsScreen({ session, db }: { session: LocalSession; db: S
           <p
             role="status"
             className={`mt-4 rounded-lg p-3 text-sm ${
-              message.tone === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-700'
+              message.tone === 'ok'
+                ? 'bg-succes-50 text-succes-800'
+                : 'bg-danger-50 text-danger-700'
             }`}
           >
             {message.text}

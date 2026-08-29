@@ -140,8 +140,8 @@ export function EnrollScreen({
   };
 
   const field =
-    'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 outline-none focus:border-caisse-600';
-  const label = 'block text-sm font-medium text-slate-700';
+    'mt-1 w-full rounded-lg border border-ardoise-300 px-3 py-2.5 text-ardoise-900 outline-none focus:border-caisse-600';
+  const label = 'block text-sm font-medium text-ardoise-700';
 
   // Le même bloc sert aux deux parcours : c'est le PIN, et lui seul, qui ouvre
   // la caisse au quotidien.
@@ -173,31 +173,31 @@ export function EnrollScreen({
         className={field}
         autoComplete="new-password"
       />
-      <p className="mt-2 text-xs text-slate-500">{hint}</p>
+      <p className="mt-2 text-xs text-ardoise-500">{hint}</p>
     </div>
   );
 
   return (
-    <main className="flex min-h-full items-center justify-center bg-slate-100 p-6">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-        <h1 className="text-2xl font-semibold text-slate-900">
+    <main className="flex min-h-full items-center justify-center bg-ardoise-100 p-6">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-flottant">
+        <h1 className="text-2xl font-semibold text-ardoise-900">
           {mode === 'standalone' ? 'Installer cette caisse' : 'Rattacher cette caisse'}
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-ardoise-500">
           {mode === 'standalone'
             ? 'Aucune connexion, aucun serveur : tout reste sur ce poste.'
             : 'Une connexion est nécessaire une seule fois. Ensuite, la caisse fonctionne hors-ligne.'}
         </p>
 
         {error && (
-          <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          <p role="alert" className="mt-4 rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
             {error}
           </p>
         )}
 
         {!session ? (
           <>
-            <div className="mt-6 grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
+            <div className="mt-6 grid grid-cols-3 gap-1 rounded-lg bg-ardoise-100 p-1">
               {(
                 [
                   ['standalone', 'Caisse seule'],
@@ -212,8 +212,8 @@ export function EnrollScreen({
                     setMode(value);
                     setError(null);
                   }}
-                  className={`rounded-md py-2 text-sm font-medium transition ${
-                    mode === value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                  className={`rounded-lg py-2 text-sm font-medium transition ${
+                    mode === value ? 'bg-white text-ardoise-900 shadow-carte' : 'text-ardoise-500'
                   }`}
                 >
                   {text}
@@ -223,7 +223,7 @@ export function EnrollScreen({
 
             {mode === 'standalone' ? (
               <form onSubmit={submitStandalone} className="mt-5 space-y-4">
-                <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+                <p className="rounded-lg bg-ardoise-50 p-3 text-sm text-ardoise-600">
                   Cette caisse fonctionnera seule, sans serveur ni abonnement. Un serveur pourra
                   être ajouté plus tard si le commerce ouvre une deuxième caisse.
                 </p>
@@ -255,7 +255,7 @@ export function EnrollScreen({
                       </option>
                     ))}
                   </select>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-ardoise-500">
                     Elle détermine l’arrondi de tous les montants et ne peut plus être changée
                     ensuite.
                   </p>
@@ -287,7 +287,7 @@ export function EnrollScreen({
                 >
                   {busy ? 'Création…' : 'Créer la caisse'}
                 </button>
-                <p className="text-center text-xs text-slate-400">
+                <p className="text-center text-xs text-ardoise-400">
                   Identifiant du poste : {deviceId}
                 </p>
               </form>
@@ -306,7 +306,7 @@ export function EnrollScreen({
                     autoComplete="off"
                     spellCheck={false}
                   />
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-ardoise-500">
                     Fournie par l’installateur. Elle n’est demandée qu’ici : la caisse la retient.
                   </p>
                 </div>
@@ -342,7 +342,7 @@ export function EnrollScreen({
                             </option>
                           ))}
                         </select>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-ardoise-500">
                           Elle détermine l’arrondi de tous les montants et ne peut plus être changée
                           ensuite.
                         </p>
@@ -387,7 +387,7 @@ export function EnrollScreen({
           </>
         ) : (
           <div className="mt-6 space-y-4">
-            <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
+            <p className="rounded-lg bg-succes-50 p-3 text-sm text-succes-800">
               Connecté en tant que {session.user.fullName} — {session.company.name}
             </p>
             <div>
@@ -421,7 +421,7 @@ export function EnrollScreen({
                 onChange={(event) => setDeviceName(event.target.value)}
                 className={field}
               />
-              <p className="mt-1 text-xs text-slate-400">Identifiant du poste : {deviceId}</p>
+              <p className="mt-1 text-xs text-ardoise-400">Identifiant du poste : {deviceId}</p>
             </div>
             <button
               type="button"

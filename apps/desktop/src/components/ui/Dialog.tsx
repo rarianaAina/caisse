@@ -104,13 +104,13 @@ export function Dialog({
         aria-label={title}
         tabIndex={-1}
         onKeyDown={auClavier}
-        className="max-h-full w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-2xl outline-none sm:rounded-2xl"
+        className="max-h-full w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-flottant outline-none sm:rounded-2xl"
       >
         <div className="flex items-start justify-between gap-4 border-b border-ardoise-200 px-6 py-4">
           <div>
             <h2
               className={`text-lg font-semibold ${
-                tone === 'danger' ? 'text-rose-700' : 'text-ardoise-900'
+                tone === 'danger' ? 'text-danger-700' : 'text-ardoise-900'
               }`}
             >
               {title}
@@ -161,7 +161,7 @@ export function DialogButton({
 }) {
   const principal =
     tone === 'danger'
-      ? 'bg-rose-600 text-white hover:bg-rose-700'
+      ? 'bg-danger-600 text-white hover:bg-danger-700'
       : 'bg-caisse-600 text-white hover:bg-caisse-700';
 
   return (

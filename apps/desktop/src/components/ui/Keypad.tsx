@@ -32,7 +32,7 @@ export function Keypad({
           type="button"
           disabled={disabled}
           onClick={() => onDigit(key)}
-          className={`${buttonClass} bg-slate-100 text-slate-900 hover:bg-slate-200`}
+          className={`${buttonClass} bg-ardoise-100 text-ardoise-900 hover:bg-ardoise-200`}
         >
           {key}
         </button>
@@ -42,7 +42,7 @@ export function Keypad({
         disabled={disabled}
         onClick={onBackspace}
         aria-label="Effacer le dernier chiffre"
-        className={`${buttonClass} bg-slate-100 text-slate-500 hover:bg-slate-200`}
+        className={`${buttonClass} bg-ardoise-100 text-ardoise-500 hover:bg-ardoise-200`}
       >
         ⌫
       </button>
@@ -50,7 +50,7 @@ export function Keypad({
         type="button"
         disabled={disabled}
         onClick={() => onDigit('0')}
-        className={`${buttonClass} bg-slate-100 text-slate-900 hover:bg-slate-200`}
+        className={`${buttonClass} bg-ardoise-100 text-ardoise-900 hover:bg-ardoise-200`}
       >
         0
       </button>

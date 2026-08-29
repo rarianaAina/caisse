@@ -257,7 +257,7 @@ export function OrderScreen({
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">{order?.label ?? '…'}</h2>
+            <h2 className="text-lg font-semibold text-ardoise-900">{order?.label ?? '…'}</h2>
             <button
               type="button"
               onClick={() => void changerCouverts()}
@@ -273,9 +273,9 @@ export function OrderScreen({
                     key={entry.course}
                     className={
                       entry.delivered === entry.total
-                        ? 'text-emerald-600'
+                        ? 'text-succes-600'
                         : entry.sent > entry.delivered
-                          ? 'text-amber-600'
+                          ? 'text-alerte-600'
                           : 'text-ardoise-400'
                     }
                   >
@@ -290,7 +290,7 @@ export function OrderScreen({
             <button
               type="button"
               onClick={() => setReleasing(true)}
-              className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+              className="rounded-lg border border-danger-200 bg-danger-50 px-4 py-2 text-sm font-semibold text-danger-700 transition hover:bg-danger-100"
               title="Le client est parti : la table redevient libre"
             >
               Libérer la table
@@ -412,14 +412,16 @@ export function OrderScreen({
         </div>
       </section>
 
-      <aside className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-        {error && <p className="rounded-lg bg-rose-50 p-2 text-sm text-rose-700">{error}</p>}
-        {notice && <p className="rounded-lg bg-slate-100 p-2 text-sm text-slate-700">{notice}</p>}
+      <aside className="space-y-3 rounded-xl border border-ardoise-200 bg-white p-4">
+        {error && <p className="rounded-lg bg-danger-50 p-2 text-sm text-danger-700">{error}</p>}
+        {notice && (
+          <p className="rounded-lg bg-ardoise-100 p-2 text-sm text-ardoise-700">{notice}</p>
+        )}
 
         {vivants.length === 0 ? (
-          <p className="py-6 text-center text-sm text-slate-400">Commande vide.</p>
+          <p className="py-6 text-center text-sm text-ardoise-400">Commande vide.</p>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-ardoise-100">
             {vivants.map((item) => (
               <li key={item.id} className="flex items-start gap-2 py-2">
                 <input
@@ -430,15 +432,15 @@ export function OrderScreen({
                   title="Sélectionner pour une addition séparée"
                 />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-900">
+                  <p className="text-sm font-medium text-ardoise-900">
                     {item.qtyMilli / 1000} × {item.nameSnapshot}
                   </p>
                   <p
                     className={`text-xs font-semibold ${
                       item.deliveredAt
-                        ? 'text-emerald-600'
+                        ? 'text-succes-600'
                         : item.sentAt
-                          ? 'text-amber-600'
+                          ? 'text-alerte-600'
                           : 'text-ardoise-400'
                     }`}
                   >
@@ -450,7 +452,7 @@ export function OrderScreen({
                         : ' · ○ à envoyer'}
                   </p>
                 </div>
-                <span className="text-sm text-slate-700">
+                <span className="text-sm text-ardoise-700">
                   {formatMoney(
                     (item.unitPriceCents * item.qtyMilli) / 1000 - item.discountCents,
                     session.company.currency,
@@ -477,7 +479,7 @@ export function OrderScreen({
                       await orders.removeItem(item.id, session.user.id, reason);
                     })
                   }
-                  className="text-slate-400 hover:text-rose-600"
+                  className="text-ardoise-400 hover:text-danger-600"
                   title="Retirer"
                 >
                   ×
@@ -487,12 +489,12 @@ export function OrderScreen({
           </ul>
         )}
 
-        <div className="space-y-2 border-t border-slate-200 pt-3">
+        <div className="space-y-2 border-t border-ardoise-200 pt-3">
           <button
             type="button"
             disabled={aEnvoyer.length === 0}
             onClick={() => void envoyer()}
-            className="w-full rounded-xl bg-amber-500 py-3 font-semibold text-white shadow-souleve transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+            className="w-full rounded-xl bg-alerte-500 py-3 font-semibold text-white shadow-souleve transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
           >
             Envoyer en cuisine ({aEnvoyer.length})
           </button>
@@ -502,7 +504,7 @@ export function OrderScreen({
             type="button"
             disabled={aServir.length === 0}
             onClick={() => void servir()}
-            className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white shadow-souleve transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+            className="w-full rounded-xl bg-succes-600 py-3 font-semibold text-white shadow-souleve transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
           >
             Tout servir ({aServir.length})
           </button>
@@ -513,7 +515,7 @@ export function OrderScreen({
                 type="button"
                 disabled={itemsToSend(items, entry.value).length === 0}
                 onClick={() => void envoyer(entry.value)}
-                className="rounded-lg border border-slate-300 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-30"
+                className="rounded-lg border border-ardoise-300 py-1.5 text-xs font-medium text-ardoise-700 disabled:opacity-30"
               >
                 {entry.label}
               </button>
@@ -521,12 +523,12 @@ export function OrderScreen({
           </div>
         </div>
 
-        <div className="border-t border-slate-200 pt-3">
+        <div className="border-t border-ardoise-200 pt-3">
           <div className="flex items-baseline justify-between">
-            <span className="text-sm text-slate-600">
+            <span className="text-sm text-ardoise-600">
               {selection.size > 0 ? `Addition partielle (${String(selection.size)})` : 'Total'}
             </span>
-            <span className="text-xl font-semibold text-slate-900">
+            <span className="text-xl font-semibold text-ardoise-900">
               {formatMoney(totals?.totalCents ?? 0, session.company.currency)}
             </span>
           </div>
@@ -542,7 +544,7 @@ export function OrderScreen({
             <button
               type="button"
               onClick={() => setSelection(new Set())}
-              className="mt-1 w-full text-xs text-slate-500 underline"
+              className="mt-1 w-full text-xs text-ardoise-500 underline"
             >
               Tout sélectionner à nouveau
             </button>

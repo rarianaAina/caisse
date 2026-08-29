@@ -152,7 +152,7 @@ export function LicenceCard({
         communiquer pour obtenir ou renouveler une clé.
       </p>
 
-      <p className={`mt-3 text-sm ${alerte ? 'font-medium text-amber-800' : 'text-ardoise-600'}`}>
+      <p className={`mt-3 text-sm ${alerte ? 'font-medium text-alerte-800' : 'text-ardoise-600'}`}>
         {status.state === 'grace'
           ? `Échue le ${status.payload?.e ?? ''} — la caisse se fermera dans ${String(status.graceLeft ?? 0)} jour(s).`
           : essai

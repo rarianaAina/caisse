@@ -108,9 +108,9 @@ export function TransferPanel({ session, db }: { session: LocalSession; db: SqlE
   };
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="font-semibold text-slate-900">Reprise du catalogue</h2>
-      <p className="mt-1 text-sm text-slate-500">
+    <section className="rounded-xl border border-ardoise-200 bg-white p-5">
+      <h2 className="font-semibold text-ardoise-900">Reprise du catalogue</h2>
+      <p className="mt-1 text-sm text-ardoise-500">
         Exportez votre catalogue dans un tableur, corrigez-le ou complétez-le, puis réimportez-le.
         Le fichier exporté est exactement celui que l’import attend — c’est votre modèle.
       </p>
@@ -128,7 +128,7 @@ export function TransferPanel({ session, db }: { session: LocalSession; db: SqlE
           type="button"
           disabled={busy}
           onClick={() => fichierRef.current?.click()}
-          className="rounded-lg border border-slate-300 px-5 py-2.5 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+          className="rounded-lg border border-ardoise-300 px-5 py-2.5 font-medium text-ardoise-700 transition hover:bg-ardoise-50 disabled:opacity-40"
         >
           Choisir un fichier à importer…
         </button>
@@ -145,8 +145,8 @@ export function TransferPanel({ session, db }: { session: LocalSession; db: SqlE
       </div>
 
       {apercu && (
-        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm font-medium text-slate-900">
+        <div className="mt-4 rounded-lg border border-ardoise-200 bg-ardoise-50 p-4">
+          <p className="text-sm font-medium text-ardoise-900">
             {apercu.fichier} — {apercu.rows.length} article(s) lisible(s)
             {apercu.problems.length > 0 && `, ${String(apercu.problems.length)} ligne(s) en défaut`}
           </p>
@@ -154,15 +154,15 @@ export function TransferPanel({ session, db }: { session: LocalSession; db: SqlE
           {/* On montre AVANT d'écrire : un import appliqué directement ne
               laisse aucune chance de voir qu'on s'est trompé de fichier. */}
           {apercu.rows.length > 0 && (
-            <ul className="mt-2 max-h-40 overflow-y-auto text-sm text-slate-600">
+            <ul className="mt-2 max-h-40 overflow-y-auto text-sm text-ardoise-600">
               {apercu.rows.slice(0, 8).map((row, index) => (
                 <li key={index} className="truncate">
                   {row.name}
-                  {row.sku && <span className="text-slate-400"> · {row.sku}</span>}
+                  {row.sku && <span className="text-ardoise-400"> · {row.sku}</span>}
                 </li>
               ))}
               {apercu.rows.length > 8 && (
-                <li className="text-slate-400">et {apercu.rows.length - 8} de plus…</li>
+                <li className="text-ardoise-400">et {apercu.rows.length - 8} de plus…</li>
               )}
             </ul>
           )}
@@ -181,7 +181,7 @@ export function TransferPanel({ session, db }: { session: LocalSession; db: SqlE
             <button
               type="button"
               onClick={() => setApercu(null)}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+              className="rounded-lg border border-ardoise-300 px-4 py-2 text-sm font-medium text-ardoise-700"
             >
               Annuler
             </button>
@@ -190,7 +190,7 @@ export function TransferPanel({ session, db }: { session: LocalSession; db: SqlE
       )}
 
       {resultat && (
-        <div className="mt-4 rounded-lg bg-emerald-50 p-4 text-sm text-emerald-900">
+        <div className="mt-4 rounded-lg bg-succes-50 p-4 text-sm text-succes-900">
           <p className="font-medium">
             {resultat.created} créé(s), {resultat.updated} mis à jour
             {resultat.skipped > 0 && `, ${String(resultat.skipped)} ignoré(s)`}.
@@ -203,7 +203,7 @@ export function TransferPanel({ session, db }: { session: LocalSession; db: SqlE
         <p
           role="status"
           className={`mt-4 rounded-lg p-3 text-sm ${
-            message.tone === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-700'
+            message.tone === 'ok' ? 'bg-succes-50 text-succes-800' : 'bg-danger-50 text-danger-700'
           }`}
         >
           {message.text}
@@ -221,14 +221,14 @@ export function TransferPanel({ session, db }: { session: LocalSession; db: SqlE
  */
 function Defauts({ problems }: { problems: readonly ImportProblem[] }) {
   return (
-    <ul className="mt-2 max-h-40 overflow-y-auto text-sm text-amber-800">
+    <ul className="mt-2 max-h-40 overflow-y-auto text-sm text-alerte-800">
       {problems.slice(0, 20).map((probleme, index) => (
         <li key={index}>
           <span className="font-medium">Ligne {probleme.line}</span> — {probleme.message}
         </li>
       ))}
       {problems.length > 20 && (
-        <li className="text-amber-700">et {problems.length - 20} autre(s)…</li>
+        <li className="text-alerte-700">et {problems.length - 20} autre(s)…</li>
       )}
     </ul>
   );

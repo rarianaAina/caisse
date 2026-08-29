@@ -200,10 +200,10 @@ export function CashSessionPanel({ session, db }: { session: LocalSession; db: S
               <span
                 className={`text-sm font-medium ${
                   ecartPrevu === 0
-                    ? 'text-emerald-700'
+                    ? 'text-succes-700'
                     : ecartPrevu < 0
-                      ? 'text-rose-700'
-                      : 'text-amber-700'
+                      ? 'text-danger-700'
+                      : 'text-alerte-700'
                 }`}
               >
                 Écart : {formatMoney(ecartPrevu, currency)}
@@ -261,12 +261,12 @@ export function CashSessionPanel({ session, db }: { session: LocalSession; db: S
       )}
 
       {error && (
-        <p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+        <p role="alert" className="mt-4 rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
           {error}
         </p>
       )}
       {notice && (
-        <p role="status" className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
+        <p role="status" className="mt-4 rounded-lg bg-succes-50 p-3 text-sm text-succes-800">
           {notice}
         </p>
       )}

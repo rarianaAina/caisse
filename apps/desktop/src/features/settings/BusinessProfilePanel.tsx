@@ -62,12 +62,12 @@ export function BusinessProfilePanel({ db }: { db: SqlExecutor }) {
   };
 
   const field =
-    'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-caisse-600';
+    'mt-1 w-full rounded-lg border border-ardoise-300 px-3 py-2.5 outline-none focus:border-caisse-600';
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="font-semibold text-slate-900">Type de commerce</h2>
-      <p className="mt-1 text-sm text-slate-500">Détermine les écrans affichés sur ce poste.</p>
+    <section className="rounded-xl border border-ardoise-200 bg-white p-5">
+      <h2 className="font-semibold text-ardoise-900">Type de commerce</h2>
+      <p className="mt-1 text-sm text-ardoise-500">Détermine les écrans affichés sur ce poste.</p>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         {(
@@ -83,19 +83,19 @@ export function BusinessProfilePanel({ db }: { db: SqlExecutor }) {
             className={`rounded-lg border p-3 text-left transition ${
               profile === value
                 ? 'border-caisse-600 bg-caisse-50'
-                : 'border-slate-200 hover:border-slate-400'
+                : 'border-ardoise-200 hover:border-ardoise-400'
             }`}
           >
-            <p className="font-medium text-slate-900">{title}</p>
-            <p className="mt-1 text-xs text-slate-500">{hint}</p>
+            <p className="font-medium text-ardoise-900">{title}</p>
+            <p className="mt-1 text-xs text-ardoise-500">{hint}</p>
           </button>
         ))}
       </div>
 
       {profile === 'restaurant' && (
-        <div className="mt-5 border-t border-slate-200 pt-4">
-          <h3 className="font-medium text-slate-900">Imprimante de la cuisine</h3>
-          <p className="mt-1 text-sm text-slate-500">
+        <div className="mt-5 border-t border-ardoise-200 pt-4">
+          <h3 className="font-medium text-ardoise-900">Imprimante de la cuisine</h3>
+          <p className="mt-1 text-sm text-ardoise-500">
             Distincte de celle du comptoir : le bon part au passe-plat, le ticket reste à la caisse.
             Actuellement : {describeTarget(settings.kitchenTarget ?? null)}.
           </p>
@@ -117,20 +117,20 @@ export function BusinessProfilePanel({ db }: { db: SqlExecutor }) {
               <button
                 type="button"
                 onClick={() => void saveKitchen(null)}
-                className="shrink-0 rounded-lg border border-slate-300 px-4 font-medium text-slate-700"
+                className="shrink-0 rounded-lg border border-ardoise-300 px-4 font-medium text-ardoise-700"
               >
                 Retirer
               </button>
             )}
           </div>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-ardoise-500">
             Sans imprimante cuisine, l’envoi marque quand même les plats comme partis — utile quand
             la cuisine est à deux mètres et qu’on annonce à la voix.
           </p>
         </div>
       )}
 
-      {message && <p className="mt-3 text-sm text-emerald-700">{message}</p>}
+      {message && <p className="mt-3 text-sm text-succes-700">{message}</p>}
 
       {profile === 'restaurant' && (
         <div className="mt-5">
