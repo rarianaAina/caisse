@@ -10,6 +10,7 @@ import {
 import { Champ } from '../../components/ui/Champ';
 import { Pagination, TAILLE_PAGE, nombreDePages } from '../../components/ui/Pagination';
 import { useDialogues } from '../../components/ui/dialogs';
+import { EnTetePage } from '../../components/ui/EnTetePage';
 
 /** Date lisible d'un coup d'œil : « aujourd'hui 14:05 » vaut mieux qu'une date complète. */
 function quand(iso: string): string {
@@ -162,241 +163,252 @@ export function StockScreen({ session, db }: StockScreenProps) {
   const alerts = lines.filter((line) => line.status !== 'ok' && line.status !== 'untracked').length;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-3">
-      <section className="lg:col-span-2">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-          <Champ label="Rechercher un article" className="min-w-56 flex-1">
-            {(id) => (
-              <input
-                id={id}
-                value={term}
-                onChange={(event) => {
-                  setTerm(event.target.value);
-                  // Changer de recherche remet en première page : rester en
-                  // page 4 d'une liste qui n'en compte plus qu'une afficherait
-                  // un tableau vide, sans expliquer pourquoi.
-                  setPage(0);
-                }}
-                placeholder="Nom ou référence"
-                className="w-full rounded-lg border border-ardoise-300 px-4 py-2.5 outline-none focus:border-caisse-600"
-              />
-            )}
-          </Champ>
-          <label className="flex items-center gap-2 pb-2.5 text-sm text-ardoise-600">
-            <input
-              type="checkbox"
-              checked={onlyAlerts}
-              onChange={(event) => setOnlyAlerts(event.target.checked)}
-              className="h-4 w-4"
-            />
-            Alertes uniquement
-          </label>
-          <span className="pb-2.5 text-sm text-ardoise-500">
-            {alerts} produit{alerts > 1 ? 's' : ''} à surveiller sur cette page
-          </span>
-        </div>
+    <div className="space-y-6">
+      <EnTetePage
+        titre="Stock"
+        sous={
+          alerts > 0
+            ? `${String(alerts)} article${alerts > 1 ? 's' : ''} à surveiller sur cette page`
+            : 'Rien sous son seuil de réapprovisionnement.'
+        }
+      />
 
-        <div className="overflow-hidden rounded-xl border border-ardoise-200 bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-ardoise-50 text-left text-ardoise-500">
-              <tr>
-                <th className="px-4 py-3 font-medium">Produit</th>
-                <th className="px-4 py-3 text-right font-medium">Quantité</th>
-                <th className="px-4 py-3 text-right font-medium">Seuil</th>
-                <th className="px-4 py-3 font-medium">État</th>
-                {editable && <th className="px-4 py-3" />}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ardoise-100">
-              {visible.map((line) => (
-                <tr key={line.productId}>
-                  <td className="px-4 py-3 font-medium text-ardoise-900">{line.name}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-ardoise-900">
-                    {formatQty(line.qtyMilli)} {line.unit === 'unit' ? '' : line.unit}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-ardoise-400">
-                    {editable ? (
-                      <button
-                        type="button"
-                        onClick={() => void changerSeuil(line)}
-                        title="Modifier le seuil d’alerte"
-                        className="rounded px-2 py-1 underline decoration-dotted underline-offset-4 transition hover:bg-ardoise-100 hover:text-ardoise-900"
-                      >
-                        {line.minQtyMilli > 0 ? formatQty(line.minQtyMilli) : 'définir'}
-                      </button>
-                    ) : line.minQtyMilli > 0 ? (
-                      formatQty(line.minQtyMilli)
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[line.status].className}`}
-                    >
-                      {STATUS_STYLES[line.status].label}
-                    </span>
-                  </td>
-                  {editable && (
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelected(line);
-                          setAmount('');
-                          setError(null);
-                        }}
-                        className="rounded-lg px-3 py-1.5 text-caisse-700 hover:bg-caisse-50"
-                      >
-                        Ajuster
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {visible.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-ardoise-500">
-                    Aucun produit à afficher.
-                  </td>
-                </tr>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="lg:col-span-2">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+            <Champ label="Rechercher un article" className="min-w-56 flex-1">
+              {(id) => (
+                <input
+                  id={id}
+                  value={term}
+                  onChange={(event) => {
+                    setTerm(event.target.value);
+                    // Changer de recherche remet en première page : rester en
+                    // page 4 d'une liste qui n'en compte plus qu'une afficherait
+                    // un tableau vide, sans expliquer pourquoi.
+                    setPage(0);
+                  }}
+                  placeholder="Nom ou référence"
+                  className="w-full rounded-lg border border-ardoise-300 px-4 py-2.5 outline-none focus:border-caisse-600"
+                />
               )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mt-3">
-          <Pagination
-            page={page}
-            pageCount={nombreDePages(total)}
-            total={total}
-            unite="articles"
-            onChange={setPage}
-          />
-        </div>
-      </section>
-
-      <section className="space-y-5">
-        {selected && editable && (
-          <div className="rounded-xl border border-ardoise-200 bg-white p-4">
-            <h3 className="font-medium text-ardoise-900">{selected.name}</h3>
-            <p className="mt-0.5 text-sm text-ardoise-500">
-              Actuellement : {formatQty(selected.qtyMilli)}
-            </p>
-
-            <div className="mt-4 flex rounded-lg bg-ardoise-100 p-1">
-              {(
-                [
-                  ['receive', 'Recevoir'],
-                  ['count', 'Inventaire'],
-                  ['loss', 'Perte'],
-                ] as const
-              ).map(([value, text]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setMode(value)}
-                  className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
-                    mode === value ? 'bg-white text-ardoise-900 shadow-carte' : 'text-ardoise-500'
-                  }`}
-                >
-                  {text}
-                </button>
-              ))}
-            </div>
-
-            <label className="mt-4 block text-sm font-medium text-ardoise-700" htmlFor="qty">
-              {mode === 'count' ? 'Quantité comptée' : 'Quantité'}
+            </Champ>
+            <label className="flex items-center gap-2 pb-2.5 text-sm text-ardoise-600">
+              <input
+                type="checkbox"
+                checked={onlyAlerts}
+                onChange={(event) => setOnlyAlerts(event.target.checked)}
+                className="h-4 w-4"
+              />
+              Alertes uniquement
             </label>
-            <input
-              id="qty"
-              inputMode="decimal"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') void apply();
-              }}
-              placeholder="0"
-              className="mt-1 w-full rounded-lg border border-ardoise-300 px-3 py-2 outline-none focus:border-caisse-600"
-              autoFocus
-            />
-
-            {mode === 'count' && (
-              <p className="mt-2 text-xs text-ardoise-500">
-                Le comptage est converti en mouvement : une vente encaissée entre-temps sur une
-                autre caisse reste prise en compte.
-              </p>
-            )}
-
-            {error && (
-              <p role="alert" className="mt-3 rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
-                {error}
-              </p>
-            )}
-
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setSelected(null)}
-                className="flex-1 rounded-lg border border-ardoise-300 py-2.5 font-medium text-ardoise-700 hover:bg-ardoise-50"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={() => void apply()}
-                className="flex-1 rounded-lg bg-caisse-600 py-2.5 font-medium text-white hover:bg-caisse-700"
-              >
-                Valider
-              </button>
-            </div>
           </div>
-        )}
 
-        <div className="rounded-xl border border-ardoise-200 bg-white p-4">
-          <h3 className="font-medium text-ardoise-900">Derniers mouvements</h3>
-          {/* « Réception +50 » ne dit rien : de quoi, quand, par qui, pourquoi.
-              Un écart constaté un mois plus tard ne se remonte qu'avec ces
-              quatre éléments — sinon il ne reste qu'à soupçonner tout le monde. */}
-          <ul className="mt-3 divide-y divide-ardoise-100 text-sm">
-            {history.map((movement) => (
-              <li key={movement.id} className="py-2.5">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="truncate font-medium text-ardoise-900">
-                    {movement.productName}
-                  </span>
-                  <span
-                    className={`shrink-0 tabular-nums font-medium ${
-                      movement.qtyMilliDelta > 0 ? 'text-succes-700' : 'text-danger-700'
+          <div className="overflow-hidden rounded-xl border border-ardoise-200 bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-ardoise-50 text-left text-ardoise-500">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Produit</th>
+                  <th className="px-4 py-3 text-right font-medium">Quantité</th>
+                  <th className="px-4 py-3 text-right font-medium">Seuil</th>
+                  <th className="px-4 py-3 font-medium">État</th>
+                  {editable && <th className="px-4 py-3" />}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ardoise-100">
+                {visible.map((line) => (
+                  <tr key={line.productId}>
+                    <td className="px-4 py-3 font-medium text-ardoise-900">{line.name}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-ardoise-900">
+                      {formatQty(line.qtyMilli)} {line.unit === 'unit' ? '' : line.unit}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-ardoise-400">
+                      {editable ? (
+                        <button
+                          type="button"
+                          onClick={() => void changerSeuil(line)}
+                          title="Modifier le seuil d’alerte"
+                          className="rounded px-2 py-1 underline decoration-dotted underline-offset-4 transition hover:bg-ardoise-100 hover:text-ardoise-900"
+                        >
+                          {line.minQtyMilli > 0 ? formatQty(line.minQtyMilli) : 'définir'}
+                        </button>
+                      ) : line.minQtyMilli > 0 ? (
+                        formatQty(line.minQtyMilli)
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[line.status].className}`}
+                      >
+                        {STATUS_STYLES[line.status].label}
+                      </span>
+                    </td>
+                    {editable && (
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelected(line);
+                            setAmount('');
+                            setError(null);
+                          }}
+                          className="rounded-lg px-3 py-1.5 text-caisse-700 hover:bg-caisse-50"
+                        >
+                          Ajuster
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {visible.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-ardoise-500">
+                      Aucun produit à afficher.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-3">
+            <Pagination
+              page={page}
+              pageCount={nombreDePages(total)}
+              total={total}
+              unite="articles"
+              onChange={setPage}
+            />
+          </div>
+        </section>
+
+        <section className="space-y-5">
+          {selected && editable && (
+            <div className="carte p-6">
+              <h3 className="font-medium text-ardoise-900">{selected.name}</h3>
+              <p className="mt-0.5 text-sm text-ardoise-500">
+                Actuellement : {formatQty(selected.qtyMilli)}
+              </p>
+
+              <div className="mt-4 flex rounded-lg bg-ardoise-100 p-1">
+                {(
+                  [
+                    ['receive', 'Recevoir'],
+                    ['count', 'Inventaire'],
+                    ['loss', 'Perte'],
+                  ] as const
+                ).map(([value, text]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setMode(value)}
+                    className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
+                      mode === value ? 'bg-white text-ardoise-900 shadow-carte' : 'text-ardoise-500'
                     }`}
                   >
-                    {movement.qtyMilliDelta > 0 ? '+' : ''}
-                    {formatQty(movement.qtyMilliDelta)}
-                  </span>
-                </div>
-                <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-ardoise-500">
-                  <span>{MOVEMENT_LABELS[movement.type] ?? movement.type}</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{quand(movement.createdAt)}</span>
-                  {movement.userName && (
-                    <>
-                      <span aria-hidden="true">·</span>
-                      <span>{movement.userName}</span>
-                    </>
-                  )}
-                </div>
-                {/* Le motif n'est écrit que pour les gestes qui en demandent
+                    {text}
+                  </button>
+                ))}
+              </div>
+
+              <label className="mt-4 block text-sm font-medium text-ardoise-700" htmlFor="qty">
+                {mode === 'count' ? 'Quantité comptée' : 'Quantité'}
+              </label>
+              <input
+                id="qty"
+                inputMode="decimal"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void apply();
+                }}
+                placeholder="0"
+                className="mt-1 w-full rounded-lg border border-ardoise-300 px-3 py-2 outline-none focus:border-caisse-600"
+                autoFocus
+              />
+
+              {mode === 'count' && (
+                <p className="mt-2 text-xs text-ardoise-500">
+                  Le comptage est converti en mouvement : une vente encaissée entre-temps sur une
+                  autre caisse reste prise en compte.
+                </p>
+              )}
+
+              {error && (
+                <p
+                  role="alert"
+                  className="mt-3 rounded-lg bg-danger-50 p-3 text-sm text-danger-700"
+                >
+                  {error}
+                </p>
+              )}
+
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelected(null)}
+                  className="flex-1 rounded-lg border border-ardoise-300 py-2.5 font-medium text-ardoise-700 hover:bg-ardoise-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void apply()}
+                  className="flex-1 rounded-lg bg-caisse-600 py-2.5 font-medium text-white hover:bg-caisse-700"
+                >
+                  Valider
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="carte p-6">
+            <h3 className="text-base font-semibold text-ardoise-900">Derniers mouvements</h3>
+            {/* « Réception +50 » ne dit rien : de quoi, quand, par qui, pourquoi.
+              Un écart constaté un mois plus tard ne se remonte qu'avec ces
+              quatre éléments — sinon il ne reste qu'à soupçonner tout le monde. */}
+            <ul className="mt-3 divide-y divide-ardoise-100 text-sm">
+              {history.map((movement) => (
+                <li key={movement.id} className="py-2.5">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="truncate font-medium text-ardoise-900">
+                      {movement.productName}
+                    </span>
+                    <span
+                      className={`shrink-0 tabular-nums font-medium ${
+                        movement.qtyMilliDelta > 0 ? 'text-succes-700' : 'text-danger-700'
+                      }`}
+                    >
+                      {movement.qtyMilliDelta > 0 ? '+' : ''}
+                      {formatQty(movement.qtyMilliDelta)}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-ardoise-500">
+                    <span>{MOVEMENT_LABELS[movement.type] ?? movement.type}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{quand(movement.createdAt)}</span>
+                    {movement.userName && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span>{movement.userName}</span>
+                      </>
+                    )}
+                  </div>
+                  {/* Le motif n'est écrit que pour les gestes qui en demandent
                     un — perte, inventaire. L'afficher vide ajouterait une ligne
                     grise à chaque réception. */}
-                {movement.reason && (
-                  <p className="mt-0.5 text-xs italic text-ardoise-500">{movement.reason}</p>
-                )}
-              </li>
-            ))}
-            {history.length === 0 && <li className="py-2 text-ardoise-500">Aucun mouvement.</li>}
-          </ul>
-        </div>
-      </section>
+                  {movement.reason && (
+                    <p className="mt-0.5 text-xs italic text-ardoise-500">{movement.reason}</p>
+                  )}
+                </li>
+              ))}
+              {history.length === 0 && <li className="py-2 text-ardoise-500">Aucun mouvement.</li>}
+            </ul>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

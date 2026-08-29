@@ -76,7 +76,7 @@ export function CategoryManager({
     });
 
   return (
-    <section className="carte p-5">
+    <section className="carte p-6">
       <div className="flex items-baseline justify-between">
         <h3 className="font-semibold text-ardoise-900">Catégories</h3>
         <p className="text-sm text-ardoise-500">

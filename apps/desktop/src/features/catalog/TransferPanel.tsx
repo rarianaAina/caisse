@@ -13,6 +13,8 @@ import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { TransferRepository } from '../../core/db/repositories/transfer.repository';
 import { useDialogues } from '../../components/ui/dialogs';
+import { Bouton } from '../../components/ui/Bouton';
+import { Bandeau } from '../../components/ui/Bandeau';
 
 /**
  * Reprise du catalogue.
@@ -108,30 +110,25 @@ export function TransferPanel({ session, db }: { session: LocalSession; db: SqlE
   };
 
   return (
-    <section className="rounded-xl border border-ardoise-200 bg-white p-5">
-      <h2 className="font-semibold text-ardoise-900">Reprise du catalogue</h2>
+    <section className="carte p-6">
+      <h2 className="text-base font-semibold text-ardoise-900">Reprise du catalogue</h2>
       <p className="mt-1 text-sm text-ardoise-500">
         Exportez votre catalogue dans un tableur, corrigez-le ou complétez-le, puis réimportez-le.
         Le fichier exporté est exactement celui que l’import attend — c’est votre modèle.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          type="button"
+        <Bouton
+          variante="principal"
+          icone="rapports"
           disabled={busy}
           onClick={() => void exporter()}
-          className="rounded-lg bg-caisse-600 px-5 py-2.5 font-medium text-white transition hover:bg-caisse-700 disabled:opacity-40"
         >
           Exporter le catalogue
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => fichierRef.current?.click()}
-          className="rounded-lg border border-ardoise-300 px-5 py-2.5 font-medium text-ardoise-700 transition hover:bg-ardoise-50 disabled:opacity-40"
-        >
+        </Bouton>
+        <Bouton icone="catalogue" disabled={busy} onClick={() => fichierRef.current?.click()}>
           Choisir un fichier à importer…
-        </button>
+        </Bouton>
         <input
           ref={fichierRef}
           type="file"
@@ -170,44 +167,37 @@ export function TransferPanel({ session, db }: { session: LocalSession; db: SqlE
           {apercu.problems.length > 0 && <Defauts problems={apercu.problems} />}
 
           <div className="mt-3 flex gap-2">
-            <button
-              type="button"
+            <Bouton
+              variante="principal"
+              taille="sm"
               disabled={busy || apercu.rows.length === 0}
               onClick={() => void appliquer()}
-              className="rounded-lg bg-caisse-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
             >
               Importer {apercu.rows.length} article(s)
-            </button>
-            <button
-              type="button"
-              onClick={() => setApercu(null)}
-              className="rounded-lg border border-ardoise-300 px-4 py-2 text-sm font-medium text-ardoise-700"
-            >
+            </Bouton>
+            <Bouton taille="sm" onClick={() => setApercu(null)}>
               Annuler
-            </button>
+            </Bouton>
           </div>
         </div>
       )}
 
       {resultat && (
-        <div className="mt-4 rounded-lg bg-succes-50 p-4 text-sm text-succes-900">
-          <p className="font-medium">
-            {resultat.created} créé(s), {resultat.updated} mis à jour
-            {resultat.skipped > 0 && `, ${String(resultat.skipped)} ignoré(s)`}.
-          </p>
-          {resultat.problems.length > 0 && <Defauts problems={resultat.problems} />}
+        <div className="mt-4">
+          <Bandeau ton="succes">
+            <p className="font-medium">
+              {resultat.created} créé(s), {resultat.updated} mis à jour
+              {resultat.skipped > 0 && `, ${String(resultat.skipped)} ignoré(s)`}.
+            </p>
+            {resultat.problems.length > 0 && <Defauts problems={resultat.problems} />}
+          </Bandeau>
         </div>
       )}
 
       {message && (
-        <p
-          role="status"
-          className={`mt-4 rounded-lg p-3 text-sm ${
-            message.tone === 'ok' ? 'bg-succes-50 text-succes-800' : 'bg-danger-50 text-danger-700'
-          }`}
-        >
-          {message.text}
-        </p>
+        <div className="mt-4">
+          <Bandeau ton={message.tone === 'ok' ? 'succes' : 'danger'}>{message.text}</Bandeau>
+        </div>
       )}
     </section>
   );

@@ -9,6 +9,8 @@ import { ProductForm, type ProductFormValues } from './ProductForm';
 import { Champ } from '../../components/ui/Champ';
 import { Pagination, TAILLE_PAGE, nombreDePages } from '../../components/ui/Pagination';
 import { TransferPanel } from './TransferPanel';
+import { EnTetePage } from '../../components/ui/EnTetePage';
+import { Bouton } from '../../components/ui/Bouton';
 
 interface CatalogScreenProps {
   session: LocalSession;
@@ -151,7 +153,19 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
     });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      <EnTetePage
+        titre="Catalogue"
+        sous={`${String(total)} article${total > 1 ? 's' : ''} · ${String(categories.length)} catégorie${categories.length > 1 ? 's' : ''}`}
+        actions={
+          editable ? (
+            <Bouton variante="principal" icone="plus" onClick={() => setEditing('new')}>
+              Nouveau produit
+            </Bouton>
+          ) : undefined
+        }
+      />
+
       {/* Aligné en bas : les titres de champs ont poussé les contrôles vers
           le bas, et un bouton centré flotterait au milieu des étiquettes. */}
       <div className="flex flex-wrap items-end gap-3">
@@ -189,15 +203,6 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
             </select>
           )}
         </Champ>
-        {editable && (
-          <button
-            type="button"
-            onClick={() => setEditing('new')}
-            className="rounded-lg bg-caisse-600 px-5 py-2.5 font-medium text-white transition hover:bg-caisse-700"
-          >
-            Nouveau produit
-          </button>
-        )}
       </div>
 
       {error && (
