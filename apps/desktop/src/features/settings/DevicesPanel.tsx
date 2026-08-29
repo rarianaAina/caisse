@@ -3,6 +3,7 @@ import { type Device, can } from '@caisse/shared';
 import { AuthService, type LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { ApiError, api } from '../../core/api/client';
+import { useDialogues } from '../../components/ui/dialogs';
 
 /**
  * Postes rattachés à l'entreprise.
@@ -20,6 +21,7 @@ import { ApiError, api } from '../../core/api/client';
  * que le poste n'apprendra plus rien de neuf.
  */
 export function DevicesPanel({ session, db }: { session: LocalSession; db: SqlExecutor }) {
+  const { confirmer } = useDialogues();
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: 'ok' | 'ko'; text: string } | null>(null);
@@ -56,12 +58,12 @@ export function DevicesPanel({ session, db }: { session: LocalSession; db: SqlEx
     // aucun moyen de revenir en arrière depuis cet écran.
     if (device.id === session.deviceId) return;
 
-    const confirme = window.confirm(
-      `Couper « ${device.name} » ?\n\n` +
-        'Ce poste ne pourra plus se synchroniser ni renouveler sa session. ' +
-        'Ses ventes déjà remontées sont conservées ; celles qui ne le sont pas ' +
-        'resteront sur l’appareil.\n\nCette opération ne s’annule pas depuis la caisse.',
-    );
+    const confirme = await confirmer(`Couper « ${device.name} » ?`, {
+      texte:
+        'Ce poste ne pourra plus se synchroniser ni renouveler sa session. Ses ventes déjà remontées sont conservées ; celles qui ne le sont pas resteront sur l’appareil. Cette opération ne s’annule pas depuis la caisse.',
+      valider: 'Couper le poste',
+      tone: 'danger',
+    });
     if (!confirme) return;
 
     setBusy(true);

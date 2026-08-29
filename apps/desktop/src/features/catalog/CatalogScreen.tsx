@@ -6,6 +6,8 @@ import { CatalogRepository } from '../../core/db/repositories/catalog.repository
 import { StockRepository } from '../../core/db/repositories/stock.repository';
 import { CategoryManager } from './CategoryManager';
 import { ProductForm, type ProductFormValues } from './ProductForm';
+import { Champ } from '../../components/ui/Champ';
+import { Pagination, TAILLE_PAGE, nombreDePages } from '../../components/ui/Pagination';
 
 interface CatalogScreenProps {
   session: LocalSession;
@@ -20,7 +22,6 @@ interface CatalogScreenProps {
  * les accents, si bien que « cafe » trouve « Café ».
  */
 /** Une page de catalogue. Au-delà, on pagine plutôt que de tout charger. */
-const PAGE_SIZE = 50;
 
 export function CatalogScreen({ session, db }: CatalogScreenProps) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -57,8 +58,8 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
       catalog.searchProducts({
         term: search,
         ...(categoryFilter ? { categoryId: categoryFilter } : {}),
-        limit: PAGE_SIZE,
-        offset: page * PAGE_SIZE,
+        limit: TAILLE_PAGE,
+        offset: page * TAILLE_PAGE,
       }),
       catalog.listCategories(),
       catalog.countByCategory(),
@@ -75,7 +76,7 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
   }, [reload]);
 
   const visible = products;
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageCount = nombreDePages(total);
 
   const save = async (values: ProductFormValues): Promise<void> => {
     const target = editing === 'new' ? null : editing;
@@ -150,31 +151,43 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
-            setPage(0);
-          }}
-          placeholder="Rechercher un produit, une référence, un code-barres…"
-          className="min-w-64 flex-1 rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-caisse-600"
-        />
-        <select
-          value={categoryFilter}
-          onChange={(event) => {
-            setCategoryFilter(event.target.value);
-            setPage(0);
-          }}
-          className="rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-caisse-600"
-        >
-          <option value="">Toutes les catégories</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
+      {/* Aligné en bas : les titres de champs ont poussé les contrôles vers
+          le bas, et un bouton centré flotterait au milieu des étiquettes. */}
+      <div className="flex flex-wrap items-end gap-3">
+        <Champ label="Rechercher" className="min-w-64 flex-1">
+          {(id) => (
+            <input
+              id={id}
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(0);
+              }}
+              placeholder="Nom, référence ou code-barres"
+              className="w-full rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-caisse-600"
+            />
+          )}
+        </Champ>
+        <Champ label="Catégorie">
+          {(id) => (
+            <select
+              id={id}
+              value={categoryFilter}
+              onChange={(event) => {
+                setCategoryFilter(event.target.value);
+                setPage(0);
+              }}
+              className="rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-caisse-600"
+            >
+              <option value="">Toutes les catégories</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </Champ>
         {editable && (
           <button
             type="button"
@@ -257,31 +270,13 @@ export function CatalogScreen({ session, db }: CatalogScreenProps) {
         </table>
       </div>
 
-      {pageCount > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-500">
-            {total} produits — page {page + 1} sur {pageCount}
-          </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={page === 0}
-              onClick={() => setPage((current) => current - 1)}
-              className="rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
-            >
-              Précédent
-            </button>
-            <button
-              type="button"
-              disabled={page + 1 >= pageCount}
-              onClick={() => setPage((current) => current + 1)}
-              className="rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
-            >
-              Suivant
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        pageCount={pageCount}
+        total={total}
+        unite="produits"
+        onChange={setPage}
+      />
 
       {editable && (
         <CategoryManager

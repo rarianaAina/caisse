@@ -41,6 +41,7 @@ import { SaleRepository } from '../../core/db/repositories/sale.repository';
 import type { SyncEngine } from '../../core/sync/engine';
 import { PaymentPanel } from './PaymentPanel';
 import { ReceiptPreview } from './ReceiptPreview';
+import { useDialogues } from '../../components/ui/dialogs';
 
 interface SaleScreenProps {
   session: LocalSession;
@@ -60,6 +61,7 @@ interface SaleScreenProps {
 const PAGE_SIZE = 60;
 
 export function SaleScreen({ session, db, sync }: SaleScreenProps) {
+  const { saisir, choisir } = useDialogues();
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -195,10 +197,11 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
     void (async () => {
       const defaut =
         kind === 'devis' ? (customer?.name ?? 'Devis') : `Client ${String(enAttente.length + 1)}`;
-      const label = window.prompt(
-        kind === 'devis' ? 'Nom du devis' : 'Comment le retrouver ?',
-        defaut,
-      );
+      const label = await saisir(kind === 'devis' ? 'Mettre en devis' : 'Mettre en attente', {
+        etiquette: kind === 'devis' ? 'Nom du devis' : 'Comment le retrouver ?',
+        valeur: defaut,
+        valider: kind === 'devis' ? 'Enregistrer le devis' : 'Mettre de côté',
+      });
       if (label === null) return;
 
       try {
@@ -316,9 +319,19 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
     if (visible.length === 1 && visible[0]) add(visible[0]);
   };
 
-  const askQuantity = (lineId: string, unit: Product['unit'], current: number): void => {
-    const label = isFractionalUnit(unit) ? `Quantité (${unit}) — décimales autorisées` : 'Quantité';
-    const answer = window.prompt(label, formatQty(current).replace(/\s/g, ''));
+  const askQuantity = async (
+    lineId: string,
+    unit: Product['unit'],
+    current: number,
+  ): Promise<void> => {
+    const fractionnaire = isFractionalUnit(unit);
+    const answer = await saisir('Quantité', {
+      etiquette: fractionnaire ? `Quantité en ${unit}` : 'Quantité',
+      texte: fractionnaire ? 'Les décimales sont acceptées : 0,750 pour 750 g.' : undefined,
+      valeur: formatQty(current).replace(/\s/g, ''),
+      mode: 'decimal',
+      suffixe: fractionnaire ? unit : undefined,
+    });
     if (answer === null) return;
 
     const qtyMilli = parseQtyToMilli(answer);
@@ -336,7 +349,11 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
    * sur la vente coûterait à chaque ticket ce qu'il ferait gagner à quelques-uns.
    */
   const chercherClient = async (): Promise<void> => {
-    const terme = window.prompt('Nom ou téléphone du client');
+    const terme = await saisir('Rattacher un client', {
+      etiquette: 'Nom ou téléphone',
+      gabarit: 'Rakoto, ou 034…',
+      valider: 'Chercher',
+    });
     if (terme === null || terme.trim() === '') return;
 
     const trouves = await customers.search(terme);
@@ -346,20 +363,30 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
     }
     if (trouves.length === 1) return choisirClient(trouves[0] ?? null);
 
-    const liste = trouves
-      .slice(0, 9)
-      .map(
-        (entry, index) =>
-          `${String(index + 1)}. ${entry.name}${entry.phone ? ` · ${entry.phone}` : ''}`,
-      )
-      .join('\n');
-    const choix = window.prompt(`Plusieurs clients correspondent :\n${liste}\n\nNuméro ?`, '1');
-    if (choix === null) return;
-    choisirClient(trouves[Number(choix) - 1] ?? null);
+    // On montre les clients, au lieu de demander leur rang dans une liste
+    // numérotée : personne ne devrait avoir à compter des lignes pour
+    // désigner quelqu'un.
+    const choisi = await choisir(
+      'Quel client ?',
+      trouves.slice(0, 20).map((entry) => ({
+        valeur: entry,
+        titre: entry.name,
+        detail: entry.phone ?? undefined,
+      })),
+      { texte: `${String(trouves.length)} clients correspondent à « ${terme} ».` },
+    );
+    if (choisi) choisirClient(choisi);
   };
 
-  const askDiscount = (): void => {
-    const answer = window.prompt('Remise sur le ticket (en €)', '0');
+  const askDiscount = async (): Promise<void> => {
+    // La devise vient du panier : l'invite annonçait des euros à un commerce
+    // qui encaisse des ariary.
+    const answer = await saisir('Remise sur le ticket', {
+      etiquette: `Montant de la remise (${cart.currency})`,
+      valeur: '0',
+      mode: 'decimal',
+      suffixe: cart.currency,
+    });
     if (answer === null) return;
     const cents = parseAmount(answer, cart.currency);
     if (cents === null) return setError('Remise invalide');
@@ -587,7 +614,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
                 <div className="mt-1 flex items-center gap-2 text-sm text-slate-500">
                   <button
                     type="button"
-                    onClick={() => askQuantity(line.id, line.unit, line.qtyMilli)}
+                    onClick={() => void askQuantity(line.id, line.unit, line.qtyMilli)}
                     className="rounded border border-slate-200 px-2 py-0.5 tabular-nums hover:border-caisse-600"
                   >
                     {formatQty(line.qtyMilli)} × {formatMoney(line.unitPriceCents, cart.currency)}
@@ -677,7 +704,7 @@ export function SaleScreen({ session, db, sync }: SaleScreenProps) {
           </button>
           <button
             type="button"
-            onClick={askDiscount}
+            onClick={() => void askDiscount()}
             disabled={cart.lines.length === 0}
             className="rounded-xl border border-ardoise-300 px-4 py-3.5 text-sm font-semibold text-ardoise-700 transition hover:bg-ardoise-50 disabled:opacity-40"
           >

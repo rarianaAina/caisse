@@ -1,5 +1,6 @@
 import { licenceBlocks } from '@caisse/shared';
 import { SessionProvider, useSession } from './app/SessionProvider';
+import { DialogProvider } from './components/ui/dialogs';
 import { LicenceScreen } from './features/licence/LicenceScreen';
 import { EnrollScreen } from './features/auth/EnrollScreen';
 import { PinScreen } from './features/auth/PinScreen';
@@ -85,7 +86,11 @@ function Router() {
 export default function App() {
   return (
     <SessionProvider>
-      <Router />
+      {/* Les dialogues enveloppent TOUT, y compris les écrans d'avant la
+          connexion : la récupération d'un code PIN en demande déjà un. */}
+      <DialogProvider>
+        <Router />
+      </DialogProvider>
     </SessionProvider>
   );
 }

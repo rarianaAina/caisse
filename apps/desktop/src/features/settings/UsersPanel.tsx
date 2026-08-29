@@ -3,6 +3,7 @@ import { type LocalUser, type UserRole, PIN_MAX_LENGTH, can } from '@caisse/shar
 import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { LocalTenantRepository } from '../../core/db/repositories/user.repository';
+import { useDialogues } from '../../components/ui/dialogs';
 
 /**
  * Comptes du personnel.
@@ -37,6 +38,7 @@ const roleLabel = (role: UserRole): string =>
   ROLES.find((entry) => entry.value === role)?.label ?? role;
 
 export function UsersPanel({ session, db }: { session: LocalSession; db: SqlExecutor }) {
+  const { saisir } = useDialogues();
   const [users, setUsers] = useState<LocalUser[]>([]);
   const [creating, setCreating] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -100,7 +102,11 @@ export function UsersPanel({ session, db }: { session: LocalSession; db: SqlExec
 
   const changerPin = (user: LocalUser): Promise<void> =>
     run(async () => {
-      const saisie = window.prompt(`Nouveau code PIN pour ${user.fullName} ?`);
+      const saisie = await saisir(`Nouveau code PIN de ${user.fullName}`, {
+        etiquette: 'Code à 4 à 6 chiffres',
+        mode: 'numeric',
+        valider: 'Changer le code',
+      });
       if (saisie === null) throw new Error('Annulé');
       await tenant.setPin(user.id, saisie.replace(/\D/g, ''), session.deviceId);
       return `Code de ${user.fullName} modifié.`;

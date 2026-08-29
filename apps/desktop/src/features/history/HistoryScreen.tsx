@@ -13,6 +13,7 @@ import type { SqlExecutor } from '../../core/db/client';
 import { HistoryRepository } from '../../core/db/repositories/history.repository';
 import { SaleRepository } from '../../core/db/repositories/sale.repository';
 import type { SyncEngine } from '../../core/sync/engine';
+import { useDialogues } from '../../components/ui/dialogs';
 
 interface HistoryScreenProps {
   session: LocalSession;
@@ -30,6 +31,7 @@ const time = (iso: string): string =>
  * et rembourser un client même si la connexion est tombée.
  */
 export function HistoryScreen({ session, db, sync }: HistoryScreenProps) {
+  const { confirmer } = useDialogues();
   const [day, setDay] = useState(() => new Date().toISOString().slice(0, 10));
   const [sales, setSales] = useState<Sale[]>([]);
   const [refunded, setRefunded] = useState<Map<string, number>>(new Map());
@@ -67,9 +69,13 @@ export function HistoryScreen({ session, db, sync }: HistoryScreenProps) {
   };
 
   const refund = async (details: SaleDetails): Promise<void> => {
-    if (!window.confirm(`Rembourser intégralement le ticket ${details.sale.receiptNumber} ?`)) {
-      return;
-    }
+    const confirme = await confirmer(`Rembourser le ticket ${details.sale.receiptNumber} ?`, {
+      texte:
+        'Le remboursement est enregistré comme une vente négative : le ticket d’origine reste intact, et la trace des deux demeure.',
+      valider: 'Rembourser',
+      tone: 'danger',
+    });
+    if (!confirme) return;
     setBusy(true);
     setError(null);
     try {

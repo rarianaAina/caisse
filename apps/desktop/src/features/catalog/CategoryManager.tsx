@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Category } from '@caisse/shared';
+import { useDialogues } from '../../components/ui/dialogs';
 
 /**
  * Gestion des catégories.
@@ -47,6 +48,7 @@ export function CategoryManager({
   onMove,
   onDelete,
 }: CategoryManagerProps) {
+  const { confirmer } = useDialogues();
   const [name, setName] = useState('');
   const [color, setColor] = useState(PALETTE[7]?.valeur ?? '#2563eb');
   const [editing, setEditing] = useState<string | null>(null);
@@ -176,13 +178,19 @@ export function CategoryManager({
                     type="button"
                     disabled={busy}
                     onClick={() => {
-                      // Les articles ne sont pas supprimés — ils repassent sans
-                      // catégorie — mais le dire évite l'hésitation.
-                      const message =
-                        count > 0
-                          ? `Supprimer « ${category.name} » ? Les ${String(count)} articles seront conservés, sans catégorie.`
-                          : `Supprimer « ${category.name} » ?`;
-                      if (window.confirm(message)) void run(() => onDelete(category));
+                      void (async () => {
+                        // Les articles ne sont pas supprimés — ils repassent
+                        // sans catégorie — mais le dire évite l'hésitation.
+                        const confirme = await confirmer(`Supprimer « ${category.name} » ?`, {
+                          texte:
+                            count > 0
+                              ? `Les ${String(count)} articles de cette catégorie seront conservés, sans catégorie.`
+                              : undefined,
+                          valider: 'Supprimer',
+                          tone: 'danger',
+                        });
+                        if (confirme) await run(() => onDelete(category));
+                      })();
                     }}
                     className="h-8 w-8 rounded-lg text-ardoise-400 hover:bg-rose-50 hover:text-rose-600"
                     title="Supprimer"

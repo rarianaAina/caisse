@@ -114,8 +114,14 @@ export function Workspace({ session }: { session: LocalSession }) {
 
   return (
     <div className="flex min-h-full flex-col bg-ardoise-100">
+      {/* Fixé en haut : la barre porte les onglets, la bascule vers
+          l'administration et le verrouillage. Les faire défiler oblige à
+          remonter tout un catalogue pour changer d'écran — et à laisser la
+          caisse déverrouillée parce que le bouton n'est plus sous la main. */}
       <header
-        className={mode === 'admin' ? 'bg-caisse-900 text-white' : 'bg-ardoise-900 text-white'}
+        className={`sticky top-0 z-30 ${
+          mode === 'admin' ? 'bg-caisse-900 text-white' : 'bg-ardoise-900 text-white'
+        }`}
       >
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
           <div className="flex items-center gap-3">

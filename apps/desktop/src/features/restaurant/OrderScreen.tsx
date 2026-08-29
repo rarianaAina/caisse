@@ -24,6 +24,7 @@ import { SaleRepository } from '../../core/db/repositories/sale.repository';
 import { KitchenPrinter } from '../../core/printing/kitchen';
 import { PaymentPanel } from '../sale/PaymentPanel';
 import { ReceiptPreview } from '../sale/ReceiptPreview';
+import { useDialogues } from '../../components/ui/dialogs';
 
 /**
  * Prise de commande à une table.
@@ -45,6 +46,7 @@ export function OrderScreen({
   orderId: string;
   onClose: () => void;
 }) {
+  const { saisir } = useDialogues();
   const [order, setOrder] = useState<ServiceOrder | null>(null);
   const [items, setItems] = useState<ServiceOrderItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -230,7 +232,11 @@ export function OrderScreen({
 
   const changerCouverts = (): Promise<void> =>
     run(async () => {
-      const saisie = window.prompt('Nombre de couverts ?', String(order?.guests ?? 1));
+      const saisie = await saisir('Couverts', {
+        etiquette: 'Nombre de couverts',
+        valeur: String(order?.guests ?? 1),
+        mode: 'numeric',
+      });
       if (saisie === null) return;
       const nombre = Number(saisie);
       if (!Number.isFinite(nombre)) return;
@@ -457,7 +463,13 @@ export function OrderScreen({
                       // Un article déjà parti en cuisine exige un motif : le
                       // plat a été cuisiné, sa disparition doit s'expliquer.
                       const reason = item.sentAt
-                        ? (window.prompt('Motif de l’annulation ?') ?? '')
+                        ? ((await saisir('Annuler ce plat', {
+                            texte:
+                              'Le plat est déjà parti en cuisine : son annulation doit s’expliquer.',
+                            etiquette: 'Motif',
+                            gabarit: 'Erreur de saisie, client parti…',
+                            valider: 'Annuler le plat',
+                          })) ?? '')
                         : '';
                       // Motif obligatoire dès que le plat est parti : sans lui,
                       // l'annulation ne s'expliquerait devant personne.

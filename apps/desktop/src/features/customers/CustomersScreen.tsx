@@ -5,6 +5,7 @@ import {
   type CustomerWithBalance,
   type PaymentMethod,
   can,
+  formatAmountPlain,
   formatMoney,
   parseAmount,
 } from '@caisse/shared';
@@ -12,6 +13,7 @@ import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { CashSessionRepository } from '../../core/db/repositories/cash-session.repository';
 import { CustomerRepository } from '../../core/db/repositories/customer.repository';
+import { useDialogues } from '../../components/ui/dialogs';
 
 /**
  * Clients et ardoises.
@@ -33,6 +35,7 @@ const MOVEMENT_LABELS: Record<string, string> = {
 const SETTLE_METHODS: readonly PaymentMethod[] = ['cash', 'mobile', 'card'];
 
 export function CustomersScreen({ session, db }: { session: LocalSession; db: SqlExecutor }) {
+  const { saisir, choisir } = useDialogues();
   const [rows, setRows] = useState<CustomerWithBalance[]>([]);
   const [onlyIndebted, setOnlyIndebted] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -136,22 +139,31 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
    */
   const regler = (row: CustomerWithBalance): Promise<void> =>
     run(async () => {
-      const saisie = window.prompt(
-        `Règlement de ${row.customer.name} (doit ${formatMoney(row.balanceCents, currency)})`,
-        String(row.balanceCents),
-      );
+      const saisie = await saisir(`Règlement de ${row.customer.name}`, {
+        texte: `Solde dû : ${formatMoney(row.balanceCents, currency)}.`,
+        etiquette: `Montant reçu (${currency})`,
+        // Préremplir avec le solde à l'échelle de la devise : le montant brut
+        // annonçait 1250 pour 12,50 € et faisait encaisser cent fois trop.
+        valeur: formatAmountPlain(row.balanceCents, currency),
+        mode: 'decimal',
+        suffixe: currency,
+        valider: 'Encaisser',
+      });
       if (saisie === null) throw new Error('Règlement annulé');
       const montant = parseAmount(saisie, currency);
       if (montant === null || montant <= 0) throw new Error('Montant invalide');
 
-      const moyen = window.prompt(
-        `Moyen de règlement : ${SETTLE_METHODS.map((entry) => PAYMENT_METHOD_LABELS[entry]).join(', ')}`,
-        'Espèces',
+      // On propose les moyens de règlement au lieu d'en faire épeler un :
+      // « Espèces » mal orthographié retombait silencieusement sur les espèces.
+      const method = await choisir(
+        'Moyen de règlement',
+        SETTLE_METHODS.map((entry) => ({
+          valeur: entry,
+          titre: PAYMENT_METHOD_LABELS[entry],
+        })),
+        { texte: `${formatMoney(montant, currency)} reçus de ${row.customer.name}.` },
       );
-      const method =
-        SETTLE_METHODS.find(
-          (entry) => PAYMENT_METHOD_LABELS[entry].toLowerCase() === (moyen ?? '').toLowerCase(),
-        ) ?? 'cash';
+      if (method === null) throw new Error('Règlement annulé');
 
       const ouverte = await sessions.current();
       await customers.settle({
