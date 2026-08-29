@@ -14,6 +14,10 @@ import { CashSessionRepository } from '../../core/db/repositories/cash-session.r
 import { CustomerRepository } from '../../core/db/repositories/customer.repository';
 import { HistoryRepository } from '../../core/db/repositories/history.repository';
 import { PurchasingRepository } from '../../core/db/repositories/purchasing.repository';
+import { EnTetePage } from '../../components/ui/EnTetePage';
+import { CarteChiffre } from '../../components/ui/CarteChiffre';
+import { Bouton } from '../../components/ui/Bouton';
+import { Bandeau } from '../../components/ui/Bandeau';
 
 /**
  * Tableau de bord de la console d'administration.
@@ -105,61 +109,66 @@ export function DashboardScreen({
   const du = ardoises.reduce((sum, entry) => sum + entry.balanceCents, 0);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-ardoise-900">Aujourd’hui</h1>
-          <p className="text-sm text-ardoise-500">
-            {session.store.name} · {session.register.name} — chiffres de ce poste, calculés sans
-            réseau.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void reload()}
-          className="rounded-lg border border-ardoise-300 px-3 py-1.5 text-sm font-medium text-ardoise-700"
-        >
-          Actualiser
-        </button>
-      </div>
+    <div className="space-y-6">
+      <EnTetePage
+        titre="Aujourd’hui"
+        sous={`${session.store.name} · ${session.register.name} — chiffres de ce poste, calculés sans réseau.`}
+        actions={
+          <Bouton variante="discret" icone="synchro" onClick={() => void reload()}>
+            Actualiser
+          </Bouton>
+        }
+      />
 
-      {error && (
-        <p role="alert" className="rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
-          {error}
-        </p>
-      )}
+      {error && <Bandeau ton="danger">{error}</Bandeau>}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ['Encaissé net', summary?.netCents ?? 0, undefined],
-          ['Ventes', summary?.saleCount ?? 0, 'compte'],
-          ['Panier moyen', summary?.averageBasketCents ?? 0, undefined],
-          ['Attendu en tiroir', tiroir?.expectedCents ?? 0, undefined],
-        ].map(([label, value, kind]) => (
-          <div key={label as string} className="carte p-4">
-            <p className="text-sm text-ardoise-500">{label}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-ardoise-900">
-              {kind === 'compte' ? String(value) : money(value as number)}
-            </p>
-          </div>
-        ))}
+      {/* Une seule carte sombre, celle qu'on vient voir en premier : ce qu'a
+          rapporté la journée. Deux aplats sombres se disputeraient l'attention
+          et n'en capteraient aucune. */}
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <CarteChiffre
+          ton="nuit"
+          etiquette="Encaissé net"
+          valeur={money(summary?.netCents ?? 0)}
+          detail={`${String(summary?.saleCount ?? 0)} ticket(s) depuis l’ouverture`}
+        />
+        <CarteChiffre
+          etiquette="Panier moyen"
+          valeur={money(summary?.averageBasketCents ?? 0)}
+          detail="par ticket encaissé"
+        />
+        <CarteChiffre
+          etiquette="Attendu en tiroir"
+          valeur={money(tiroir?.expectedCents ?? 0)}
+          detail="fond de caisse et espèces"
+        />
+        <CarteChiffre
+          etiquette="Ardoises ouvertes"
+          valeur={money(du)}
+          detail={
+            ardoises.length === 0
+              ? 'personne ne vous doit rien'
+              : `${String(ardoises.length)} client(s) à relancer`
+          }
+        />
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <section className="carte p-5">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="carte p-6">
           <div className="flex items-baseline justify-between">
-            <h2 className="font-semibold text-ardoise-900">Moyens de paiement</h2>
-            <button
-              type="button"
+            <h2 className="text-base font-semibold text-ardoise-900">Moyens de paiement</h2>
+            <Bouton
+              variante="fantome"
+              taille="sm"
+              iconeApres="chevronDroite"
               onClick={() => onNavigate('reports')}
-              className="text-sm font-medium text-caisse-700 hover:underline"
             >
               Rapports
-            </button>
+            </Bouton>
           </div>
-          <ul className="mt-3 space-y-2 text-sm">
+          <ul className="mt-4 divide-y divide-ardoise-100 text-sm">
             {summary?.byPaymentMethod.map((entry) => (
-              <li key={entry.method} className="flex justify-between">
+              <li key={entry.method} className="flex justify-between py-2.5">
                 <span className="text-ardoise-600">
                   {PAYMENT_METHOD_LABELS[entry.method]} ({entry.count})
                 </span>
@@ -167,16 +176,16 @@ export function DashboardScreen({
               </li>
             ))}
             {(summary?.byPaymentMethod.length ?? 0) === 0 && (
-              <li className="text-ardoise-400">Rien d’encaissé pour l’instant.</li>
+              <li className="py-3 text-ardoise-400">Rien d’encaissé pour l’instant.</li>
             )}
           </ul>
         </section>
 
-        <section className="carte p-5">
-          <h2 className="font-semibold text-ardoise-900">Meilleures ventes du jour</h2>
-          <ul className="mt-3 space-y-2 text-sm">
+        <section className="carte p-6">
+          <h2 className="text-base font-semibold text-ardoise-900">Meilleures ventes du jour</h2>
+          <ul className="mt-4 divide-y divide-ardoise-100 text-sm">
             {summary?.topProducts.map((entry) => (
-              <li key={entry.productId ?? entry.name} className="flex justify-between gap-3">
+              <li key={entry.productId ?? entry.name} className="flex justify-between gap-3 py-2.5">
                 <span className="truncate text-ardoise-600">
                   {entry.name}{' '}
                   <span className="text-ardoise-400">× {formatQty(entry.qtyMilli)}</span>
@@ -185,7 +194,7 @@ export function DashboardScreen({
               </li>
             ))}
             {(summary?.topProducts.length ?? 0) === 0 && (
-              <li className="text-ardoise-400">Aucune vente aujourd’hui.</li>
+              <li className="py-3 text-ardoise-400">Aucune vente aujourd’hui.</li>
             )}
           </ul>
         </section>
@@ -193,9 +202,9 @@ export function DashboardScreen({
         {/* Deux alertes, et seulement deux : ce qui manque en rayon et ce qu'on
             vous doit. Un tableau de bord qui signale dix choses n'en signale
             aucune. */}
-        <section className="carte p-5">
+        <section className="carte p-6">
           <div className="flex items-baseline justify-between">
-            <h2 className="font-semibold text-ardoise-900">
+            <h2 className="text-base font-semibold text-ardoise-900">
               À racheter
               {ruptures.length > 0 && (
                 <span className="ml-2 rounded-full bg-alerte-100 px-2 py-0.5 text-xs font-medium text-alerte-900">
@@ -203,17 +212,18 @@ export function DashboardScreen({
                 </span>
               )}
             </h2>
-            <button
-              type="button"
+            <Bouton
+              variante="fantome"
+              taille="sm"
+              iconeApres="chevronDroite"
               onClick={() => onNavigate('stock')}
-              className="text-sm font-medium text-caisse-700 hover:underline"
             >
               Stock
-            </button>
+            </Bouton>
           </div>
-          <ul className="mt-3 space-y-2 text-sm">
+          <ul className="mt-4 divide-y divide-ardoise-100 text-sm">
             {ruptures.slice(0, 6).map((line) => (
-              <li key={line.productId} className="flex justify-between gap-3">
+              <li key={line.productId} className="flex justify-between gap-3 py-2.5">
                 <span className="truncate text-ardoise-600">{line.name}</span>
                 <span className="shrink-0 tabular-nums text-alerte-800">
                   il manque {formatQty(line.missingMilli)}
@@ -221,14 +231,14 @@ export function DashboardScreen({
               </li>
             ))}
             {ruptures.length === 0 && (
-              <li className="text-ardoise-400">Rien sous son seuil de réapprovisionnement.</li>
+              <li className="py-3 text-ardoise-400">Rien sous son seuil de réapprovisionnement.</li>
             )}
           </ul>
         </section>
 
-        <section className="carte p-5">
+        <section className="carte p-6">
           <div className="flex items-baseline justify-between">
-            <h2 className="font-semibold text-ardoise-900">
+            <h2 className="text-base font-semibold text-ardoise-900">
               Ardoises ouvertes
               {ardoises.length > 0 && (
                 <span className="ml-2 rounded-full bg-alerte-100 px-2 py-0.5 text-xs font-medium text-alerte-900">
@@ -236,17 +246,18 @@ export function DashboardScreen({
                 </span>
               )}
             </h2>
-            <button
-              type="button"
+            <Bouton
+              variante="fantome"
+              taille="sm"
+              iconeApres="chevronDroite"
               onClick={() => onNavigate('customers')}
-              className="text-sm font-medium text-caisse-700 hover:underline"
             >
               Clients
-            </button>
+            </Bouton>
           </div>
-          <ul className="mt-3 space-y-2 text-sm">
+          <ul className="mt-4 divide-y divide-ardoise-100 text-sm">
             {ardoises.slice(0, 6).map((entry) => (
-              <li key={entry.customer.id} className="flex justify-between gap-3">
+              <li key={entry.customer.id} className="flex justify-between gap-3 py-2.5">
                 <span className="truncate text-ardoise-600">
                   {entry.customer.name}
                   {entry.ageDays !== null && (
@@ -259,7 +270,7 @@ export function DashboardScreen({
               </li>
             ))}
             {ardoises.length === 0 && (
-              <li className="text-ardoise-400">Personne ne vous doit rien.</li>
+              <li className="py-3 text-ardoise-400">Personne ne vous doit rien.</li>
             )}
           </ul>
         </section>

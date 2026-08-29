@@ -1,5 +1,6 @@
 import type { Capability, LicenceFeature, LicenceStatus, UserRole } from '@caisse/shared';
 import { can, licenceAllows } from '@caisse/shared';
+import type { NomIcone } from '../../components/ui/Icone';
 
 /**
  * Qui voit quoi, et où.
@@ -42,34 +43,73 @@ export interface TabSpec {
   feature?: LicenceFeature;
   /** Sans objet sur une caisse sans serveur. */
   connectedOnly?: boolean;
+  /**
+   * Icône du rail de navigation.
+   *
+   * Elle n'est PAS décorative : dans un rail, c'est elle qu'on vise, et le
+   * libellé n'apparaît qu'au survol. Une destination sans icône serait
+   * invisible.
+   */
+  icone: NomIcone;
 }
 
 export const COMPTOIR: TabSpec[] = [
-  { id: 'sale', label: 'Vente', needs: 'sell' },
-  { id: 'room', label: 'Salle', needs: 'sell', restaurantOnly: true, feature: 'restaurant' },
-  { id: 'customers', label: 'Clients', needs: 'sell', feature: 'customers' },
+  { id: 'sale', label: 'Vente', needs: 'sell', icone: 'vente' },
+  {
+    id: 'room',
+    label: 'Salle',
+    needs: 'sell',
+    restaurantOnly: true,
+    feature: 'restaurant',
+    icone: 'salle',
+  },
+  { id: 'customers', label: 'Clients', needs: 'sell', feature: 'customers', icone: 'clients' },
   // Ouvrir et clôturer son tiroir est un geste de CAISSIER : `CAPABILITIES.sell`
   // le dit, et il était pourtant enfermé dans l'écran des rapports, réservé aux
   // responsables. Un caissier ne pouvait pas fermer sa propre caisse le soir.
-  { id: 'drawer', label: 'Tiroir', needs: 'sell' },
-  { id: 'history', label: 'Historique', needs: 'sell' },
+  { id: 'drawer', label: 'Tiroir', needs: 'sell', icone: 'tiroir' },
+  { id: 'history', label: 'Historique', needs: 'sell', icone: 'historique' },
 ];
 
 export const ADMIN: TabSpec[] = [
-  { id: 'dashboard', label: 'Tableau de bord', needs: 'viewReports' },
-  { id: 'catalog', label: 'Catalogue', needs: 'manageCatalog' },
-  { id: 'stock', label: 'Stock', needs: 'adjustStock' },
-  { id: 'purchasing', label: 'Achats', needs: 'adjustStock', feature: 'purchasing' },
+  { id: 'dashboard', label: 'Tableau de bord', needs: 'viewReports', icone: 'tableauDeBord' },
+  { id: 'catalog', label: 'Catalogue', needs: 'manageCatalog', icone: 'catalogue' },
+  { id: 'stock', label: 'Stock', needs: 'adjustStock', icone: 'stock' },
+  {
+    id: 'purchasing',
+    label: 'Achats',
+    needs: 'adjustStock',
+    feature: 'purchasing',
+    icone: 'achats',
+  },
   // Le MÊME écran que celui du comptoir, mais pas la même porte : encaisser une
   // ardoise est un geste de caissier, fixer un plafond de crédit une décision
   // de gestion. Exiger `sell` ici aurait suffi à faire apparaître le bouton
   // « Administration » à un caissier — pour un seul onglet, et par accident.
-  { id: 'customers', label: 'Clients', needs: 'manageCatalog', feature: 'customers' },
-  { id: 'promotions', label: 'Promotions', needs: 'manageCatalog', feature: 'promotions' },
-  { id: 'reports', label: 'Rapports', needs: 'viewReports' },
-  { id: 'staff', label: 'Personnel', needs: 'manageUsers' },
-  { id: 'sync', label: 'Synchronisation', needs: 'resolveConflict', connectedOnly: true },
-  { id: 'settings', label: 'Réglages', needs: 'manageCatalog' },
+  {
+    id: 'customers',
+    label: 'Clients',
+    needs: 'manageCatalog',
+    feature: 'customers',
+    icone: 'clients',
+  },
+  {
+    id: 'promotions',
+    label: 'Promotions',
+    needs: 'manageCatalog',
+    feature: 'promotions',
+    icone: 'promotions',
+  },
+  { id: 'reports', label: 'Rapports', needs: 'viewReports', icone: 'rapports' },
+  { id: 'staff', label: 'Personnel', needs: 'manageUsers', icone: 'personnel' },
+  {
+    id: 'sync',
+    label: 'Synchronisation',
+    needs: 'resolveConflict',
+    connectedOnly: true,
+    icone: 'synchro',
+  },
+  { id: 'settings', label: 'Réglages', needs: 'manageCatalog', icone: 'reglages' },
 ];
 
 /**

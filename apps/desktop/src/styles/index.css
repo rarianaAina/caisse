@@ -128,6 +128,21 @@
   --color-danger-800: oklch(0.37 0.13 25);
   --color-danger-900: oklch(0.29 0.1 25);
 
+  /* ─── Nuit : les surfaces sombres ───────────────────────────────────────
+     Le rail de navigation et la carte-chiffre principale. Un aplat sombre
+     donne un point d'ancrage à l'écran et fait ressortir les cartes claires
+     posées à côté — sans quoi une page de cartes blanches sur fond gris n'a
+     aucune profondeur.
+
+     Teinte 250 comme le reste : c'est le même bleu, poussé dans l'obscur, pas
+     un noir importé d'ailleurs. */
+  --color-nuit-500: oklch(0.42 0.03 250);
+  --color-nuit-600: oklch(0.33 0.03 250);
+  --color-nuit-700: oklch(0.26 0.028 250);
+  --color-nuit-800: oklch(0.21 0.025 250);
+  --color-nuit-900: oklch(0.165 0.022 250);
+  --color-nuit-950: oklch(0.13 0.018 250);
+
   /* Ombres douces : elles séparent les plans sans dessiner de traits. */
   --shadow-carte: 0 1px 2px oklch(0.2 0.02 250 / 0.06), 0 1px 3px oklch(0.2 0.02 250 / 0.04);
   --shadow-souleve: 0 4px 12px oklch(0.2 0.02 250 / 0.08), 0 1px 3px oklch(0.2 0.02 250 / 0.06);
@@ -181,9 +196,10 @@ table th {
    Chaque niveau a son arrondi ET son ombre ; les mélanger fait qu'un écran
    paraît plus « haut » qu'un autre sans raison.
 
-     contrôle   rounded-lg   0.5rem     bouton, champ, petite pastille
-     carte      .carte       0.875rem   panneau posé sur le fond
-     flottant   .flottant    1rem       fenêtre modale, par-dessus tout
+     contrôle   rounded-lg   0.625rem   bouton, champ, petite pastille
+     tuile      .tuile       1rem       cible tactile d'un article
+     carte      .carte       1.25rem    panneau posé sur le fond
+     flottant   .flottant    1.5rem     fenêtre modale, par-dessus tout
 
    Les valeurs sont celles de Tailwind : on ne redéfinit pas une échelle qui
    marche, on choisit simplement où s'arrêter. */
@@ -191,15 +207,29 @@ table th {
 @layer components {
   .carte {
     background: white;
-    border-radius: 0.875rem;
+    /* 1,25 rem et non 0,875 : un rayon large est ce qui distingue à l'œil un
+       logiciel de gestion d'un formulaire administratif. Il vaut pour toutes
+       les cartes, sans exception — deux rayons voisins sur le même écran se
+       remarquent immédiatement. */
+    border-radius: 1.25rem;
     border: 1px solid var(--color-ardoise-200);
     box-shadow: var(--shadow-carte);
+  }
+
+  /* Carte sombre : la statistique qui mérite d'être vue en premier. Une seule
+     par écran — deux aplats sombres se disputent l'attention et n'en captent
+     aucune. */
+  .carte-nuit {
+    background: var(--color-nuit-900);
+    color: white;
+    border-radius: 1.25rem;
+    box-shadow: var(--shadow-souleve);
   }
 
   /* Tuile d'article : la cible tactile la plus fréquente de la journée. */
   .tuile {
     background: white;
-    border-radius: 0.875rem;
+    border-radius: 1rem;
     border: 1px solid var(--color-ardoise-200);
     box-shadow: var(--shadow-carte);
     min-height: 5.5rem;
@@ -225,7 +255,7 @@ table th {
      ce qui reste visible derrière elle. */
   .flottant {
     background: white;
-    border-radius: 1rem;
+    border-radius: 1.5rem;
     box-shadow: var(--shadow-flottant);
   }
 
