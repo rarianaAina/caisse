@@ -35,6 +35,12 @@ interface MovementRow {
   created_at: string;
 }
 
+/** Un mouvement, augmenté de quoi le lire sans autre requête. */
+export interface StockMovementDetail extends StockMovement {
+  productName: string;
+  userName: string | null;
+}
+
 export interface StockLine {
   productId: string;
   name: string;
@@ -76,18 +82,43 @@ export class StockRepository {
     this.outbox = new OutboxRepository(db);
   }
 
-  async levels(): Promise<StockLine[]> {
+  /**
+   * Niveaux de stock, page par page.
+   *
+   * La recherche et la borne sont posées dans la REQUÊTE. Rendre quatre mille
+   * lignes de tableau fige la caisse plusieurs secondes sur un poste modeste,
+   * et les filtrer après coup en mémoire ne fait économiser que l'affichage —
+   * c'est la lecture qui coûte.
+   */
+  async levels(
+    options: { term?: string; limit?: number; offset?: number } = {},
+  ): Promise<{ rows: StockLine[]; total: number }> {
+    const { term = '', limit, offset = 0 } = options;
+
+    const cherche = term.trim() !== '';
+    const filtre = `p.deleted_at IS NULL${cherche ? ' AND (p.name LIKE ? OR p.sku LIKE ?)' : ''}`;
+    const aiguille = `%${term.trim()}%`;
+    const filtres = cherche ? [aiguille, aiguille] : [];
+
+    const totaux = await this.db.select<{ total: number }>(
+      `SELECT count(*) AS total FROM product p WHERE ${filtre}`,
+      filtres,
+    );
+
     const rows = await this.db.select<LevelRow>(
       `SELECT p.id AS product_id, p.name, p.unit, p.track_stock, p.price_cents,
               s.qty_milli, s.min_qty_milli
        FROM product p
        LEFT JOIN stock_level s ON s.product_id = p.id AND s.store_id = ?
-       WHERE p.deleted_at IS NULL
-       ORDER BY p.name`,
-      [this.context.storeId],
+       WHERE ${filtre}
+       ORDER BY p.name
+       ${limit === undefined ? '' : 'LIMIT ? OFFSET ?'}`,
+      limit === undefined
+        ? [this.context.storeId, ...filtres]
+        : [this.context.storeId, ...filtres, limit, offset],
     );
 
-    return rows.map((row) => {
+    const lignes = rows.map((row) => {
       const qtyMilli = row.qty_milli ?? 0;
       const minQtyMilli = row.min_qty_milli ?? 0;
       return {
@@ -100,6 +131,8 @@ export class StockRepository {
         status: stockStatus({ trackStock: row.track_stock === 1, qtyMilli, minQtyMilli }),
       };
     });
+
+    return { rows: lignes, total: totaux[0]?.total ?? 0 };
   }
 
   async levelOf(productId: string): Promise<number> {
@@ -124,6 +157,59 @@ export class StockRepository {
       params,
     );
     return rows.map(toMovement);
+  }
+
+  /**
+   * Mouvements avec de quoi les comprendre.
+   *
+   * « Réception +50 » ne dit rien : réception de QUOI, quand, par qui, et
+   * pourquoi. Un écart de stock constaté un mois plus tard ne se remonte
+   * qu'avec ces quatre éléments — sinon il ne reste qu'à soupçonner tout le
+   * monde. Le nom du produit et celui de l'auteur sont donc joints ici plutôt
+   * que cherchés ligne par ligne à l'affichage.
+   *
+   * Le nom du produit est celui d'AUJOURD'HUI, pas celui du jour du mouvement.
+   * C'est un choix : on cherche « où est passé le riz », et le retrouver sous
+   * son ancien nom ne servirait personne.
+   */
+  async movementDetails(
+    options: { productId?: string; limit?: number; offset?: number } = {},
+  ): Promise<{ rows: StockMovementDetail[]; total: number }> {
+    const { productId, limit, offset = 0 } = options;
+
+    const where = `m.store_id = ?${productId ? ' AND m.product_id = ?' : ''}`;
+    const filtres: unknown[] = productId
+      ? [this.context.storeId, productId]
+      : [this.context.storeId];
+
+    const totaux = await this.db.select<{ total: number }>(
+      `SELECT count(*) AS total FROM stock_movement m WHERE ${where}`,
+      filtres,
+    );
+
+    const rows = await this.db.select<
+      MovementRow & { product_name: string | null; user_name: string | null }
+    >(
+      `SELECT m.*, p.name AS product_name, u.full_name AS user_name
+         FROM stock_movement m
+         LEFT JOIN product p ON p.id = m.product_id
+         LEFT JOIN app_user u ON u.id = m.user_id
+        WHERE ${where}
+        ORDER BY m.created_at DESC, m.id DESC
+        ${limit === undefined ? '' : 'LIMIT ? OFFSET ?'}`,
+      limit === undefined ? filtres : [...filtres, limit, offset],
+    );
+
+    return {
+      rows: rows.map((row) => ({
+        ...toMovement(row),
+        // Un produit supprimé depuis laisse son mouvement : la comptabilité
+        // de stock ne se réécrit pas parce qu'un article a quitté le catalogue.
+        productName: row.product_name ?? 'Article supprimé',
+        userName: row.user_name,
+      })),
+      total: totaux[0]?.total ?? 0,
+    };
   }
 
   /**

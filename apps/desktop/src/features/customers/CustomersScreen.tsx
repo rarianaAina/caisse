@@ -14,6 +14,7 @@ import type { SqlExecutor } from '../../core/db/client';
 import { CashSessionRepository } from '../../core/db/repositories/cash-session.repository';
 import { CustomerRepository } from '../../core/db/repositories/customer.repository';
 import { useDialogues } from '../../components/ui/dialogs';
+import { Pagination, TAILLE_PAGE, nombreDePages } from '../../components/ui/Pagination';
 
 /**
  * Clients et ardoises.
@@ -38,6 +39,8 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
   const { saisir, choisir } = useDialogues();
   const [rows, setRows] = useState<CustomerWithBalance[]>([]);
   const [onlyIndebted, setOnlyIndebted] = useState(false);
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [movements, setMovements] = useState<CustomerAccountMovement[]>([]);
   const [creating, setCreating] = useState(false);
@@ -74,8 +77,14 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
   const gere = can(session.user.role, 'manageCatalog');
 
   const reload = useCallback(async (): Promise<void> => {
-    setRows(await customers.withBalances(onlyIndebted));
-  }, [customers, onlyIndebted]);
+    const page_ = await customers.withBalances({
+      onlyIndebted,
+      limit: TAILLE_PAGE,
+      offset: page * TAILLE_PAGE,
+    });
+    setRows(page_.rows);
+    setTotal(page_.total);
+  }, [customers, onlyIndebted, page]);
 
   useEffect(() => {
     void reload();
@@ -196,7 +205,10 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => setOnlyIndebted((current) => !current)}
+            onClick={() => {
+              setOnlyIndebted((current) => !current);
+              setPage(0);
+            }}
             className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
               onlyIndebted
                 ? 'bg-ardoise-900 text-white'
@@ -347,6 +359,16 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
             </li>
           )}
         </ul>
+
+        <div className="mt-4">
+          <Pagination
+            page={page}
+            pageCount={nombreDePages(total)}
+            total={total}
+            unite={onlyIndebted ? 'ardoises ouvertes' : 'clients'}
+            onChange={setPage}
+          />
+        </div>
 
         {message && (
           <p

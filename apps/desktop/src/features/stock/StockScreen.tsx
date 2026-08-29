@@ -1,14 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  type StockMovement,
-  type StockStatus,
-  can,
-  formatQty,
-  parseQtyToMilli,
-} from '@caisse/shared';
+import { type StockStatus, can, formatQty, parseQtyToMilli } from '@caisse/shared';
 import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
-import { StockRepository, type StockLine } from '../../core/db/repositories/stock.repository';
+import {
+  StockRepository,
+  type StockLine,
+  type StockMovementDetail,
+} from '../../core/db/repositories/stock.repository';
+import { Champ } from '../../components/ui/Champ';
+import { Pagination, TAILLE_PAGE, nombreDePages } from '../../components/ui/Pagination';
+import { useDialogues } from '../../components/ui/dialogs';
+
+/** Date lisible d'un coup d'œil : « aujourd'hui 14:05 » vaut mieux qu'une date complète. */
+function quand(iso: string): string {
+  const date = new Date(iso);
+  const heure = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const jour = new Date(date).setHours(0, 0, 0, 0);
+  const aujourdhui = new Date().setHours(0, 0, 0, 0);
+  if (jour === aujourdhui) return `aujourd’hui ${heure}`;
+  if (jour === aujourdhui - 86_400_000) return `hier ${heure}`;
+  return `${date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} ${heure}`;
+}
 
 interface StockScreenProps {
   session: LocalSession;
@@ -42,8 +54,12 @@ const MOVEMENT_LABELS: Record<string, string> = {
  * les deux cas c'est un mouvement qui est écrit — jamais un niveau écrasé.
  */
 export function StockScreen({ session, db }: StockScreenProps) {
+  const { saisir } = useDialogues();
   const [lines, setLines] = useState<StockLine[]>([]);
-  const [history, setHistory] = useState<StockMovement[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
+  const [term, setTerm] = useState('');
+  const [history, setHistory] = useState<StockMovementDetail[]>([]);
   const [selected, setSelected] = useState<StockLine | null>(null);
   const [mode, setMode] = useState<'receive' | 'count' | 'loss'>('receive');
   const [amount, setAmount] = useState('');
@@ -63,9 +79,15 @@ export function StockScreen({ session, db }: StockScreenProps) {
   const editable = can(session.user.role, 'adjustStock');
 
   const reload = useCallback(async (): Promise<void> => {
-    setLines(await stock.levels());
-    setHistory(await stock.movements(undefined, 25));
-  }, [stock]);
+    const niveaux = await stock.levels({
+      term,
+      limit: TAILLE_PAGE,
+      offset: page * TAILLE_PAGE,
+    });
+    setLines(niveaux.rows);
+    setTotal(niveaux.total);
+    setHistory((await stock.movementDetails({ limit: 25 })).rows);
+  }, [stock, term, page]);
 
   useEffect(() => {
     void reload();
@@ -101,6 +123,36 @@ export function StockScreen({ session, db }: StockScreenProps) {
     }
   };
 
+  /**
+   * Seuil d'alerte, par produit et par boutique.
+   *
+   * Il existait en base depuis le premier jour mais n'était modifiable nulle
+   * part : la colonne affichait « — » pour tout le catalogue, et la liste des
+   * réapprovisionnements restait donc vide quoi qu'il arrive. Un seuil se règle
+   * article par article — trois sacs de riz et vingt savons ne se rachètent pas
+   * au même moment.
+   */
+  const changerSeuil = async (line: StockLine): Promise<void> => {
+    const saisie = await saisir(`Seuil d’alerte — ${line.name}`, {
+      texte:
+        'En dessous de cette quantité, l’article passe en alerte et apparaît dans la liste des réapprovisionnements. Zéro le retire de la surveillance.',
+      etiquette: 'Quantité',
+      valeur: line.minQtyMilli > 0 ? formatQty(line.minQtyMilli).replace(/\s/g, '') : '',
+      mode: 'decimal',
+      suffixe: line.unit === 'unit' ? undefined : line.unit,
+      valider: 'Enregistrer le seuil',
+    });
+    if (saisie === null) return;
+
+    const qtyMilli = saisie.trim() === '' ? 0 : parseQtyToMilli(saisie);
+    if (qtyMilli === null || qtyMilli < 0) {
+      setError('Seuil invalide');
+      return;
+    }
+    await stock.setMinimum(line.productId, qtyMilli);
+    await reload();
+  };
+
   const visible = onlyAlerts
     ? lines.filter(
         (line) => line.status === 'low' || line.status === 'out' || line.status === 'negative',
@@ -112,8 +164,25 @@ export function StockScreen({ session, db }: StockScreenProps) {
   return (
     <div className="grid gap-5 lg:grid-cols-3">
       <section className="lg:col-span-2">
-        <div className="mb-3 flex items-center justify-between">
-          <label className="flex items-center gap-2 text-sm text-slate-600">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <Champ label="Rechercher un article" className="min-w-56 flex-1">
+            {(id) => (
+              <input
+                id={id}
+                value={term}
+                onChange={(event) => {
+                  setTerm(event.target.value);
+                  // Changer de recherche remet en première page : rester en
+                  // page 4 d'une liste qui n'en compte plus qu'une afficherait
+                  // un tableau vide, sans expliquer pourquoi.
+                  setPage(0);
+                }}
+                placeholder="Nom ou référence"
+                className="w-full rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-caisse-600"
+              />
+            )}
+          </Champ>
+          <label className="flex items-center gap-2 pb-2.5 text-sm text-slate-600">
             <input
               type="checkbox"
               checked={onlyAlerts}
@@ -122,8 +191,8 @@ export function StockScreen({ session, db }: StockScreenProps) {
             />
             Alertes uniquement
           </label>
-          <span className="text-sm text-slate-500">
-            {alerts} produit{alerts > 1 ? 's' : ''} à surveiller
+          <span className="pb-2.5 text-sm text-slate-500">
+            {alerts} produit{alerts > 1 ? 's' : ''} à surveiller sur cette page
           </span>
         </div>
 
@@ -146,7 +215,20 @@ export function StockScreen({ session, db }: StockScreenProps) {
                     {formatQty(line.qtyMilli)} {line.unit === 'unit' ? '' : line.unit}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-slate-400">
-                    {line.minQtyMilli > 0 ? formatQty(line.minQtyMilli) : '—'}
+                    {editable ? (
+                      <button
+                        type="button"
+                        onClick={() => void changerSeuil(line)}
+                        title="Modifier le seuil d’alerte"
+                        className="rounded px-2 py-1 underline decoration-dotted underline-offset-4 transition hover:bg-slate-100 hover:text-slate-900"
+                      >
+                        {line.minQtyMilli > 0 ? formatQty(line.minQtyMilli) : 'définir'}
+                      </button>
+                    ) : line.minQtyMilli > 0 ? (
+                      formatQty(line.minQtyMilli)
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -181,6 +263,16 @@ export function StockScreen({ session, db }: StockScreenProps) {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="mt-3">
+          <Pagination
+            page={page}
+            pageCount={nombreDePages(total)}
+            total={total}
+            unite="articles"
+            onChange={setPage}
+          />
         </div>
       </section>
 
@@ -263,23 +355,45 @@ export function StockScreen({ session, db }: StockScreenProps) {
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h3 className="font-medium text-slate-900">Derniers mouvements</h3>
-          <ul className="mt-3 space-y-2 text-sm">
+          {/* « Réception +50 » ne dit rien : de quoi, quand, par qui, pourquoi.
+              Un écart constaté un mois plus tard ne se remonte qu'avec ces
+              quatre éléments — sinon il ne reste qu'à soupçonner tout le monde. */}
+          <ul className="mt-3 divide-y divide-slate-100 text-sm">
             {history.map((movement) => (
-              <li key={movement.id} className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-slate-600">
-                  {MOVEMENT_LABELS[movement.type] ?? movement.type}
-                </span>
-                <span
-                  className={`tabular-nums ${
-                    movement.qtyMilliDelta > 0 ? 'text-emerald-700' : 'text-red-700'
-                  }`}
-                >
-                  {movement.qtyMilliDelta > 0 ? '+' : ''}
-                  {formatQty(movement.qtyMilliDelta)}
-                </span>
+              <li key={movement.id} className="py-2.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="truncate font-medium text-slate-900">
+                    {movement.productName}
+                  </span>
+                  <span
+                    className={`shrink-0 tabular-nums font-medium ${
+                      movement.qtyMilliDelta > 0 ? 'text-emerald-700' : 'text-red-700'
+                    }`}
+                  >
+                    {movement.qtyMilliDelta > 0 ? '+' : ''}
+                    {formatQty(movement.qtyMilliDelta)}
+                  </span>
+                </div>
+                <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-slate-500">
+                  <span>{MOVEMENT_LABELS[movement.type] ?? movement.type}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{quand(movement.createdAt)}</span>
+                  {movement.userName && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span>{movement.userName}</span>
+                    </>
+                  )}
+                </div>
+                {/* Le motif n'est écrit que pour les gestes qui en demandent
+                    un — perte, inventaire. L'afficher vide ajouterait une ligne
+                    grise à chaque réception. */}
+                {movement.reason && (
+                  <p className="mt-0.5 text-xs italic text-slate-500">{movement.reason}</p>
+                )}
               </li>
             ))}
-            {history.length === 0 && <li className="text-slate-500">Aucun mouvement.</li>}
+            {history.length === 0 && <li className="py-2 text-slate-500">Aucun mouvement.</li>}
           </ul>
         </div>
       </section>

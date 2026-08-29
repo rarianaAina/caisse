@@ -202,30 +202,52 @@ export class CustomerRepository {
     return rows[0]?.total ?? 0;
   }
 
-  /** Clients ayant une ardoise ouverte, du plus ancien débiteur au plus récent. */
-  async withBalances(onlyIndebted = false): Promise<CustomerWithBalance[]> {
-    const rows = await this.db.select<CustomerRow & { balance: number | null }>(
-      `SELECT c.*, (SELECT sum(m.amount_cents) FROM customer_movement m
-                     WHERE m.customer_id = c.id) AS balance
-         FROM customer c
-        WHERE c.company_id = ? AND c.deleted_at IS NULL
-        ORDER BY c.name`,
+  /**
+   * Clients et leur ardoise, du plus gros débiteur au plus petit.
+   *
+   * LE TRI ET LA BORNE SONT FAITS PAR SQLITE, pas en mémoire. La version
+   * précédente ramenait TOUS les clients, puis lisait le journal complet de
+   * chacun de ceux qui devaient quelque chose : sur trois cents clients dont
+   * cinquante à crédit, cela faisait cinquante-et-une requêtes et le journal
+   * entier d'une année, à chaque affichage de la liste. Le coût ne se voit pas
+   * chez le premier commerçant équipé ; il se voit chez le dixième.
+   */
+  async withBalances(
+    options: { onlyIndebted?: boolean; limit?: number; offset?: number } = {},
+  ): Promise<{ rows: CustomerWithBalance[]; total: number }> {
+    const { onlyIndebted = false, limit, offset = 0 } = options;
+
+    const solde = `(SELECT coalesce(sum(m.amount_cents), 0) FROM customer_movement m
+                     WHERE m.customer_id = c.id)`;
+    const filtre = `c.company_id = ? AND c.deleted_at IS NULL${onlyIndebted ? ` AND ${solde} > 0` : ''}`;
+
+    const totaux = await this.db.select<{ total: number }>(
+      `SELECT count(*) AS total FROM customer c WHERE ${filtre}`,
       [this.context.companyId],
+    );
+
+    const rows = await this.db.select<CustomerRow & { balance: number | null }>(
+      `SELECT c.*, ${solde} AS balance
+         FROM customer c
+        WHERE ${filtre}
+        ORDER BY balance DESC, c.name
+        ${limit === undefined ? '' : 'LIMIT ? OFFSET ?'}`,
+      limit === undefined ? [this.context.companyId] : [this.context.companyId, limit, offset],
     );
 
     const results: CustomerWithBalance[] = [];
     for (const row of rows) {
       const balanceCents = row.balance ?? 0;
-      if (onlyIndebted && balanceCents <= 0) continue;
       results.push({
         customer: toCustomer(row),
         balanceCents,
         // L'ancienneté demande le journal : elle n'est calculée que pour les
-        // comptes réellement débiteurs, seuls concernés par une relance.
+        // comptes réellement débiteurs de la PAGE affichée, seuls concernés
+        // par une relance.
         ageDays: balanceCents > 0 ? accountAgeDays(await this.movements(row.id)) : null,
       });
     }
-    return results.sort((a, b) => b.balanceCents - a.balanceCents);
+    return { rows: results, total: totaux[0]?.total ?? 0 };
   }
 
   /* ─── Écriture ───────────────────────────────────────────────────────────*/

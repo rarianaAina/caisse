@@ -231,7 +231,7 @@ describe('mouvements de stock', () => {
     await stock.recordMovement({ productId, qtyMilliDelta: -1000, type: 'sale' });
 
     expect(await stock.levelOf(productId)).toBe(-1000);
-    const line = (await stock.levels()).find((row) => row.productId === productId);
+    const line = (await stock.levels()).rows.find((row) => row.productId === productId);
     expect(line?.status).toBe('negative');
   });
 
@@ -294,7 +294,7 @@ describe('inventaire', () => {
 
   it('gère le seuil d’alerte', async () => {
     await stock.setMinimum(productId, 12_000);
-    const line = (await stock.levels()).find((row) => row.productId === productId);
+    const line = (await stock.levels()).rows.find((row) => row.productId === productId);
     expect(line?.status).toBe('low');
     expect(line?.minQtyMilli).toBe(12_000);
   });

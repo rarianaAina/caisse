@@ -84,12 +84,14 @@ export function DashboardScreen({
         history.summaryOfDay(new Date()),
         sessions.report(),
         purchasing.toRestock(),
-        customers.withBalances(true),
+        // Le tableau de bord ne montre qu'un aperçu : les dix plus grosses
+        // ardoises suffisent à décider s'il faut relancer aujourd'hui.
+        customers.withBalances({ onlyIndebted: true, limit: 10 }),
       ]);
       setSummary(jour.summary);
       setTiroir(caisse);
       setRuptures(aRacheter);
-      setArdoises(comptes);
+      setArdoises(comptes.rows);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Lecture impossible');
     }
