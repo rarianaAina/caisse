@@ -65,8 +65,8 @@ export function CompanyPanel({ session, db }: { session: LocalSession; db: SqlEx
   };
 
   return (
-    <section className="rounded-xl border border-ardoise-200 bg-white p-5">
-      <h2 className="font-semibold text-ardoise-900">Identité de l’entreprise</h2>
+    <section className="carte p-6">
+      <h2 className="text-base font-semibold text-ardoise-900">Identité de l’entreprise</h2>
       <p className="mt-1 text-sm text-ardoise-500">
         Ce nom figure en tête des tickets remis à vos clients.
       </p>

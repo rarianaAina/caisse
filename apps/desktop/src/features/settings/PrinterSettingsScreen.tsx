@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { LocalSession } from '../../core/auth/auth.service';
-import { BackupPanel } from './BackupPanel';
-import { MaintenancePanel } from './MaintenancePanel';
 import { ScalePanel } from './ScalePanel';
-import { BusinessProfilePanel } from './BusinessProfilePanel';
-import { UpdatePanel } from './UpdatePanel';
 import type { SqlExecutor } from '../../core/db/client';
 import {
   DEFAULT_PRINTER_SETTINGS,
@@ -138,11 +134,9 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
   const label = 'block text-sm font-medium text-ardoise-700';
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
-      <BusinessProfilePanel db={db} />
-
-      <section className="rounded-xl border border-ardoise-200 bg-white p-5">
-        <h2 className="font-semibold text-ardoise-900">Imprimante ticket</h2>
+    <div className="space-y-5">
+      <section className="carte p-6">
+        <h2 className="text-base font-semibold text-ardoise-900">Imprimante ticket</h2>
         <p className="mt-1 text-sm text-ardoise-500">
           Réglage propre à ce poste. Actuellement : {describeTarget(settings.target)}.
         </p>
@@ -263,8 +257,8 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
         </div>
       </section>
 
-      <section className="rounded-xl border border-ardoise-200 bg-white p-5">
-        <h2 className="font-semibold text-ardoise-900">Mise en page</h2>
+      <section className="carte p-6">
+        <h2 className="text-base font-semibold text-ardoise-900">Mise en page</h2>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
@@ -319,12 +313,6 @@ export function PrinterSettingsScreen({ session, db }: PrinterSettingsScreenProp
       </section>
 
       <ScalePanel session={session} db={db} />
-
-      <MaintenancePanel session={session} db={db} />
-
-      <BackupPanel db={db} />
-
-      <UpdatePanel currentVersion={__APP_VERSION__} />
     </div>
   );
 }

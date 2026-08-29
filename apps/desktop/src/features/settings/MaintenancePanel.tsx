@@ -61,8 +61,8 @@ export function MaintenancePanel({ session, db }: { session: LocalSession; db: S
     'rounded-lg border border-ardoise-300 px-4 py-2.5 text-sm font-medium text-ardoise-700 transition hover:border-caisse-600 disabled:opacity-40';
 
   return (
-    <section className="carte p-5">
-      <h2 className="font-semibold text-ardoise-900">Entretien</h2>
+    <section className="carte p-6">
+      <h2 className="text-base font-semibold text-ardoise-900">Entretien</h2>
       <p className="mt-1 text-sm text-ardoise-500">
         À utiliser si un article reste introuvable à la vente, ou si un niveau de stock semble faux.
         Rien n’est effacé : les deux opérations recalculent à partir des écritures d’origine.

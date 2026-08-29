@@ -19,6 +19,11 @@ import { CashSessionPanel } from '../sale/CashSessionPanel';
 import { ExportPanel } from '../admin/ExportPanel';
 import { HistoryRepository } from '../../core/db/repositories/history.repository';
 import type { SyncEngine } from '../../core/sync/engine';
+import { EnTetePage } from '../../components/ui/EnTetePage';
+import { Champ } from '../../components/ui/Champ';
+import { CarteChiffre } from '../../components/ui/CarteChiffre';
+import { Bouton } from '../../components/ui/Bouton';
+import { Bandeau } from '../../components/ui/Bandeau';
 
 interface ReportsScreenProps {
   session: LocalSession;
@@ -82,28 +87,40 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
   );
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <input
-          type="date"
-          value={day}
-          onChange={(event) => setDay(event.target.value)}
-          className="rounded-lg border border-ardoise-300 px-4 py-2.5 outline-none focus:border-caisse-600"
-        />
-        <button
-          type="button"
-          onClick={() => setDay(new Date().toISOString().slice(0, 10))}
-          className="rounded-lg border border-ardoise-300 px-4 py-2.5 text-sm font-medium text-ardoise-700 hover:bg-ardoise-50"
-        >
-          Aujourd’hui
-        </button>
-      </div>
+    <div className="space-y-6">
+      <EnTetePage
+        titre="Rapports"
+        sous={new Date(`${day}T12:00:00`).toLocaleDateString('fr-FR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })}
+        actions={
+          <>
+            <Champ label="Journée">
+              {(id) => (
+                <input
+                  id={id}
+                  type="date"
+                  value={day}
+                  onChange={(event) => setDay(event.target.value)}
+                  className="min-h-11 rounded-xl border border-ardoise-300 px-3 outline-none focus:border-caisse-600"
+                />
+              )}
+            </Champ>
+            <Bouton
+              icone="historique"
+              className="self-end"
+              onClick={() => setDay(new Date().toISOString().slice(0, 10))}
+            >
+              Aujourd’hui
+            </Bouton>
+          </>
+        }
+      />
 
-      {error && (
-        <p role="alert" className="rounded-lg bg-danger-50 p-3 text-sm text-danger-700">
-          {error}
-        </p>
-      )}
+      {error && <Bandeau ton="danger">{error}</Bandeau>}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
@@ -111,17 +128,19 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
           ['Tickets', String(summary?.saleCount ?? 0)],
           ['Panier moyen', formatMoney(summary?.averageBasketCents ?? 0, currency)],
           ['Remboursé', formatMoney(summary?.refundedCents ?? 0, currency)],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-ardoise-200 bg-white p-4">
-            <p className="text-sm text-ardoise-500">{label}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-ardoise-900">{value}</p>
-          </div>
+        ].map(([label, value], index) => (
+          <CarteChiffre
+            key={label}
+            ton={index === 0 ? 'nuit' : 'clair'}
+            etiquette={label ?? ''}
+            valeur={value ?? ''}
+          />
         ))}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <section className="rounded-xl border border-ardoise-200 bg-white p-4">
-          <h2 className="font-medium text-ardoise-900">Moyens de paiement</h2>
+        <section className="carte p-6">
+          <h2 className="text-base font-semibold text-ardoise-900">Moyens de paiement</h2>
           <ul className="mt-3 space-y-2 text-sm">
             {summary?.byPaymentMethod.map((entry) => (
               <li key={entry.method} className="flex justify-between">
@@ -139,8 +158,8 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
           </ul>
         </section>
 
-        <section className="rounded-xl border border-ardoise-200 bg-white p-4">
-          <h2 className="font-medium text-ardoise-900">TVA collectée</h2>
+        <section className="carte p-6">
+          <h2 className="text-base font-semibold text-ardoise-900">TVA collectée</h2>
           <ul className="mt-3 space-y-2 text-sm">
             {summary?.byTaxRate.map((entry) => (
               <li key={entry.rateBp} className="flex justify-between">
@@ -156,8 +175,8 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
           </ul>
         </section>
 
-        <section className="rounded-xl border border-ardoise-200 bg-white p-4">
-          <h2 className="font-medium text-ardoise-900">Meilleures ventes</h2>
+        <section className="carte p-6">
+          <h2 className="text-base font-semibold text-ardoise-900">Meilleures ventes</h2>
           <ul className="mt-3 space-y-2 text-sm">
             {summary?.topProducts.map((entry) => (
               <li key={entry.productId ?? entry.name} className="flex justify-between gap-2">
@@ -175,9 +194,9 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
         </section>
       </div>
 
-      <section className="rounded-xl border border-ardoise-200 bg-white p-4">
+      <section className="carte p-6">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-medium text-ardoise-900">Répartition horaire</h2>
+          <h2 className="text-base font-semibold text-ardoise-900">Répartition horaire</h2>
           {peakHour && (
             <span className="text-sm text-ardoise-500">
               Pic à {peakHour.hour}&nbsp;h — {formatMoney(peakHour.totalCents, currency)}
@@ -216,7 +235,7 @@ export function ReportsScreen({ session, db, sync }: ReportsScreenProps) {
       <ExportPanel session={session} db={db} />
 
       {closedSessions.length > 0 && (
-        <section className="rounded-xl border border-ardoise-200 bg-white p-4">
+        <section className="carte p-6">
           <h3 className="text-sm font-medium text-ardoise-700">Dernières clôtures</h3>
           <ul className="mt-2 space-y-1.5 text-sm">
             {closedSessions.map((closed) => {

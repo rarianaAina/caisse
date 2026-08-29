@@ -117,9 +117,9 @@ export function ConflictsScreen({ session, db, engine }: ConflictsScreenProps) {
       </p>
 
       {conflicts.map((conflict) => (
-        <div key={conflict.id} className="rounded-xl border border-ardoise-200 bg-white p-5">
+        <div key={conflict.id} className="carte p-6">
           <div className="flex items-baseline justify-between">
-            <h3 className="font-medium text-ardoise-900">
+            <h3 className="text-base font-semibold text-ardoise-900">
               {conflict.entity === 'product' ? 'Produit' : conflict.entity} —{' '}
               {String(conflict.serverPayload['name'] ?? conflict.entityId)}
             </h3>

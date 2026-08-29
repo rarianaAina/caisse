@@ -85,8 +85,8 @@ export function RoomSetup({
 
       {error && <p className="rounded-lg bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}
 
-      <section className="rounded-xl border border-ardoise-200 bg-white p-5">
-        <h3 className="font-semibold text-ardoise-900">Salles</h3>
+      <section className="carte p-6">
+        <h3 className="text-base font-semibold text-ardoise-900">Salles</h3>
         <p className="mt-1 text-sm text-ardoise-500">
           « Salle », « Terrasse », « Étage »… Facultatif : sans salle, les tables sont simplement
           listées ensemble.
@@ -126,8 +126,8 @@ export function RoomSetup({
         )}
       </section>
 
-      <section className="rounded-xl border border-ardoise-200 bg-white p-5">
-        <h3 className="font-semibold text-ardoise-900">Créer des tables</h3>
+      <section className="carte p-6">
+        <h3 className="text-base font-semibold text-ardoise-900">Créer des tables</h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-4">
           <div>
             <label className={label} htmlFor="prefix">
@@ -206,8 +206,8 @@ export function RoomSetup({
         </button>
       </section>
 
-      <section className="rounded-xl border border-ardoise-200 bg-white p-5">
-        <h3 className="font-semibold text-ardoise-900">Tables ({tables.length})</h3>
+      <section className="carte p-6">
+        <h3 className="text-base font-semibold text-ardoise-900">Tables ({tables.length})</h3>
         <ul className="mt-3 flex flex-wrap gap-2">
           {tables.map((table) => (
             <li

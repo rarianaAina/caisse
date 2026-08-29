@@ -204,7 +204,7 @@ export function StockScreen({ session, db }: StockScreenProps) {
             </label>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-ardoise-200 bg-white">
+          <div className="overflow-hidden carte">
             <table className="w-full text-sm">
               <thead className="bg-ardoise-50 text-left text-ardoise-500">
                 <tr>

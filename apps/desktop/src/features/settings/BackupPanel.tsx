@@ -58,8 +58,8 @@ export function BackupPanel({ db }: { db: SqlExecutor }) {
   };
 
   return (
-    <section className="rounded-xl border border-ardoise-200 bg-white p-5">
-      <h2 className="font-semibold text-ardoise-900">Sauvegarde de la base</h2>
+    <section className="carte p-6">
+      <h2 className="text-base font-semibold text-ardoise-900">Sauvegarde de la base</h2>
       <p className="mt-1 text-sm text-ardoise-500">
         Une copie est faite automatiquement au premier démarrage de chaque journée, et les sept
         dernières sont conservées.{' '}

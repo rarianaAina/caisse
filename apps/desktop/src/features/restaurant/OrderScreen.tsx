@@ -412,7 +412,7 @@ export function OrderScreen({
         </div>
       </section>
 
-      <aside className="space-y-3 rounded-xl border border-ardoise-200 bg-white p-4">
+      <aside className="space-y-3 carte p-4">
         {error && <p className="rounded-lg bg-danger-50 p-2 text-sm text-danger-700">{error}</p>}
         {notice && (
           <p className="rounded-lg bg-ardoise-100 p-2 text-sm text-ardoise-700">{notice}</p>

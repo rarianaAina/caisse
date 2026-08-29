@@ -5,6 +5,9 @@ import type { SqlExecutor } from '../../core/db/client';
 import { PurchasingRepository } from '../../core/db/repositories/purchasing.repository';
 import { ReceiptEditor } from './ReceiptEditor';
 import { Champ } from '../../components/ui/Champ';
+import { EnTetePage } from '../../components/ui/EnTetePage';
+import { Bouton } from '../../components/ui/Bouton';
+import { Bandeau } from '../../components/ui/Bandeau';
 
 /**
  * Achats : ce qu'il faut racheter, les réceptions, les fournisseurs.
@@ -83,9 +86,32 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
     id === null ? 'Achat au marché' : (suppliers.find((entry) => entry.id === id)?.name ?? '—');
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <EnTetePage
+        titre="Achats"
+        sous={
+          restock.length > 0
+            ? `${String(restock.length)} article${restock.length > 1 ? 's' : ''} sous leur seuil`
+            : 'Réceptions, fournisseurs et réapprovisionnements.'
+        }
+        actions={
+          <Bouton
+            variante="principal"
+            icone="plus"
+            onClick={() =>
+              void run(async () => {
+                const receipt = await purchasing.createReceipt({});
+                setOpenReceipt(receipt.id);
+              })
+            }
+          >
+            Nouvelle réception
+          </Bouton>
+        }
+      />
+
       <div className="flex items-center justify-between">
-        <div className="flex gap-1 rounded-lg bg-ardoise-200 p-1">
+        <div className="flex gap-1 rounded-xl bg-ardoise-200 p-1">
           {(
             [
               ['restock', `À commander${restock.length > 0 ? ` (${String(restock.length)})` : ''}`],
@@ -97,7 +123,7 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
               key={value}
               type="button"
               onClick={() => setOnglet(value)}
-              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
                 onglet === value ? 'bg-white text-ardoise-900 shadow-carte' : 'text-ardoise-600'
               }`}
             >
@@ -105,25 +131,12 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
             </button>
           ))}
         </div>
-
-        <button
-          type="button"
-          onClick={() =>
-            void run(async () => {
-              const receipt = await purchasing.createReceipt({});
-              setOpenReceipt(receipt.id);
-            })
-          }
-          className="rounded-lg bg-caisse-600 px-4 py-2.5 font-medium text-white"
-        >
-          Nouvelle réception
-        </button>
       </div>
 
-      {error && <p className="rounded-lg bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}
+      {error && <Bandeau ton="danger">{error}</Bandeau>}
 
       {onglet === 'restock' && (
-        <section className="rounded-xl border border-ardoise-200 bg-white">
+        <section className="carte">
           {restock.length === 0 ? (
             <p className="p-8 text-center text-ardoise-500">
               Rien sous le seuil. Les seuils se règlent dans l’onglet Stock — sans seuil, aucune
@@ -170,7 +183,7 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
       )}
 
       {onglet === 'receipts' && (
-        <section className="rounded-xl border border-ardoise-200 bg-white">
+        <section className="carte">
           {receipts.length === 0 ? (
             <p className="p-8 text-center text-ardoise-500">Aucune réception enregistrée.</p>
           ) : (
@@ -223,8 +236,8 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
 
       {onglet === 'suppliers' && (
         <section className="space-y-4">
-          <div className="rounded-xl border border-ardoise-200 bg-white p-5">
-            <h3 className="font-semibold text-ardoise-900">Ajouter un fournisseur</h3>
+          <div className="carte p-6">
+            <h3 className="text-base font-semibold text-ardoise-900">Ajouter un fournisseur</h3>
             <div className="mt-3 flex flex-wrap items-end gap-2">
               <Champ label="Nom" className="flex-1">
                 {(id) => (
@@ -268,7 +281,7 @@ export function PurchasingScreen({ session, db }: { session: LocalSession; db: S
             </div>
           </div>
 
-          <div className="rounded-xl border border-ardoise-200 bg-white">
+          <div className="carte">
             {suppliers.length === 0 ? (
               <p className="p-8 text-center text-ardoise-500">Aucun fournisseur.</p>
             ) : (

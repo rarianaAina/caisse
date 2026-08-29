@@ -14,6 +14,8 @@ import type { LocalSession } from '../../core/auth/auth.service';
 import type { SqlExecutor } from '../../core/db/client';
 import { CatalogRepository } from '../../core/db/repositories/catalog.repository';
 import { PromotionRepository } from '../../core/db/repositories/promotion.repository';
+import { EnTetePage } from '../../components/ui/EnTetePage';
+import { Bouton } from '../../components/ui/Bouton';
 
 /**
  * Opérations commerciales.
@@ -134,24 +136,30 @@ export function PromotionsScreen({ session, db }: { session: LocalSession; db: S
   };
 
   return (
-    <div className="space-y-5">
-      <section className="carte p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h1 className="font-semibold text-ardoise-900">Promotions</h1>
-          <button
-            type="button"
+    <div className="space-y-6">
+      <EnTetePage
+        titre="Promotions"
+        sous="Une seule s’applique par article : la plus avantageuse pour le client."
+        actions={
+          <Bouton
+            variante="principal"
+            icone={ouvert ? 'fermer' : 'plus'}
             onClick={() => setOuvert((current) => !current)}
-            className="rounded-full border border-caisse-600 px-4 py-2 text-sm font-semibold text-caisse-700"
           >
-            {ouvert ? 'Annuler' : 'Nouvelle promotion'}
-          </button>
-        </div>
-        <p className="mt-1 text-sm text-ardoise-500">
-          Une seule s’applique par article, la plus avantageuse pour le client. Une remise saisie à
-          la main par le caissier l’emporte toujours.
-        </p>
+            {ouvert ? 'Fermer' : 'Nouvelle promotion'}
+          </Bouton>
+        }
+      />
 
-        {ouvert && (
+      {/* Le formulaire n'occupe une carte que lorsqu'il est ouvert : une carte
+          vide portant une seule phrase d'explication prenait la place du
+          premier écran sans rien apporter. */}
+      {ouvert && (
+        <section className="carte p-6">
+          <p className="text-sm text-ardoise-500">
+            Une remise saisie à la main par le caissier l’emporte toujours sur une promotion.
+          </p>
+
           <div className="mt-4 grid gap-3 rounded-xl border border-ardoise-200 p-4 sm:grid-cols-2">
             <label className="text-sm font-medium text-ardoise-700 sm:col-span-2">
               Nom de l’opération
@@ -283,8 +291,11 @@ export function PromotionsScreen({ session, db }: { session: LocalSession; db: S
               </button>
             </div>
           </div>
-        )}
+        </section>
+      )}
 
+      <section className="carte p-6">
+        <h2 className="text-base font-semibold text-ardoise-900">Opérations en place</h2>
         <ul className="mt-4 space-y-2">
           {promotions.map((promotion) => {
             const encours = promotionRuns(promotion, maintenant);

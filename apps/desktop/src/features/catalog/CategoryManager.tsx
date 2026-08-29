@@ -89,10 +89,7 @@ export function CategoryManager({
           {categories.map((category, index) => {
             const count = counts.get(category.id) ?? 0;
             return (
-              <li
-                key={category.id}
-                className="flex items-center gap-3 rounded-xl border border-ardoise-200 bg-white p-2.5"
-              >
+              <li key={category.id} className="flex items-center gap-3 carte p-2.5">
                 <span
                   className="h-9 w-9 shrink-0 rounded-lg"
                   style={{ background: category.color ?? '#94a3b8' }}

@@ -144,7 +144,7 @@ export function ReceiptEditor({
       {error && <p className="rounded-lg bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}
 
       {brouillon && (
-        <section className="rounded-xl border border-ardoise-200 bg-white p-5">
+        <section className="carte p-6">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-ardoise-700" htmlFor="supplier">
@@ -301,7 +301,7 @@ export function ReceiptEditor({
         </section>
       )}
 
-      <section className="rounded-xl border border-ardoise-200 bg-white">
+      <section className="carte">
         {items.length === 0 ? (
           <p className="p-8 text-center text-ardoise-500">Aucune ligne.</p>
         ) : (
@@ -344,7 +344,7 @@ export function ReceiptEditor({
         )}
       </section>
 
-      <div className="flex items-center justify-between rounded-xl border border-ardoise-200 bg-white p-5">
+      <div className="flex items-center justify-between carte p-5">
         <div>
           <p className="text-sm text-ardoise-600">Total du bon</p>
           <p className="text-2xl font-semibold text-ardoise-900">

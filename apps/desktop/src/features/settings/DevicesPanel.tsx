@@ -84,9 +84,9 @@ export function DevicesPanel({ session, db }: { session: LocalSession; db: SqlEx
   if (!autorise) return null;
 
   return (
-    <section className="carte p-5">
+    <section className="carte p-6">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="font-semibold text-ardoise-900">Postes de caisse</h2>
+        <h2 className="text-base font-semibold text-ardoise-900">Postes de caisse</h2>
         <button
           type="button"
           onClick={() => void reload()}

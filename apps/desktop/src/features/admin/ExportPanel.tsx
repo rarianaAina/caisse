@@ -85,8 +85,8 @@ export function ExportPanel({ session, db }: { session: LocalSession; db: SqlExe
   const champ = 'mt-1 rounded-xl border border-ardoise-300 px-3 py-2.5 outline-none';
 
   return (
-    <section className="carte p-5">
-      <h2 className="font-semibold text-ardoise-900">Export comptable</h2>
+    <section className="carte p-6">
+      <h2 className="text-base font-semibold text-ardoise-900">Export comptable</h2>
       <p className="mt-1 text-sm text-ardoise-500">
         Deux fichiers CSV, à transmettre à votre comptable : le journal des ventes, une ligne par
         ticket, et le détail, une ligne par article. Ils s’ouvrent directement dans un tableur.

@@ -71,9 +71,9 @@ export function ScalePanel({ session, db }: { session: LocalSession; db: SqlExec
     'mt-1 w-full rounded-xl border border-ardoise-300 px-3 py-2.5 outline-none focus:border-caisse-500';
 
   return (
-    <section className="carte p-5">
+    <section className="carte p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="font-semibold text-ardoise-900">Balance du rayon</h2>
+        <h2 className="text-base font-semibold text-ardoise-900">Balance du rayon</h2>
         <label className="flex items-center gap-2 text-sm text-ardoise-700">
           <input
             type="checkbox"

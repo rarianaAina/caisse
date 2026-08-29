@@ -59,8 +59,8 @@ export function BackofficeCard({ db, standalone }: { db: SqlExecutor; standalone
   };
 
   return (
-    <section className="carte p-5">
-      <h2 className="font-semibold text-ardoise-900">Tableau de bord de l’entreprise</h2>
+    <section className="carte p-6">
+      <h2 className="text-base font-semibold text-ardoise-900">Tableau de bord de l’entreprise</h2>
       <p className="mt-1 text-sm text-ardoise-500">
         Le consolidé de toutes les boutiques et de toutes les caisses. Il s’ouvre dans votre
         navigateur et demande le serveur — cet écran-ci, lui, fonctionne toujours.
@@ -145,8 +145,8 @@ export function LicenceCard({
   const alerte = status.state === 'grace' || (status.state === 'valide' && jours <= 30);
 
   return (
-    <section className="carte p-5">
-      <h2 className="font-semibold text-ardoise-900">Activation</h2>
+    <section className="carte p-6">
+      <h2 className="text-base font-semibold text-ardoise-900">Activation</h2>
       <p className="mt-1 text-sm text-ardoise-500">
         Code d’installation : <span className="font-mono">{installationCode(companyId)}</span> — à
         communiquer pour obtenir ou renouveler une clé.

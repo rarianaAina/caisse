@@ -15,6 +15,7 @@ import { CashSessionRepository } from '../../core/db/repositories/cash-session.r
 import { CustomerRepository } from '../../core/db/repositories/customer.repository';
 import { useDialogues } from '../../components/ui/dialogs';
 import { Pagination, TAILLE_PAGE, nombreDePages } from '../../components/ui/Pagination';
+import { EnTetePage } from '../../components/ui/EnTetePage';
 
 /**
  * Clients et ardoises.
@@ -193,16 +194,11 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
   const totalDu = rows.reduce((sum, row) => sum + Math.max(0, row.balanceCents), 0);
 
   return (
-    <div className="space-y-5">
-      <section className="carte p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="font-semibold text-ardoise-900">Clients</h2>
-          <p className="text-sm text-ardoise-500">
-            Encours total : <span className="font-semibold">{formatMoney(totalDu, currency)}</span>
-          </p>
-        </div>
+    <div className="space-y-6">
+      <EnTetePage titre="Clients" sous={`Encours total : ${formatMoney(totalDu, currency)}`} />
 
-        <div className="mt-3 flex flex-wrap gap-2">
+      <section className="carte p-6">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => {
@@ -284,7 +280,7 @@ export function CustomersScreen({ session, db }: { session: LocalSession; db: Sq
 
         <ul className="mt-4 space-y-2">
           {rows.map((row) => (
-            <li key={row.customer.id} className="rounded-xl border border-ardoise-200 bg-white p-3">
+            <li key={row.customer.id} className="carte p-6">
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
