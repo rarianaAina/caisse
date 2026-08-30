@@ -219,6 +219,9 @@ importers:
 
   packages/shared:
     dependencies:
+      '@licence/noyau':
+        specifier: github:rarianaAina/licence#main
+        version: https://codeload.github.com/rarianaAina/licence/tar.gz/d7a3a30199c850fac4cead855eab0e73a772cea0
       uuid:
         specifier: ^11.0.5
         version: 11.1.1
@@ -841,6 +844,11 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@licence/noyau@https://codeload.github.com/rarianaAina/licence/tar.gz/d7a3a30199c850fac4cead855eab0e73a772cea0':
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/rarianaAina/licence/tar.gz/d7a3a30199c850fac4cead855eab0e73a772cea0}
+    version: 2.0.1
+    engines: {node: '>=20'}
 
   '@lukeed/csprng@1.1.0':
     resolution: {integrity: sha512-Z7C/xXCiGWsg0KuKsHTKJxbWhpI3Vs5GwLfOean7MGyVFGqdRgBbAjOCh6u4bbjPc/8MJ2pZmK/0DLdCbivLDA==}
@@ -3655,6 +3663,8 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@licence/noyau@https://codeload.github.com/rarianaAina/licence/tar.gz/d7a3a30199c850fac4cead855eab0e73a772cea0': {}
 
   '@lukeed/csprng@1.1.0': {}
 
