@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { type LicenceStatus, installationCode } from '@caisse/shared';
+import { type LicenceStatus, installationCode, quota } from '@caisse/shared';
 import { META_KEYS, MetaRepository } from '../../core/db/repositories/meta.repository';
 import { normalizeServerUrl } from '../../core/api/client';
 import type { SqlExecutor } from '../../core/db/client';
@@ -155,7 +155,8 @@ export function LicenceCard({
 
       {status.payload && !essai && (
         <p className="mt-1 text-sm text-ardoise-500">
-          {status.payload.r} caisse(s), {status.payload.b} boutique(s) · fonctions :{' '}
+          {quota(status.payload, 'caisses')} caisse(s), {quota(status.payload, 'boutiques')} boutique(s) ·
+          fonctions :{' '}
           {status.payload.f.join(', ')}
         </p>
       )}

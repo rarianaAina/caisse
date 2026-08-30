@@ -24,6 +24,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@licence/noyau": "github:rarianaAina/licence#main",
     "uuid": "^11.0.5",
     "zod": "^4.0.0"
   },

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LICENCE_GRACE_DAYS, type LicenceStatus, installationCode } from '@caisse/shared';
+import { CAISSE, type LicenceStatus, installationCode } from '@caisse/shared';
 
 /**
  * Activation du poste.
@@ -36,7 +36,11 @@ export function LicenceScreen({
     setRefus(null);
     try {
       const resultat = await onActivate(saisie);
-      if (resultat.state === 'invalide' || resultat.state === 'autre-entreprise') {
+      if (
+        resultat.state === 'invalide' ||
+        resultat.state === 'autre-entreprise' ||
+        resultat.state === 'autre-produit'
+      ) {
         setRefus(resultat.reason ?? 'Clé refusée.');
         return;
       }
@@ -163,7 +167,7 @@ function decrire(status: LicenceStatus): { ton: string; titre: string; detail: s
         titre: 'Licence échue',
         detail:
           `Elle a expiré le ${status.payload?.e ?? ''}. Tout fonctionne encore pendant ` +
-          `${jours(status.graceLeft ?? LICENCE_GRACE_DAYS)}, puis la caisse se fermera.`,
+          `${jours(status.graceLeft ?? CAISSE.graceJours)}, puis la caisse se fermera.`,
       };
     case 'expiree':
       return {
@@ -178,6 +182,17 @@ function decrire(status: LicenceStatus): { ton: string; titre: string; detail: s
         ton: 'bloque',
         titre: 'Clé émise pour une autre installation',
         detail: status.reason ?? 'Vérifiez le code d’installation communiqué.',
+      };
+    case 'autre-produit':
+      // L'éditeur vend plusieurs logiciels au même commerçant : coller la clé
+      // du voisin de bureau est moins probable que coller celle de l'autre
+      // logiciel qu'on a soi-même acheté.
+      return {
+        ton: 'bloque',
+        titre: 'Clé émise pour un autre logiciel',
+        detail:
+          (status.reason ?? '') +
+          ' Vérifiez que vous n’avez pas collé la clé d’un autre de vos logiciels.',
       };
     case 'invalide':
       return {

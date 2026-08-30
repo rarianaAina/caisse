@@ -1,4 +1,4 @@
-import type { Capability, LicenceFeature, LicenceStatus, UserRole } from '@caisse/shared';
+import type { Capability, FonctionCaisse, LicenceStatus, UserRole } from '@caisse/shared';
 import { can, licenceAllows } from '@caisse/shared';
 import type { NomIcone } from '../../components/ui/Icone';
 
@@ -40,7 +40,7 @@ export interface TabSpec {
    * Fonction que la licence doit ouvrir. Absente, l'onglet ne dépend que du
    * rôle — la vente, elle, n'est jamais conditionnée à un module vendu.
    */
-  feature?: LicenceFeature;
+  feature?: FonctionCaisse;
   /** Sans objet sur une caisse sans serveur. */
   connectedOnly?: boolean;
   /**

@@ -1,4 +1,5 @@
 import {
+  CAISSE,
   LICENCE_PUBLIC_KEY,
   type LicenceStatus,
   judgeClock,
@@ -39,9 +40,14 @@ export class LicenceService {
     const cle = await this.meta.get(META_KEYS.licenceKey);
 
     if (cle && cle.trim() !== '') {
-      return verifyLicence(cle, LICENCE_PUBLIC_KEY, companyId, now);
+      return verifyLicence(cle, {
+        publicKeySpki: LICENCE_PUBLIC_KEY,
+        produit: CAISSE,
+        companyId,
+        now,
+      });
     }
-    if (installedAt) return trialStatus(installedAt, now);
+    if (installedAt) return trialStatus(installedAt, CAISSE, now);
 
     // Ni clé ni date d'installation : le poste n'est pas encore rattaché, il
     // n'y a rien à activer. L'écran de rattachement passe avant.
@@ -57,9 +63,23 @@ export class LicenceService {
    */
   async activate(cle: string, companyId: string): Promise<LicenceStatus> {
     const now = await this.trustedNow();
-    const statut = await verifyLicence(cle, LICENCE_PUBLIC_KEY, companyId, now);
+    const statut = await verifyLicence(cle, {
+      publicKeySpki: LICENCE_PUBLIC_KEY,
+      produit: CAISSE,
+      companyId,
+      now,
+    });
 
-    if (statut.state === 'invalide' || statut.state === 'autre-entreprise') return statut;
+    // Une clé émise pour un AUTRE logiciel de l'éditeur se refuse comme une clé
+    // invalide : l'enregistrer ferait afficher son motif à chaque démarrage,
+    // sans que personne puisse s'en défaire.
+    if (
+      statut.state === 'invalide' ||
+      statut.state === 'autre-entreprise' ||
+      statut.state === 'autre-produit'
+    ) {
+      return statut;
+    }
 
     await this.meta.set(META_KEYS.licenceKey, cle.replace(/\s+/g, ''));
     return statut;

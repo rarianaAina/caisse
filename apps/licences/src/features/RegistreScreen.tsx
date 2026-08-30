@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { RegistreEntry } from '@caisse/shared';
+import { type RegistreEntry, nomDuProduit, produitPar } from '@caisse/shared';
 
 /**
  * Registre des clés émises, de la plus récente à la plus ancienne.
@@ -66,11 +66,11 @@ export function RegistreScreen({ entrees }: { entrees: readonly RegistreEntry[] 
               </div>
 
               <div className="text-sm text-ardoise-500">
-                <p>{entree.segment}</p>
-                <p className="text-xs">
-                  {entree.caisses} caisse{entree.caisses > 1 ? 's' : ''}, {entree.boutiques}{' '}
-                  boutique{entree.boutiques > 1 ? 's' : ''}
-                </p>
+                {/* Le logiciel vendu passe devant la formule : un même client
+                    peut figurer deux fois au registre, une ligne par produit. */}
+                <p className="text-ardoise-900">{nomDuProduit(entree.produit)}</p>
+                <p>{entree.formule}</p>
+                <p className="text-xs">{plafonds(entree)}</p>
               </div>
 
               <div className="text-sm">
@@ -102,4 +102,20 @@ export function RegistreScreen({ entrees }: { entrees: readonly RegistreEntry[] 
       </ul>
     </section>
   );
+}
+
+/**
+ * Plafonds d'une entrée, en une ligne lisible.
+ *
+ * Écrits d'après ce que porte la clé et non d'après une liste fixe : le
+ * registre garde des ventes de logiciels dont les plafonds ne s'appellent pas
+ * tous « caisses ».
+ */
+function plafonds(entree: RegistreEntry): string {
+  const produit = produitPar(entree.produit);
+  const libelle = (cle: string) =>
+    produit?.quotas.find((plafond) => plafond.cle === cle)?.libelle ?? cle;
+  return Object.entries(entree.quotas)
+    .map(([cle, valeur]) => `${valeur} ${libelle(cle).toLowerCase()}`)
+    .join(', ');
 }
