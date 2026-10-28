@@ -7,6 +7,10 @@
  *
  * La remplacer invaliderait d'un coup toutes les licences déjà émises, chez
  * tous les clients. Elle ne bouge donc jamais.
+ *
+ * Une seule exception, le 28 octobre 2026 : la phrase de passe du premier
+ * trousseau a été perdue, et aucune licence n'était encore en service. La clé
+ * a été réengendrée.
  */
 export const LICENCE_PUBLIC_KEY =
-  'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJTF5i99Fi0L8WmdtEPwMLbgO2inqdZBg+AWtOTTBlLMfvBr6EEf1j1rub447Kj3iUSDPT2Ny9JSmm4or7j0OFw==';
+  'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEC13AWEULsoRVAKSeFNEEuIe7bm3EItia/wsRN3IfQgXtOKeJ30lVmPiHy2phqOmyxT6ldp6mAAA4XGBFWt/Zeg==';
